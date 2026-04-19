@@ -128,6 +128,11 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     }
 
     if (newState.phase === "dead") {
+      console.log(
+        `[DEATH] hp=${Math.round(newState.hp)} hpAtDeath=${Math.round(newState.hpAtDeath)}` +
+        ` cause="${newState.deathCause}" logEntries=${newState.damageLog.length}` +
+        ` gameTime=${(newState.gameTime / 1000).toFixed(1)}s`
+      );
       stopBgMusic();
       onDeath(newState);
       return;

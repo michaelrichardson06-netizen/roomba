@@ -93,6 +93,40 @@ export function renderFrame(
 
   drawRoomba(ctx, state.playerX, state.playerY, state.playerAngle, state.isDashing);
 
+  // ── On-canvas HP bar above the player — always visible, updates every frame ──
+  {
+    const px = state.playerX;
+    const py = state.playerY;
+    const ratio = Math.max(0, state.hp / state.maxHp);
+    const barW = 48, barH = 7, barX = px - barW / 2, barY = py - 30;
+    const hpColor = ratio > 0.5 ? "#22dd55" : ratio > 0.25 ? "#ffaa00" : "#ff2222";
+    // Background
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.beginPath();
+    ctx.roundRect(barX - 1, barY - 1, barW + 2, barH + 2, 3);
+    ctx.fill();
+    // Fill
+    ctx.fillStyle = hpColor;
+    ctx.shadowColor = hpColor;
+    ctx.shadowBlur = ratio < 0.3 ? 6 : 0;
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barW * ratio, barH, 3);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // HP number above bar — big, always readable
+    const hpText = `${Math.ceil(state.hp)}`;
+    ctx.font = "bold 11px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.strokeStyle = "rgba(0,0,0,0.9)";
+    ctx.lineWidth = 3;
+    ctx.strokeText(hpText, px, barY - 1);
+    ctx.fillStyle = ratio < 0.3 ? "#ff6666" : "#ffffff";
+    ctx.fillText(hpText, px, barY - 1);
+    ctx.restore();
+  }
+
   // ── Lightning: ambient static arcs between nearby enemies ─────────────────
   if (state.lightningStrike && state.enemies.length > 1) {
     const now = Date.now();
