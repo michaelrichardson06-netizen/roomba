@@ -193,10 +193,13 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     meta.content = "width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no";
 
     // Global CSS: no text selection, no overflow
+    // NOTE: touch-action:none is applied to canvas only — NOT html/body.
+    // Setting it on body would put iOS Safari into "slow path" for ALL touches
+    // on the page, breaking React Native web's button tap recognition.
     const style = document.createElement("style");
     style.textContent = `
       * { -webkit-user-select: none !important; user-select: none !important; }
-      html, body { overflow: hidden; touch-action: none; }
+      html, body { overflow: hidden; }
       canvas { touch-action: none; }
     `;
     document.head.appendChild(style);
@@ -281,17 +284,15 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     };
 
     const onTouchStart = (e: TouchEvent) => {
-      unlockAudio(); // always unblock AudioContext on any gesture
+      unlockAudio(); // always unblock AudioContext on any gesture (passive handler, no preventDefault)
 
-      // ── Control zone: only the bottom 40% of the screen is the joystick area ──
-      // Touches above this line belong to the HUD (settings, etc.) — don't claim them.
+      // Only claim touches in the bottom 40% as joystick input.
+      // Touches in the top 60% (HUD buttons) are left completely alone — no role assigned,
+      // so touchmove won't preventDefault for them either.
       const ZONE_TOP = window.innerHeight * 0.60;
-      const zoneChanges = Array.from(e.changedTouches).filter(t => t.clientY >= ZONE_TOP);
-      if (zoneChanges.length === 0) return; // all touches in HUD area — let browser handle
-      e.preventDefault(); // only suppress default for in-zone touches
-
       inputRef.current.useSmoothedAim = true;
-      zoneChanges.forEach((t) => {
+      Array.from(e.changedTouches).forEach((t) => {
+        if (t.clientY < ZONE_TOP) return; // HUD area — don't claim
         const isLeft = t.clientX < window.innerWidth / 2;
         if (isLeft && !hasRole("left")) {
           touchRole.set(t.identifier, "left");
@@ -394,8 +395,9 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       }
     };
 
-    // Attach to document (not canvas) to catch all touches regardless of overlay
-    document.addEventListener("touchstart", onTouchStart, { passive: false });
+    // touchstart is PASSIVE so iOS Safari does not enter "slow path" for buttons.
+    // Scroll prevention is handled in touchmove (non-passive, only when we own a touch).
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
     document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: false });
     document.addEventListener("touchcancel", onTouchEnd, { passive: false });

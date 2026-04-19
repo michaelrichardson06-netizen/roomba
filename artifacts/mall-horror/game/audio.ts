@@ -396,7 +396,22 @@ export function stopBgMusic() {
   bgBitcrush = null;
 }
 
-// Call this on first user gesture to unlock AudioContext on iOS
+// Call this on first user gesture to unlock AudioContext on iOS.
+// iOS requires a real audio buffer to be PLAYED (not just resumed) during
+// a user gesture — ctx.resume() alone is not sufficient on iOS Safari/WebView.
 export function unlockAudio() {
-  getCtx();
+  const ac = getCtx();
+  if (!ac) return;
+  if (ac.state === "suspended") {
+    ac.resume().catch(() => {});
+  }
+  // Play a 1-frame silent buffer to satisfy iOS's "must produce sound during gesture" requirement
+  try {
+    const buf = ac.createBuffer(1, 1, ac.sampleRate);
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    src.connect(ac.destination);
+    src.start(0);
+    src.stop(0.001);
+  } catch { /* ignore */ }
 }
