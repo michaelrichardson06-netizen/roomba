@@ -618,17 +618,17 @@ function spawnDeathParticles(state: GameState, enemy: Enemy) {
 
 // Drop chance ramps from 0% on wave 1 up to ~45% by wave 5+
 function eliteDropChance(wave: number): number {
-  if (wave === 1) return 0.10;  // rare first taste on wave 1
-  if (wave === 2) return 0.18;
-  if (wave === 3) return 0.28;
-  if (wave === 4) return 0.38;
-  return 0.45;                  // wave 5+ cap
+  if (wave === 1) return 0.28;  // wave 1: ~1-in-4 elites drops rapidFire
+  if (wave === 2) return 0.34;
+  if (wave === 3) return 0.40;
+  if (wave === 4) return 0.44;
+  return 0.48;                  // wave 5+ cap
 }
 
-// Max buff drops on the floor at any one time
+// Max combat buffs on the floor at any one time (batteries don't count)
 const MAX_FLOOR_BUFFS = 2;
-// Minimum pixel distance between any two floor buffs
-const MIN_BUFF_SPREAD = 220;
+// Minimum pixel distance between two combat buff drops (keep small so clustered kills still drop)
+const MIN_BUFF_SPREAD = 80;
 
 // Which buffs are unlocked per wave (progressive unlock)
 function spawnBuff(state: GameState, x: number, y: number, wave: number) {
@@ -636,17 +636,17 @@ function spawnBuff(state: GameState, x: number, y: number, wave: number) {
   const combatDrops = state.buffDrops.filter((b) => b.type !== "battery");
   if (combatDrops.length >= MAX_FLOOR_BUFFS) return;
 
-  // Enforce spacing — don't drop too close to another combat buff
+  // Enforce minimal spacing so two drops don't overlap visually
   for (const existing of combatDrops) {
     if (dist(x, y, existing.x, existing.y) < MIN_BUFF_SPREAD) return;
   }
 
   const types: string[] = [];
-  if (wave >= 1) types.push("rapidFire");     // available from wave 1 (rare)
-  if (wave >= 3) types.push("tripleShot");
-  if (wave >= 4) types.push("quadShot");
-  if (wave >= 5) types.push("bazookaMode");
-  if (wave >= 6) types.push("lightningStrike");
+  if (wave >= 1) types.push("rapidFire");       // wave 1: Rapid Fire only
+  if (wave >= 2) types.push("tripleShot");      // wave 2: bigger guns unlock
+  if (wave >= 3) types.push("quadShot");
+  if (wave >= 4) types.push("bazookaMode");
+  if (wave >= 5) types.push("lightningStrike");
   if (types.length === 0) return;
   state.buffDrops.push({ id: uid(), x, y, type: types[Math.floor(Math.random() * types.length)], pulse: 0 });
 }
