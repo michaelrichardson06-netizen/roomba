@@ -160,6 +160,7 @@ export interface GameState {
   // FX
   screenShake: { x: number; y: number; magnitude: number };
   whiteFlash: number;
+  redFlash: number;    // 0-1, set on any player damage, decays fast — visible hit feedback
   // Power-ups
   tripleShot: boolean;
   quadShot: boolean;

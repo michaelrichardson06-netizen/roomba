@@ -216,6 +216,31 @@ export function renderFrame(
     ctx.fillRect(0, 0, canvasW, canvasH);
   }
 
+  // ── Red damage flash — fires on every hit, unmissable ─────────────────────
+  if (state.redFlash > 0) {
+    const rf = Math.min(1, state.redFlash);
+    // Full-screen red tint
+    ctx.fillStyle = `rgba(220,0,0,${rf * 0.45})`;
+    ctx.fillRect(0, 0, canvasW, canvasH);
+    // Heavy vignette edge ring
+    const rfGrd = ctx.createRadialGradient(canvasW / 2, canvasH / 2, canvasH * 0.2, canvasW / 2, canvasH / 2, canvasH * 0.85);
+    rfGrd.addColorStop(0, "rgba(200,0,0,0)");
+    rfGrd.addColorStop(1, `rgba(220,0,0,${rf * 0.7})`);
+    ctx.fillStyle = rfGrd;
+    ctx.fillRect(0, 0, canvasW, canvasH);
+  }
+
+  // ── Low HP pulsing red glow (≤ 30 % HP) ───────────────────────────────────
+  const hpRatio = state.hp / state.maxHp;
+  if (hpRatio < 0.30 && state.redFlash < 0.5) {
+    const pulse = (Math.sin(Date.now() * 0.004) * 0.5 + 0.5) * (0.30 - hpRatio) / 0.30;
+    const lowGrd = ctx.createRadialGradient(canvasW / 2, canvasH / 2, canvasH * 0.35, canvasW / 2, canvasH / 2, canvasH * 0.9);
+    lowGrd.addColorStop(0, "rgba(200,0,0,0)");
+    lowGrd.addColorStop(1, `rgba(200,0,0,${pulse * 0.45})`);
+    ctx.fillStyle = lowGrd;
+    ctx.fillRect(0, 0, canvasW, canvasH);
+  }
+
   if (state.muzzleFlash) {
     const flashAlpha = 1 - state.muzzleFlash.age / state.muzzleFlash.maxAge;
     const fx = state.muzzleFlash.x - cameraX;

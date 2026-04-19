@@ -48,6 +48,7 @@ export function createInitialState(): GameState {
     buffDrops: [], muzzleFlash: null, lamps,
     screenShake: { x: 0, y: 0, magnitude: 0 },
     whiteFlash: 0,
+    redFlash: 0,
     bossWebs: [],
     iceWaves: [], floatingTexts: [],
     tripleShot: false, quadShot: false, rapidFireStacks: 0, bazookaMode: false, lightningStrike: false, lightningArcs: [],
@@ -80,13 +81,15 @@ export function updateGame(
   s.shootCooldown = Math.max(0, s.shootCooldown - dt);
   s.dashCooldown = Math.max(0, s.dashCooldown - dt);
   s.whiteFlash = Math.max(0, s.whiteFlash - dt * 3);
+  s.redFlash   = Math.max(0, s.redFlash   - dt * 2.5); // slightly slower decay so it's readable
 
   // ── Battery drain ─────────────────────────────────────────────────────────
   s.battery = Math.max(0, s.battery - C.BATTERY_DRAIN_RATE * dt / 1000);
   if (s.battery <= 0) {
     s.hp = Math.max(0, s.hp - C.BATTERY_HEALTH_DRAIN * dt / 1000);
-    // Low-battery screen flicker
+    // Low-battery screen flicker — also set red flash so player notices HP drain
     if (Math.random() < 0.04) s.whiteFlash = Math.max(s.whiteFlash, 0.08);
+    s.redFlash = Math.max(s.redFlash, 0.3); // persistent dim red while draining
   }
 
   // ── Battery HP regen (very slow while battery charged) ───────────────────
@@ -510,6 +513,7 @@ export function updateGame(
         s.hp = Math.max(0, s.hp - dmg);
         enemy.damageCooldown = 800;
         s.screenShake.magnitude = C.SHAKE_DAMAGE;
+        s.redFlash = 1.0; // full red flash on every hit — unmissable
       }
       if (s.hp <= 0) s.phase = "dead";
     }
@@ -536,6 +540,7 @@ export function updateGame(
         // Player takes web damage; dash avoids it
         s.hp = Math.max(0, s.hp - C.BOSS_WEB_DAMAGE);
         s.screenShake.magnitude = C.SHAKE_DAMAGE + 4;
+        s.redFlash = 1.0; // boss web hit = full red flash
         // Green poison splatter
         for (let i = 0; i < 12; i++) {
           const a = Math.random() * Math.PI * 2;

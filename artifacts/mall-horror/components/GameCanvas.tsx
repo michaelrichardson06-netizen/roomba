@@ -6,6 +6,7 @@ import { createInitialState, updateGame } from "@/game/engine";
 import { renderFrame } from "@/game/renderer";
 import type { GameState } from "@/game/types";
 import { GameHUD } from "./GameHUD";
+import { unlockAudio, startBgMusic, stopBgMusic, playShoot, playZap, playBerserkerStart, playHit, playBatteryLow } from "@/game/audio";
 
 interface GameCanvasProps {
   onDeath: (state: GameState) => void;
@@ -63,6 +64,14 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const [rightJoy, setRightJoy] = useState<JoyState>(IDLE_JOY);
   const isMobileRef = useRef(false);
 
+  // ── Audio state tracking ──────────────────────────────────────────────────
+  const prevBulletCount    = useRef(0);
+  const prevBerserking     = useRef(false);
+  const prevBatteryEmpty   = useRef(false);
+  const prevLightningCount = useRef(0);
+  const prevRedFlash       = useRef(0);
+  const bgStarted          = useRef(false);
+
   // ── Game loop ────────────────────────────────────────────────────────────
   const gameLoop = useCallback((timestamp: number) => {
     const dt = Math.min(timestamp - (lastTimeRef.current || timestamp), 50);
@@ -82,7 +91,41 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     stateRef.current = newState;
     inputRef.current.dashing = false;
 
+    // ── Start background music on first update (audio unlocked by user gesture) ─
+    if (!bgStarted.current) {
+      bgStarted.current = true;
+      startBgMusic();
+    }
+
+    // ── Audio triggers (detect state changes) ─────────────────────────────────
+    if (Platform.OS === "web") {
+      // Shoot sound: new bullets appeared
+      if (newState.bullets.length > prevBulletCount.current) {
+        playShoot(newState.bazookaMode, newState.berserkerTimer > 0);
+      }
+      prevBulletCount.current = newState.bullets.length;
+
+      // Berserker start
+      const nowBerserking = newState.berserkerTimer > 0;
+      if (nowBerserking && !prevBerserking.current) playBerserkerStart();
+      prevBerserking.current = nowBerserking;
+
+      // Battery empty warning
+      const nowEmpty = newState.battery <= 0;
+      if (nowEmpty) playBatteryLow();
+      prevBatteryEmpty.current = nowEmpty;
+
+      // Player hit sound (redFlash spiked up = new hit)
+      if (newState.redFlash > prevRedFlash.current + 0.4) playHit();
+      prevRedFlash.current = newState.redFlash;
+
+      // Lightning zap: new arcs fired
+      if (newState.lightningArcs.length > prevLightningCount.current) playZap();
+      prevLightningCount.current = newState.lightningArcs.length;
+    }
+
     if (newState.phase === "dead") {
+      stopBgMusic();
       onDeath(newState);
       return;
     }
@@ -121,7 +164,10 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(gameLoop);
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      stopBgMusic();
+    };
   }, [gameLoop]);
 
   // ── Input: keyboard + mouse + touch (all wired directly, no synthetic events) ──
@@ -201,7 +247,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       inputRef.current.useSmoothedAim = false;  // no lerp for mouse
       inputRef.current.autoAim = false;
     };
-    const onMouseDown = () => { inputRef.current.shooting = true; inputRef.current.autoAim = false; };
+    const onMouseDown = () => { unlockAudio(); inputRef.current.shooting = true; inputRef.current.autoAim = false; };
     const onMouseUp = () => { inputRef.current.shooting = false; };
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mousedown", onMouseDown);
@@ -236,6 +282,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
 
     const onTouchStart = (e: TouchEvent) => {
       e.preventDefault();
+      unlockAudio(); // unblock AudioContext on first gesture
       // Enable smooth aim once any touch is active
       inputRef.current.useSmoothedAim = true;
       Array.from(e.changedTouches).forEach((t) => {
