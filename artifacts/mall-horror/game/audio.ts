@@ -222,48 +222,120 @@ export function playHit() {
   osc.start(now); osc.stop(now + 0.16);
 }
 
-// ─── Background horror arcade music ───────────────────────────────────────────
-let bgPlaying = false;
-let droneOsc: OscillatorNode | null = null;
-let bgTimer: ReturnType<typeof setTimeout> | null = null;
+// ─── Background: "Corrupted Mall-Gaze" synthesizer ────────────────────────────
+// OSC1 (sawtooth) + OSC2 (square, +7¢ sharp) → HPF 400Hz → LPF 3.5kHz →
+// 10-bit bitcrusher → 5-second convolution reverb (100% wet) → bgGain
+// Continuous pitch-warp LFO at 1.2Hz ±40¢ (cassette-tape flutter)
 
-const HORROR_FREQS = [27.5, 32.7, 36.7, 41.2, 43.7, 49.0, 55.0, 58.3];
+let bgPlaying      = false;
+let droneOsc:     OscillatorNode | null = null;
+let bgPitchLFO:   OscillatorNode | null = null;
+let bgPitchLFOGain: GainNode    | null = null;
+let bgReverb:     ConvolverNode | null = null;
+let bgBitcrush:   WaveShaperNode | null = null;
+let bgTimer:      ReturnType<typeof setTimeout> | null = null;
 
+// A-minor flavour, above HPF cutoff so fundamentals + harmonics pass through
+const LEAD_FREQS = [110, 123, 138, 147, 165, 185, 220, 247];
+
+// ── Synthetic impulse response: exponential noise decay (empty concrete hall) ─
+function buildReverbIR(ac: AudioContext, decayS: number): ConvolverNode {
+  const conv   = ac.createConvolver();
+  const length = Math.floor(ac.sampleRate * decayS);
+  const ir     = ac.createBuffer(2, length, ac.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      // Early reflections (first 80ms) are slightly louder
+      const t    = i / ac.sampleRate;
+      const early = t < 0.08 ? 1.4 : 1.0;
+      d[i] = (Math.random() * 2 - 1) * early * Math.exp(-t * (1.0 / decayS) * 3.5);
+    }
+  }
+  conv.buffer = ir;
+  return conv;
+}
+
+// ── 10-bit waveshaper bitcrusher curve (quantizes to 2^bits levels) ──────────
+function buildBitcrusherCurve(bits: number): Float32Array {
+  const size  = 65536;
+  const curve = new Float32Array(size);
+  const step  = Math.pow(2, bits - 1); // levels per side
+  for (let i = 0; i < size; i++) {
+    const x   = (i - size / 2) / (size / 2); // -1..+1
+    curve[i]  = Math.round(x * step) / step;
+  }
+  return curve;
+}
+
+// ── Per-note "Corrupted Mall-Gaze" voice ─────────────────────────────────────
 function scheduleNote() {
   const ac = getCtx();
-  if (!ac || !bgPlaying || !bgGain) return;
+  if (!ac || !bgPlaying || !bgGain || !bgReverb || !bgBitcrush) return;
 
   const now  = ac.currentTime;
-  const freq = HORROR_FREQS[Math.floor(Math.random() * HORROR_FREQS.length)];
-  const dur  = 2.0 + Math.random() * 3.5;
+  const freq = LEAD_FREQS[Math.floor(Math.random() * LEAD_FREQS.length)];
 
-  const osc = ac.createOscillator();
-  const g   = ac.createGain();
-  osc.type  = Math.random() > 0.6 ? "triangle" : "sine";
-  osc.frequency.setValueAtTime(freq, now);
-  osc.frequency.linearRampToValueAtTime(freq * (0.98 + Math.random() * 0.04), now + dur);
+  // OSC 1 — Sawtooth (PWM simulated via tiny detune + LFO)
+  const osc1 = ac.createOscillator();
+  osc1.type  = "sawtooth";
+  osc1.frequency.setValueAtTime(freq, now);
 
-  g.gain.setValueAtTime(0, now);
-  g.gain.linearRampToValueAtTime(0.1 + Math.random() * 0.06, now + 0.4);
-  g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+  // OSC 2 — Square, +7 cents sharp → "sickly" phasing against OSC 1
+  const osc2 = ac.createOscillator();
+  osc2.type  = "square";
+  osc2.frequency.setValueAtTime(freq, now);
+  osc2.detune.setValueAtTime(7, now);
 
-  osc.connect(g); g.connect(bgGain);
-  osc.start(now); osc.stop(now + dur + 0.05);
-
-  if (Math.random() < 0.35) {
-    const stab = ac.createOscillator();
-    const sg   = ac.createGain();
-    const sf   = freq * (Math.random() > 0.5 ? 4 : 6);
-    stab.type  = "sawtooth";
-    stab.frequency.setValueAtTime(sf, now);
-    stab.frequency.exponentialRampToValueAtTime(sf * 0.5, now + 0.6);
-    sg.gain.setValueAtTime(0.04, now);
-    sg.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
-    stab.connect(sg); sg.connect(bgGain);
-    stab.start(now); stab.stop(now + 0.66);
+  // Connect continuous pitch LFO (1.2Hz ±40¢) to both oscillator detune params
+  if (bgPitchLFOGain) {
+    bgPitchLFOGain.connect(osc1.detune);
+    bgPitchLFOGain.connect(osc2.detune);
   }
 
-  bgTimer = setTimeout(scheduleNote, (1.2 + Math.random() * 3.0) * 1000);
+  // Mix both oscillators (equal weight)
+  const mix = ac.createGain();
+  mix.gain.setValueAtTime(0.45, now);
+  osc1.connect(mix);
+  osc2.connect(mix);
+
+  // HPF @ 400Hz — thins the sound, removes fundamental warmth
+  const hpf     = ac.createBiquadFilter();
+  hpf.type      = "highpass";
+  hpf.frequency.setValueAtTime(400, now);
+  hpf.Q.value   = 0.8;
+
+  // LPF @ 3500Hz — soft hi-roll-off (removes harsh digital edge)
+  const lpf     = ac.createBiquadFilter();
+  lpf.type      = "lowpass";
+  lpf.frequency.setValueAtTime(3500, now);
+  lpf.Q.value   = 0.5;
+
+  // ADSR envelope (per note)
+  // Attack 100ms → Decay 2s → Sustain 50% → Release 1.5s
+  const peak    = 0.22;
+  const sustain = peak * 0.5;
+  const env     = ac.createGain();
+  env.gain.setValueAtTime(0, now);
+  env.gain.linearRampToValueAtTime(peak, now + 0.1);                        // Attack
+  env.gain.setTargetAtTime(sustain, now + 0.1, 2.0 / 3.0);                 // Decay (tau ≈ 2/3s)
+
+  const noteDur     = 5.5 + Math.random() * 3;
+  const releaseStart = now + noteDur;
+  env.gain.setTargetAtTime(0.0001, releaseStart, 1.5 / 3.0);               // Release (tau ≈ 0.5s)
+
+  // Signal chain: mix → HPF → LPF → env → bitcrusher (shared) → reverb (shared) → bgGain
+  mix.connect(hpf);
+  hpf.connect(lpf);
+  lpf.connect(env);
+  env.connect(bgBitcrush);   // shared bitcrusher input
+
+  const totalDur = noteDur + 4.0;  // note + release tail + reverb decay
+  osc1.start(now); osc1.stop(now + totalDur);
+  osc2.start(now); osc2.stop(now + totalDur);
+
+  // Next note spacing: 3.5–6.5s — overlapping ADSR tails blur into reverb fog
+  bgTimer = setTimeout(scheduleNote, (3.5 + Math.random() * 3.0) * 1000);
 }
 
 export function startBgMusic() {
@@ -272,15 +344,43 @@ export function startBgMusic() {
   if (!ac || !bgGain) return;
 
   bgPlaying = true;
-  // bgGain is already connected to masterGain from getCtx()
   bgGain.gain.setValueAtTime(_musicVol * 0.55, ac.currentTime);
 
+  // ── Build shared effects chain (created once per session) ──────────────────
+
+  // 10-bit bitcrusher (lofi pixel aesthetic, simulates 22kHz/10-bit recording)
+  bgBitcrush = ac.createWaveShaper();
+  bgBitcrush.curve       = buildBitcrusherCurve(10);
+  bgBitcrush.oversample  = "4x"; // anti-alias before quantization
+
+  // 5-second reverb (100% wet — massive empty concrete hall)
+  bgReverb = buildReverbIR(ac, 5.0);
+
+  // Dry path: none — 100% wet
+  bgBitcrush.connect(bgReverb);
+  bgReverb.connect(bgGain);
+
+  // ── Continuous pitch warp LFO: 1.2Hz ±40¢ (warping cassette tape) ──────────
+  bgPitchLFO     = ac.createOscillator();
+  bgPitchLFOGain = ac.createGain();
+  bgPitchLFO.type = "sine";
+  // Slightly irregular rate: start at 1.2Hz, drift gently
+  bgPitchLFO.frequency.setValueAtTime(1.2, ac.currentTime);
+  bgPitchLFO.frequency.linearRampToValueAtTime(0.9, ac.currentTime + 8);
+  bgPitchLFO.frequency.linearRampToValueAtTime(1.4, ac.currentTime + 18);
+  bgPitchLFOGain.gain.setValueAtTime(40, ac.currentTime); // ±40 cents
+  bgPitchLFO.connect(bgPitchLFOGain);
+  // bgPitchLFOGain is connected to each note's osc.detune inside scheduleNote
+  bgPitchLFO.start();
+
+  // ── Sub-bass drone: A0 sine rumble beneath the lead ────────────────────────
   droneOsc      = ac.createOscillator();
   const dg      = ac.createGain();
   droneOsc.type = "sine";
   droneOsc.frequency.setValueAtTime(27.5, ac.currentTime);
-  dg.gain.setValueAtTime(0.18, ac.currentTime);
-  droneOsc.connect(dg); dg.connect(bgGain);
+  dg.gain.setValueAtTime(0.10, ac.currentTime);
+  droneOsc.connect(dg);
+  dg.connect(bgGain); // drone bypasses bitcrusher/reverb for clean sub
   droneOsc.start();
 
   scheduleNote();
@@ -288,8 +388,12 @@ export function startBgMusic() {
 
 export function stopBgMusic() {
   bgPlaying = false;
-  if (bgTimer) { clearTimeout(bgTimer); bgTimer = null; }
-  if (droneOsc) { try { droneOsc.stop(); } catch {} droneOsc = null; }
+  if (bgTimer)        { clearTimeout(bgTimer); bgTimer = null; }
+  if (droneOsc)       { try { droneOsc.stop(); }    catch {} droneOsc     = null; }
+  if (bgPitchLFO)     { try { bgPitchLFO.stop(); }  catch {} bgPitchLFO   = null; }
+  if (bgPitchLFOGain) { try { bgPitchLFOGain.disconnect(); } catch {} bgPitchLFOGain = null; }
+  bgReverb   = null;
+  bgBitcrush = null;
 }
 
 // Call this on first user gesture to unlock AudioContext on iOS
