@@ -274,16 +274,18 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
         }
 
         if (role === "right") {
-          // ── Right stick: FIXED base, shoot direction only (does not affect flashlight) ──
+          // ── Right stick: AIM + SHOOT — controls flashlight AND bullet direction ──
           const nrdx = t.clientX - rightBase.x;
           const nrdy = t.clientY - rightBase.y;
           const nrlen = Math.hypot(nrdx, nrdy);
           if (nrlen > 10) {
-            // Manual shoot direction from right stick drag
-            inputRef.current.shootOverrideAngle = Math.atan2(nrdy, nrdx);
+            // Drag right stick → rotate flashlight to face that direction AND shoot there
+            const angle = Math.atan2(nrdy, nrdx);
+            inputRef.current.aimAngle = angle - Math.PI / 2; // flashlight follows right stick
+            inputRef.current.shootOverrideAngle = angle;     // bullets follow right stick
             inputRef.current.autoAim = false;
           } else {
-            // Small nudge = auto-aim to nearest enemy
+            // Tap (no drag) = auto-aim to nearest enemy
             inputRef.current.shootOverrideAngle = null;
             inputRef.current.autoAim = true;
           }
@@ -370,7 +372,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
             <View style={[styles.joyIdle, { right: 44, bottom: 110 }]}>
               <View style={[styles.joyIdleRing, { borderColor: "rgba(255,100,0,0.45)" }]} />
               <View style={[styles.joyIdleDot, { backgroundColor: "rgba(255,100,0,0.35)" }]} />
-              <Text style={[styles.joyIdleLabel, { color: "rgba(100,200,255,0.6)" }]}>AIM</Text>
+              <Text style={[styles.joyIdleLabel, { color: "rgba(100,200,255,0.6)" }]}>SHOOT</Text>
             </View>
           )}
           {/* Active left joystick */}
