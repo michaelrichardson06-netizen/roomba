@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import {
   Animated,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -19,6 +20,7 @@ interface DeathScreenProps {
   isNewHighScore: boolean;
   deathCause: string;
   hpAtDeath: number;
+  damageLog: string[];
   onRetry: () => void;
   onMenu: () => void;
 }
@@ -32,6 +34,7 @@ export function DeathScreen({
   isNewHighScore,
   deathCause,
   hpAtDeath,
+  damageLog,
   onRetry,
   onMenu,
 }: DeathScreenProps) {
@@ -105,6 +108,18 @@ export function DeathScreen({
           </View>
         </View>
       </View>
+
+      {/* Damage log */}
+      {damageLog.length > 0 && (
+        <View style={styles.logCard}>
+          <Text style={styles.logTitle}>DAMAGE LOG (last {damageLog.length})</Text>
+          <ScrollView style={styles.logScroll} nestedScrollEnabled>
+            {[...damageLog].reverse().map((entry, i) => (
+              <Text key={i} style={styles.logEntry} numberOfLines={2}>{entry}</Text>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Actions */}
       <View style={styles.actions}>
@@ -306,5 +321,32 @@ const styles = StyleSheet.create({
     color: "#220808",
     fontSize: 10,
     fontStyle: "italic",
+  },
+  logCard: {
+    backgroundColor: "rgba(5,2,2,0.95)",
+    borderWidth: 1,
+    borderColor: "#2a0808",
+    borderRadius: 6,
+    padding: 10,
+    width: "100%",
+    maxWidth: 340,
+  },
+  logTitle: {
+    color: "#441111",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 3,
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  logScroll: {
+    maxHeight: 120,
+  },
+  logEntry: {
+    color: "#663333",
+    fontSize: 9,
+    fontFamily: Platform.OS === "web" ? "monospace" : "Courier",
+    lineHeight: 14,
+    marginBottom: 2,
   },
 });

@@ -76,8 +76,13 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
 
   // ── Game loop ────────────────────────────────────────────────────────────
   const gameLoop = useCallback((timestamp: number) => {
-    const dt = Math.min(timestamp - (lastTimeRef.current || timestamp), 50);
+    const rawDt = timestamp - (lastTimeRef.current || timestamp);
+    const dt = Math.min(rawDt, 50);
     lastTimeRef.current = timestamp;
+    // Detect abnormally large frame gaps (iOS background / throttle spikes)
+    if (rawDt > 80) {
+      console.warn(`[FRAME SPIKE] rawDt=${rawDt.toFixed(0)}ms clamped to ${dt.toFixed(0)}ms`);
+    }
 
     // ── Smooth aim angle toward target (touch only) ───────────────────────
     if (inputRef.current.useSmoothedAim) {

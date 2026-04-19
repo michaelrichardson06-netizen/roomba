@@ -9,6 +9,21 @@ function dist(ax: number, ay: number, bx: number, by: number) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+function logDmg(
+  s: { damageLog: string[]; gameTime: number; playerDamageCooldown: number; playerX: number; playerY: number },
+  cause: string,
+  dmg: number,
+  hpBefore: number,
+  hpAfter: number,
+  extraCtx = ""
+) {
+  const t = (s.gameTime / 1000).toFixed(1);
+  const entry = `[${t}s] ${cause}: -${dmg} | HP ${Math.round(hpBefore)}→${Math.round(hpAfter)} | pCd=${Math.round(s.playerDamageCooldown)} pos=(${Math.round(s.playerX)},${Math.round(s.playerY)})${extraCtx ? " | " + extraCtx : ""}`;
+  console.log("[DAMAGE]", entry);
+  s.damageLog.push(entry);
+  if (s.damageLog.length > 20) s.damageLog.splice(0, s.damageLog.length - 20);
+}
+
 function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number): Enemy {
   const hpScale = 1 + (wave - 1) * C.WAVE_HP_SCALE;
   const baseHp = type === "boss" ? C.ENEMY_HP_BOSS : type === "elite" ? C.ENEMY_HP_ELITE : C.ENEMY_HP_STANDARD;
@@ -56,6 +71,7 @@ export function createInitialState(): GameState {
     spawnTimer: 0, spawnGrace: 3000, bossSpawned: false,
     phase: "playing", deathCause: "", hpAtDeath: 0, totalInsects: 0,
     mapWidth: C.MAP_WIDTH, mapHeight: C.MAP_HEIGHT,
+    gameTime: 0, damageLog: [],
   };
 }
 
@@ -75,6 +91,10 @@ export function updateGame(
   s.iceWaves = [...s.iceWaves];
   s.floatingTexts = [...s.floatingTexts];
   s.screenShake = { ...s.screenShake };
+  s.damageLog = [...s.damageLog];
+
+  // ── Accumulate game time ───────────────────────────────────────────────────
+  s.gameTime += dt;
 
   // ── Cooldown timers ────────────────────────────────────────────────────────
   s.playerDamageCooldown = Math.max(0, s.playerDamageCooldown - dt);
@@ -92,8 +112,10 @@ export function updateGame(
     if (Math.random() < 0.04) s.whiteFlash = Math.max(s.whiteFlash, 0.08);
     s.redFlash = Math.max(s.redFlash, 0.3); // persistent dim red while draining
     // Show a battery-drain damage number every ~1.5s so the player knows what's killing them
-    if (Math.floor(prevHp) !== Math.floor(s.hp) && Math.random() < 0.45) {
-      s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-16, 16), y: s.playerY - 34, text: "🔋-HP", age: 0, maxAge: 1200, color: "#ff8800", vy: -0.7 });
+    if (Math.floor(prevHp) !== Math.floor(s.hp)) {
+      if (Math.random() < 0.45)
+        s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-16, 16), y: s.playerY - 34, text: "🔋-HP", age: 0, maxAge: 1200, color: "#ff8800", vy: -0.7 });
+      logDmg(s, "battery_drain", Math.round(prevHp - s.hp), prevHp, s.hp, `dt=${dt.toFixed(0)}`);
     }
     if (s.hp <= 0) { s.deathCause = "battery"; s.hpAtDeath = prevHp; s.phase = "dead"; return s; }
   }
@@ -503,6 +525,8 @@ export function updateGame(
         s.redFlash = 1.0;
         // Floating damage number above the player — makes every hit unmissable
         s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-12, 12), y: s.playerY - 28, text: `-${dmg}`, age: 0, maxAge: 900, color: "#ff2222", vy: -1.2 });
+        const nearbyCount = s.enemies.filter((e) => dist(s.playerX, s.playerY, e.x, e.y) < 120).length;
+        logDmg(s, enemy.type, dmg, hpBefore, s.hp, `eCd=${Math.round(enemy.damageCooldown)} dt=${dt.toFixed(0)} nearby=${nearbyCount}`);
         if (s.hp <= 0) {
           s.deathCause = `${enemy.type}: -${dmg} (had ${Math.round(hpBefore)} HP)`;
           s.hpAtDeath = hpBefore;
@@ -533,12 +557,13 @@ export function updateGame(
     if (d < w.radius + C.PLAYER_RADIUS) {
       if (!s.isDashing && s.playerDamageCooldown <= 0) {
         // Player takes web damage; dash avoids it
+        const webHpBefore = s.hp; // capture BEFORE damage
         s.hp = Math.max(0, s.hp - C.BOSS_WEB_DAMAGE);
         s.playerDamageCooldown = 600;
         s.screenShake.magnitude = C.SHAKE_DAMAGE + 4;
         s.redFlash = 1.0; // boss web hit = full red flash
-        const webHpBefore = s.hp + C.BOSS_WEB_DAMAGE; // hp before damage
         s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-12, 12), y: s.playerY - 28, text: `-${C.BOSS_WEB_DAMAGE}`, age: 0, maxAge: 900, color: "#ff2222", vy: -1.2 });
+        logDmg(s, "boss_web", C.BOSS_WEB_DAMAGE, webHpBefore, s.hp, `dt=${dt.toFixed(0)}`);
         if (s.hp <= 0) { s.deathCause = `boss_web: -${C.BOSS_WEB_DAMAGE} (was ${Math.round(webHpBefore)} HP)`; s.hpAtDeath = webHpBefore; s.phase = "dead"; }
         // Green poison splatter
         for (let i = 0; i < 12; i++) {

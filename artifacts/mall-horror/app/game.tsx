@@ -14,6 +14,7 @@ interface DeathResult {
   totalInsects: number;
   deathCause: string;
   hpAtDeath: number;
+  damageLog: string[];
 }
 
 const HS_SCORE_KEY = "@mallhorror_highscore";
@@ -45,6 +46,7 @@ export default function GameScreen() {
         totalInsects: state.totalInsects,
         deathCause: state.deathCause || "unknown",
         hpAtDeath: state.hpAtDeath,
+        damageLog: state.damageLog ?? [],
       };
       setResult(r);
 
@@ -94,6 +96,7 @@ export default function GameScreen() {
           isNewHighScore={isNewHS}
           deathCause={result.deathCause}
           hpAtDeath={result.hpAtDeath}
+          damageLog={result.damageLog}
           onRetry={handleRetry}
           onMenu={handleMenu}
         />

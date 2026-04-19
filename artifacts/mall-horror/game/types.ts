@@ -187,4 +187,6 @@ export interface GameState {
   totalInsects: number;
   mapWidth: number;
   mapHeight: number;
+  gameTime: number;       // accumulated ms since game start (for damage log timestamps)
+  damageLog: string[];    // rolling last-20 damage events for post-mortem display
 }
