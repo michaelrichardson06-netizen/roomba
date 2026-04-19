@@ -430,8 +430,8 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           style={{ display: "block", cursor: "crosshair" } as React.CSSProperties}
         />
 
-        {/* HUD overlay — box-none: the wrapper passes touches through, but HUD children can intercept their own areas */}
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        {/* HUD overlay — fully interactive in the top zone; game input is already zone-locked to bottom 40% */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="auto">
           <GameHUD
             {...hudState}
             onDash={() => { inputRef.current.dashing = true; }}

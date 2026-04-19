@@ -96,7 +96,7 @@ export function GameHUD({
   }, []);
 
   return (
-    <View style={styles.container} pointerEvents="box-none">
+    <View style={styles.container}>
       {/* Berserker screen pulse */}
       {isBerserking && (
         <View style={styles.berserkerOverlay} pointerEvents="none" />
