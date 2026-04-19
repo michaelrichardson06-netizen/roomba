@@ -218,26 +218,14 @@ export function updateGame(
     for (let i = 0; i < s.rapidFireStacks; i++) cooldown *= C.RAPID_FIRE_REDUCTION;
   }
 
-  // ── Always auto-shoot at nearest enemy (Vampire Survivors style) ────────────
-  // The player only needs to move — the Roomba fires automatically.
-  // Right stick still overrides aim for precision; otherwise auto-aim nearest enemy.
-  const hasEnemies = s.enemies.length > 0;
-  if (s.shootCooldown <= 0 && hasEnemies) {
+  // ── Shoot (manual: right joystick) ───────────────────────────────────────────
+  if (input.shooting && s.shootCooldown <= 0) {
     s.shootCooldown = cooldown;
 
-    // Right-stick drag overrides aim; otherwise lock onto nearest enemy automatically
-    let shootAngle = s.playerAngle + Math.PI / 2; // fallback: flashlight direction
+    // Right-stick drag sets the shoot angle; flashlight direction as fallback
+    let shootAngle = s.playerAngle + Math.PI / 2;
     if (input.shootOverrideAngle !== null) {
-      shootAngle = input.shootOverrideAngle; // right stick manual aim
-    } else {
-      // Auto-aim: always target nearest enemy, no cone restriction
-      let nearest = Infinity;
-      for (const e of s.enemies) {
-        const d = dist(s.playerX, s.playerY, e.x, e.y);
-        if (d < nearest) { nearest = d; shootAngle = Math.atan2(e.y - s.playerY, e.x - s.playerX); }
-      }
-      // Rotate flashlight to face the enemy being targeted
-      s.playerAngle = shootAngle - Math.PI / 2;
+      shootAngle = input.shootOverrideAngle;
     }
 
     const spawnBullet = (angle: number) => {
