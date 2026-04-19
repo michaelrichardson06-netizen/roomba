@@ -19,6 +19,7 @@ interface GameHUDProps {
   lightningStrike: boolean;
   dashCooldown: number;
   spawnGrace: number;
+  showDash?: boolean;
   onDash: () => void;
 }
 
@@ -26,7 +27,7 @@ export function GameHUD({
   hp, maxHp, battery, maxBattery, berserkerTimer,
   score, wave, killCount, waveTotalKills,
   tripleShot, quadShot, rapidFireStacks, bazookaMode, lightningStrike,
-  dashCooldown, spawnGrace, onDash,
+  dashCooldown, spawnGrace, showDash, onDash,
 }: GameHUDProps) {
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
@@ -143,15 +144,15 @@ export function GameHUD({
         {lightningStrike && <BuffBadge label="⚡ CHAIN" color="#88eeff" />}
       </View>
 
-      {/* Bottom controls (touch only) */}
-      {Platform.OS !== "web" && (
+      {/* Bottom controls — native OR touch web (showDash=true on iOS WebView) */}
+      {(Platform.OS !== "web" || showDash) && (
         <View style={[styles.bottomControls, { paddingBottom: bottomPad + 8 }]}>
           <TouchableOpacity
             style={[styles.dashButton, dashCooldown > 0 && styles.dashButtonCooldown]}
             onPress={onDash}
             activeOpacity={0.7}
           >
-            <Text style={styles.dashButtonText}>{dashCooldown <= 0 ? "DASH" : "..."}</Text>
+            <Text style={styles.dashButtonText}>{dashCooldown <= 0 ? "[ DASH ]" : "·····"}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -252,10 +253,10 @@ const styles = StyleSheet.create({
   buffBadge:     { borderWidth: 1, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: "rgba(0,0,0,0.6)" },
   buffBadgeText: { fontSize: 10, fontWeight: "700", letterSpacing: 1 },
 
-  bottomControls:    { position: "absolute", bottom: 0, right: 16, alignItems: "flex-end" },
-  dashButton:        { backgroundColor: "rgba(0,120,255,0.3)", borderWidth: 1, borderColor: "#4488ff", borderRadius: 8, paddingHorizontal: 20, paddingVertical: 12 },
-  dashButtonCooldown: { opacity: 0.4 },
-  dashButtonText:    { color: "#4488ff", fontWeight: "700", fontSize: 14, letterSpacing: 2 },
+  bottomControls:    { position: "absolute", bottom: 12, left: 0, right: 0, alignItems: "center" },
+  dashButton:        { backgroundColor: "rgba(0,80,200,0.45)", borderWidth: 1.5, borderColor: "#4488ff", borderRadius: 10, paddingHorizontal: 28, paddingVertical: 14 },
+  dashButtonCooldown: { opacity: 0.35 },
+  dashButtonText:    { color: "#88bbff", fontWeight: "900", fontSize: 15, letterSpacing: 3 },
 
   webHint:     { position: "absolute", bottom: 12, left: 0, right: 0, alignItems: "center" },
   webHintText: { color: "rgba(255,255,255,0.25)", fontSize: 10 },

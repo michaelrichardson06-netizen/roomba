@@ -1056,25 +1056,26 @@ function drawEscalator(
   }
   ctx.restore();
 
-  // Electric sparks (broken escalator — yellow/white, clearly not water)
+  // Electric sparks (broken escalator — slow-pulsing, deterministic, no random jitter)
   const arcCount = 3;
   for (let i = 0; i < arcCount; i++) {
-    const t = (now + i * 1.3) % 2;
+    const t = (now * 0.5 + i * 1.3) % 2;  // slower: 0.5× speed
     if (t > 1.0) continue; // intermittent sparks
+    // Anchor position drifts slowly on a sine wave — no per-frame randomness
     const ax = x + 10 + (i / arcCount) * (w - 20);
-    const ay = y + 10 + (Math.sin(now * 3 + i) * 0.5 + 0.5) * (h - 20);
+    const ay = y + 10 + (Math.sin(now * 0.8 + i * 2.1) * 0.5 + 0.5) * (h - 20);
     ctx.save();
-    // Bright yellow-white sparks — clearly electric, never mistaken for water
-    const bright = 200 + Math.floor(Math.sin(now * 9 + i) * 55);
-    ctx.strokeStyle = `rgba(255,${bright},80,${0.7 + Math.sin(now * 7 + i) * 0.25})`;
+    const bright = 200 + Math.floor(Math.sin(now * 1.5 + i) * 55);
+    ctx.strokeStyle = `rgba(255,${bright},80,${0.5 + Math.sin(now * 1.2 + i) * 0.2})`;
     ctx.lineWidth = 1.5;
     ctx.shadowColor = "#ffdd44";
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 8;
+    // Deterministic zigzag arc using sines — no Math.random()
     ctx.beginPath();
     ctx.moveTo(ax, ay);
-    for (let j = 0; j < 5; j++) {
-      const jx = ax + (Math.random() - 0.5) * 28;
-      const jy = ay + (Math.random() - 0.5) * 28;
+    for (let j = 1; j <= 5; j++) {
+      const jx = ax + Math.sin(now * 2 + i * 3 + j * 1.7) * 12;
+      const jy = ay + Math.sin(now * 2.3 + i * 2 + j * 2.1) * 12;
       ctx.lineTo(jx, jy);
     }
     ctx.stroke();

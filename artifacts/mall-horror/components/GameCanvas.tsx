@@ -62,10 +62,12 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const lastHudHpRef = useRef<number>(200);
   const hpBarFillRef = useRef<HTMLElement | null>(null);
   const hpBarTextRef = useRef<HTMLElement | null>(null);
+  const dashDomBtnRef = useRef<HTMLElement | null>(null);
   const [hudState, setHudState] = useState<HUDState>(DEFAULT_HUD);
   const [leftJoy, setLeftJoy] = useState<JoyState>(IDLE_JOY);
   const [rightJoy, setRightJoy] = useState<JoyState>(IDLE_JOY);
   const isMobileRef = useRef(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   // ── Audio state tracking ──────────────────────────────────────────────────
   const prevBulletCount    = useRef(0);
@@ -145,6 +147,12 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     if (hudDue) {
       hudTickRef.current = 0;
       lastHudHpRef.current = newState.hp;
+      // Update DOM dash button appearance (mobile only)
+      if (dashDomBtnRef.current) {
+        const cd = newState.dashCooldown;
+        dashDomBtnRef.current.textContent = cd <= 0 ? "[ DASH ]" : "·····";
+        (dashDomBtnRef.current as HTMLElement).style.opacity = cd > 0 ? "0.35" : "1";
+      }
       setHudState({
         hp: newState.hp,
         maxHp: newState.maxHp,
@@ -182,6 +190,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
 
     // Detect touch-capable device
     isMobileRef.current = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    if (isMobileRef.current) setIsTouchDevice(true);
 
     // ── DOM Sound Settings UI ─────────────────────────────────────────────────
     // Injected as real DOM elements so iOS WebView tap works 100% reliably,
@@ -283,6 +292,40 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
 
     document.body.appendChild(soundBtn);
     document.body.appendChild(soundPanel);
+
+    // ── DOM Dash Button (mobile only) ─────────────────────────────────────────
+    // Injected as a real DOM element so touchstart stopPropagation() works —
+    // prevents the document-level joystick handler from claiming this touch.
+    let dashDomBtn: HTMLElement | null = null;
+    if (isMobileRef.current) {
+      dashDomBtn = document.createElement("button");
+      dashDomBtn.id = "mh-dash-btn";
+      dashDomBtn.textContent = "[ DASH ]";
+      dashDomBtn.style.cssText = [
+        "position:fixed", "bottom:calc(env(safe-area-inset-bottom, 0px) + 20px)",
+        "left:50%", "transform:translateX(-50%)", "z-index:99998",
+        "background:rgba(0,60,180,0.50)", "border:1.5px solid #4488ff",
+        "border-radius:10px", "padding:14px 28px",
+        "color:#88bbff", "font-size:15px", "font-weight:900",
+        "letter-spacing:3px", "font-family:monospace",
+        "cursor:pointer", "touch-action:manipulation",
+        "-webkit-tap-highlight-color:transparent",
+        "transition:opacity 0.1s",
+      ].join(";");
+      dashDomBtn.addEventListener("touchstart", (e) => {
+        e.stopPropagation(); // prevent document touchstart → joystick handler
+        e.preventDefault();
+        inputRef.current.dashing = true;
+      }, { passive: false });
+      dashDomBtn.addEventListener("touchend", (e) => {
+        e.stopPropagation();
+      }, { passive: false });
+      dashDomBtn.addEventListener("click", () => {
+        inputRef.current.dashing = true;
+      });
+      document.body.appendChild(dashDomBtn);
+      dashDomBtnRef.current = dashDomBtn;
+    }
     // ─────────────────────────────────────────────────────────────────────────
 
     // Disable browser default gestures on the document
@@ -393,6 +436,9 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       return false;
     };
 
+    // Double-tap left stick → dash
+    let lastLeftTapMs = 0;
+
     const onTouchStart = (e: TouchEvent) => {
       unlockAudio(); // always unblock AudioContext on any gesture (passive handler, no preventDefault)
 
@@ -405,6 +451,12 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
         if (t.clientY < ZONE_TOP) return; // HUD area — don't claim
         const isLeft = t.clientX < window.innerWidth / 2;
         if (isLeft && !hasRole("left")) {
+          // Double-tap detection: two left-zone taps within 280ms triggers dash
+          const now = Date.now();
+          if (now - lastLeftTapMs < 280) {
+            inputRef.current.dashing = true;
+          }
+          lastLeftTapMs = now;
           touchRole.set(t.identifier, "left");
           leftBase.x = t.clientX;
           leftBase.y = t.clientY;
@@ -536,6 +588,8 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       if (style.parentNode) style.parentNode.removeChild(style);
       if (soundBtn.parentNode) soundBtn.parentNode.removeChild(soundBtn);
       if (soundPanel.parentNode) soundPanel.parentNode.removeChild(soundPanel);
+      if (dashDomBtn?.parentNode) dashDomBtn.parentNode.removeChild(dashDomBtn);
+      dashDomBtnRef.current = null;
     };
   }, []);
 
@@ -567,6 +621,9 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
               <View style={styles.joyIdleRing} />
               <View style={[styles.joyIdleDot]} />
               <Text style={styles.joyIdleLabel}>MOVE</Text>
+              {isTouchDevice && (
+                <Text style={[styles.joyIdleLabel, { fontSize: 8, opacity: 0.55, marginTop: 2 }]}>2×TAP=DASH</Text>
+              )}
             </View>
           )}
           {/* Right idle hint */}
