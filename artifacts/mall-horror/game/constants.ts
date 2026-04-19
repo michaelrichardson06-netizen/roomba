@@ -77,7 +77,7 @@ export const GAME_CONFIG = {
 
   // Drop rates
   ELITE_DROP_CHANCE: 0.55,
-  BOSS_BERSERKER_DROP_CHANCE: 0.6,
+  BOSS_BERSERKER_DROP_CHANCE: 0.3,
 
   // Lamps per scene
   LAMP_COUNT: 28,
@@ -90,9 +90,9 @@ export const GAME_CONFIG = {
 
   // ── Battery ──────────────────────────────────────────────────────────────
   BATTERY_MAX: 100,
-  BATTERY_DRAIN_RATE: 4.5,       // units/second (always draining)
+  BATTERY_DRAIN_RATE: 1.485,     // units/second (67% slower than original 4.5)
   BATTERY_HEALTH_DRAIN: 3,       // HP/second when battery empty
-  BATTERY_SPAWN_INTERVAL: 16000, // ms between spawn checks
+  BATTERY_SPAWN_INTERVAL: 13500, // ms between spawn checks (18% more frequent)
   BATTERY_CHARGE_AMOUNT: 100,    // full recharge per pickup
 
   // ── Berserker ────────────────────────────────────────────────────────────
