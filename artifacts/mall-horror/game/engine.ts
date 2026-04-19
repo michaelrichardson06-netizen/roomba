@@ -88,10 +88,15 @@ export function updateGame(
   // ── Battery drain ─────────────────────────────────────────────────────────
   s.battery = Math.max(0, s.battery - C.BATTERY_DRAIN_RATE * dt / 1000);
   if (s.battery <= 0) {
+    const prevHp = s.hp;
     s.hp = Math.max(0, s.hp - C.BATTERY_HEALTH_DRAIN * dt / 1000);
     // Low-battery screen flicker — also set red flash so player notices HP drain
     if (Math.random() < 0.04) s.whiteFlash = Math.max(s.whiteFlash, 0.08);
     s.redFlash = Math.max(s.redFlash, 0.3); // persistent dim red while draining
+    // Show a battery-drain damage number every ~1.5s so the player knows what's killing them
+    if (Math.floor(prevHp) !== Math.floor(s.hp) && Math.random() < 0.12) {
+      s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-16, 16), y: s.playerY - 34, text: "🔋-HP", age: 0, maxAge: 1200, color: "#ff8800", vy: -0.7 });
+    }
     if (s.hp <= 0) { s.phase = "dead"; return s; } // battery killed the player
   }
 
@@ -534,11 +539,11 @@ export function updateGame(
         const dmg = enemy.type === "boss" ? 10 : enemy.type === "elite" ? 7 : enemy.type === "mole" ? 8 : 4;
         s.hp = Math.max(0, s.hp - dmg);
         enemy.damageCooldown = 900;
-        // 750ms invincibility window so a cluster of enemies can't stack-kill
-        // in rapid succession (was 500ms — now extends to 750ms)
         s.playerDamageCooldown = 750;
         s.screenShake.magnitude = C.SHAKE_DAMAGE;
-        s.redFlash = 1.0; // full red flash on every hit — unmissable
+        s.redFlash = 1.0;
+        // Floating damage number above the player — makes every hit unmissable
+        s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-12, 12), y: s.playerY - 28, text: `-${dmg}`, age: 0, maxAge: 900, color: "#ff2222", vy: -1.2 });
       }
       if (s.hp <= 0) { s.phase = "dead"; }
     }
@@ -567,6 +572,7 @@ export function updateGame(
         s.playerDamageCooldown = 600;
         s.screenShake.magnitude = C.SHAKE_DAMAGE + 4;
         s.redFlash = 1.0; // boss web hit = full red flash
+        s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-12, 12), y: s.playerY - 28, text: `-${C.BOSS_WEB_DAMAGE}`, age: 0, maxAge: 900, color: "#ff2222", vy: -1.2 });
         // Green poison splatter
         for (let i = 0; i < 12; i++) {
           const a = Math.random() * Math.PI * 2;

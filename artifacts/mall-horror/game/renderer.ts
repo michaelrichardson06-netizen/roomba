@@ -175,21 +175,30 @@ export function renderFrame(
     ctx.restore();
   }
 
-  // ── Floating texts (IMMUNE! etc.) ─────────────────────────────────────────
+  // ── Floating texts (damage numbers, IMMUNE! etc.) ─────────────────────────
   for (const ft of state.floatingTexts) {
     const prog = ft.age / ft.maxAge;
-    const alpha = prog < 0.3 ? prog / 0.3 : 1 - ((prog - 0.3) / 0.7);
-    const scale = 1 + prog * 0.4;
+    const alpha = prog < 0.2 ? prog / 0.2 : 1 - ((prog - 0.2) / 0.8);
+    // Damage numbers (start with "-") get a bigger, bolder treatment
+    const isDmg = ft.text.startsWith("-");
+    const baseSize = isDmg ? 22 : 14;
+    const scale = isDmg ? (1 + prog * 0.5) : (1 + prog * 0.4);
     ctx.save();
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = Math.max(0, alpha);
     ctx.translate(ft.x, ft.y);
     ctx.scale(scale, scale);
-    ctx.font = `bold ${Math.round(14 / scale)}px monospace`;
+    ctx.font = `900 ${Math.round(baseSize / scale)}px monospace`;
     ctx.fillStyle = ft.color;
     ctx.shadowColor = ft.color;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = isDmg ? 16 : 10;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+    // Outline for readability against any background
+    if (isDmg) {
+      ctx.strokeStyle = "rgba(0,0,0,0.8)";
+      ctx.lineWidth = 4 / scale;
+      ctx.strokeText(ft.text, 0, 0);
+    }
     ctx.fillText(ft.text, 0, 0);
     ctx.shadowBlur = 0;
     ctx.restore();
@@ -230,15 +239,32 @@ export function renderFrame(
     ctx.fillRect(0, 0, canvasW, canvasH);
   }
 
-  // ── Low HP pulsing red glow (≤ 30 % HP) ───────────────────────────────────
+  // ── Low HP pulsing red glow + critical text (≤ 30% HP) ───────────────────
   const hpRatio = state.hp / state.maxHp;
   if (hpRatio < 0.30 && state.redFlash < 0.5) {
     const pulse = (Math.sin(Date.now() * 0.004) * 0.5 + 0.5) * (0.30 - hpRatio) / 0.30;
     const lowGrd = ctx.createRadialGradient(canvasW / 2, canvasH / 2, canvasH * 0.35, canvasW / 2, canvasH / 2, canvasH * 0.9);
     lowGrd.addColorStop(0, "rgba(200,0,0,0)");
-    lowGrd.addColorStop(1, `rgba(200,0,0,${pulse * 0.45})`);
+    lowGrd.addColorStop(1, `rgba(200,0,0,${pulse * 0.55})`);
     ctx.fillStyle = lowGrd;
     ctx.fillRect(0, 0, canvasW, canvasH);
+    // Bold "⚠ CRITICAL HP" text at top-center — impossible to miss
+    const critAlpha = 0.5 + pulse * 0.5;
+    const critY = canvasH * 0.18;
+    ctx.save();
+    ctx.globalAlpha = critAlpha;
+    ctx.font = "bold 20px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "#ff0000";
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = "rgba(0,0,0,0.9)";
+    ctx.lineWidth = 4;
+    ctx.strokeText("⚠ CRITICAL HP", canvasW / 2, critY);
+    ctx.fillStyle = "#ff3333";
+    ctx.fillText("⚠ CRITICAL HP", canvasW / 2, critY);
+    ctx.shadowBlur = 0;
+    ctx.restore();
   }
 
   if (state.muzzleFlash) {
