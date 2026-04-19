@@ -160,7 +160,7 @@ export function GameHUD({
       {/* Web controls hint */}
       {isWeb && (
         <View style={styles.webHint}>
-          <Text style={styles.webHintText}>WASD: Move  |  Mouse: Aim  |  Click: Shoot  |  Space: Dash</Text>
+          <Text style={styles.webHintText}>WASD / Left Stick: Move  |  Right Stick: Aim Override  |  Space: Dash  |  Auto-shoots nearest enemy</Text>
         </View>
       )}
     </View>

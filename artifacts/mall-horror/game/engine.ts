@@ -218,35 +218,27 @@ export function updateGame(
     for (let i = 0; i < s.rapidFireStacks; i++) cooldown *= C.RAPID_FIRE_REDUCTION;
   }
 
-  if (input.shooting && s.shootCooldown <= 0) {
+  // ── Always auto-shoot at nearest enemy (Vampire Survivors style) ────────────
+  // The player only needs to move — the Roomba fires automatically.
+  // Right stick still overrides aim for precision; otherwise auto-aim nearest enemy.
+  const hasEnemies = s.enemies.length > 0;
+  if (s.shootCooldown <= 0 && hasEnemies) {
     s.shootCooldown = cooldown;
 
-    // shootOverrideAngle (mobile right stick) takes priority; otherwise use flashlight direction
-    let shootAngle = input.shootOverrideAngle !== null
-      ? input.shootOverrideAngle
-      : s.playerAngle + Math.PI / 2;
-    // Auto-aim snaps shoot angle to nearest enemy (right-stick tap on mobile, or explicit autoAim)
-    if (input.autoAim && s.enemies.length > 0) {
+    // Right-stick drag overrides aim; otherwise lock onto nearest enemy automatically
+    let shootAngle = s.playerAngle + Math.PI / 2; // fallback: flashlight direction
+    if (input.shootOverrideAngle !== null) {
+      shootAngle = input.shootOverrideAngle; // right stick manual aim
+    } else {
+      // Auto-aim: always target nearest enemy, no cone restriction
       let nearest = Infinity;
       for (const e of s.enemies) {
         const d = dist(s.playerX, s.playerY, e.x, e.y);
         if (d < nearest) { nearest = d; shootAngle = Math.atan2(e.y - s.playerY, e.x - s.playerX); }
       }
+      // Rotate flashlight to face the enemy being targeted
+      s.playerAngle = shootAngle - Math.PI / 2;
     }
-
-    // ── Clamp shoot angle to the flashlight cone ───────────────────────────────
-    // Cone center matches the renderer: playerAngle + π/2, half-width = π/4 (90° total)
-    {
-      const coneCenter = s.playerAngle + Math.PI / 2;
-      const coneHalf = Math.PI * 0.25; // half of flashWidth (Math.PI * 0.5)
-      let diff = shootAngle - coneCenter;
-      // Normalise to [-π, π]
-      while (diff > Math.PI)  diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      if (diff > coneHalf)       shootAngle = coneCenter + coneHalf;
-      else if (diff < -coneHalf) shootAngle = coneCenter - coneHalf;
-    }
-    // ─────────────────────────────────────────────────────────────────────────
 
     const spawnBullet = (angle: number) => {
       const isBaz = s.bazookaMode && !isBerserking; // berserker overrides bazooka
