@@ -6,7 +6,7 @@ import { createInitialState, updateGame } from "@/game/engine";
 import { renderFrame } from "@/game/renderer";
 import type { GameState } from "@/game/types";
 import { GameHUD } from "./GameHUD";
-import { unlockAudio, startBgMusic, stopBgMusic, playShoot, playZap, playBerserkerStart, playHit, playBatteryLow } from "@/game/audio";
+import { unlockAudio, startBgMusic, stopBgMusic, playShoot, playZap, playBerserkerStart, playHit, playBatteryLow, getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume } from "@/game/audio";
 
 interface GameCanvasProps {
   onDeath: (state: GameState) => void;
@@ -176,6 +176,107 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
 
     // Detect touch-capable device
     isMobileRef.current = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
+    // ── DOM Sound Settings UI ─────────────────────────────────────────────────
+    // Injected as real DOM elements so iOS WebView tap works 100% reliably,
+    // bypassing React Native's Responder / TouchableOpacity system entirely.
+    const VOL_STEPS = [0.25, 0.5, 0.75, 1.0];
+
+    const soundBtn = document.createElement("button");
+    soundBtn.id = "mh-sound-btn";
+    const updateSoundBtnIcon = () => {
+      soundBtn.textContent = getMusicVolume() === 0 && getSfxVolume() === 0 ? "🔇" : getSfxVolume() === 0 ? "🎵" : "🔊";
+    };
+    updateSoundBtnIcon();
+    soundBtn.style.cssText = [
+      "position:fixed", "top:14px", "right:12px", "z-index:99999",
+      "background:rgba(0,0,0,0.72)", "border:1px solid rgba(255,255,255,0.22)",
+      "border-radius:8px", "width:38px", "height:38px", "font-size:18px",
+      "cursor:pointer", "color:white", "touch-action:manipulation",
+      "-webkit-tap-highlight-color:transparent", "line-height:1",
+    ].join(";");
+
+    const soundPanel = document.createElement("div");
+    soundPanel.id = "mh-sound-panel";
+    soundPanel.style.cssText = [
+      "position:fixed", "top:58px", "right:12px", "z-index:99999",
+      "background:rgba(10,8,14,0.95)", "border:1px solid rgba(255,255,255,0.15)",
+      "border-radius:10px", "padding:12px 14px", "display:none",
+      "color:white", "font-family:monospace", "touch-action:manipulation",
+      "min-width:210px",
+    ].join(";");
+
+    const makeVolRow = (label: string, getVol: () => number, setVol: (v: number) => void) => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:8px;margin-top:8px;";
+      const lbl = document.createElement("span");
+      lbl.textContent = label;
+      lbl.style.cssText = "font-size:10px;font-weight:700;letter-spacing:1.5px;color:#ccc;min-width:42px;";
+      row.appendChild(lbl);
+
+      const muteBtn = document.createElement("button");
+      muteBtn.style.cssText = [
+        "width:24px", "height:24px", "border-radius:4px",
+        "border:1px solid rgba(255,255,255,0.25)", "background:rgba(255,255,255,0.05)",
+        "color:#aaa", "font-size:11px", "cursor:pointer",
+        "touch-action:manipulation", "-webkit-tap-highlight-color:transparent",
+      ].join(";");
+      const dots: HTMLButtonElement[] = [];
+
+      const refreshRow = () => {
+        const v = getVol();
+        muteBtn.textContent = v === 0 ? "✕" : "♪";
+        (muteBtn.style as any).color = v === 0 ? "#ff4444" : "#aaa";
+        (muteBtn.style as any).borderColor = v === 0 ? "#ff4444" : "rgba(255,255,255,0.25)";
+        dots.forEach((d, i) => {
+          const filled = v >= VOL_STEPS[i];
+          (d.style as any).backgroundColor = filled ? "#00cfff" : "rgba(255,255,255,0.05)";
+          (d.style as any).borderColor = filled ? "#00cfff" : "rgba(255,255,255,0.3)";
+        });
+        updateSoundBtnIcon();
+      };
+
+      muteBtn.addEventListener("click", () => { setVol(getVol() === 0 ? 0.75 : 0); refreshRow(); });
+      row.appendChild(muteBtn);
+
+      VOL_STEPS.forEach((step) => {
+        const dot = document.createElement("button");
+        dot.style.cssText = [
+          "width:16px", "height:16px", "border-radius:3px",
+          "border:1px solid rgba(255,255,255,0.3)", "background:rgba(255,255,255,0.05)",
+          "cursor:pointer", "touch-action:manipulation",
+          "-webkit-tap-highlight-color:transparent",
+        ].join(";");
+        dot.addEventListener("click", () => { setVol(step); refreshRow(); });
+        dots.push(dot);
+        row.appendChild(dot);
+      });
+      refreshRow();
+      return row;
+    };
+
+    const panelHeader = document.createElement("div");
+    panelHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;";
+    const panelTitle = document.createElement("span");
+    panelTitle.textContent = "SOUND";
+    panelTitle.style.cssText = "font-size:10px;font-weight:700;letter-spacing:2px;color:#aaa;";
+    const panelClose = document.createElement("button");
+    panelClose.textContent = "✕";
+    panelClose.style.cssText = "background:none;border:none;color:#888;font-size:14px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;padding:4px;";
+    panelClose.addEventListener("click", () => { soundPanel.style.display = "none"; });
+    panelHeader.appendChild(panelTitle);
+    panelHeader.appendChild(panelClose);
+    soundPanel.appendChild(panelHeader);
+    soundPanel.appendChild(makeVolRow("MUSIC", getMusicVolume, setMusicVolume));
+    soundPanel.appendChild(makeVolRow("SFX", getSfxVolume, setSfxVolume));
+
+    soundBtn.addEventListener("click", () => {
+      soundPanel.style.display = soundPanel.style.display === "none" ? "block" : "none";
+    });
+
+    document.body.appendChild(soundBtn);
+    document.body.appendChild(soundPanel);
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Disable browser default gestures on the document
     const noDefault = (e: Event) => e.preventDefault();
@@ -417,6 +518,8 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       document.removeEventListener("touchend", onTouchEnd);
       document.removeEventListener("touchcancel", onTouchEnd);
       if (style.parentNode) style.parentNode.removeChild(style);
+      if (soundBtn.parentNode) soundBtn.parentNode.removeChild(soundBtn);
+      if (soundPanel.parentNode) soundPanel.parentNode.removeChild(soundPanel);
     };
   }, []);
 

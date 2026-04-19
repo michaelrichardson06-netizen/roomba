@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume } from "@/game/audio";
 
 interface GameHUDProps {
   hp: number;
@@ -23,44 +22,6 @@ interface GameHUDProps {
   onDash: () => void;
 }
 
-// Volume levels — 0 = muted, 0.25 / 0.5 / 0.75 / 1.0
-const VOL_STEPS = [0, 0.25, 0.5, 0.75, 1.0];
-
-function snapVolume(v: number): number {
-  return VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a, VOL_STEPS[0]);
-}
-
-function VolumeControl({
-  label, vol, onChange,
-}: { label: string; vol: number; onChange: (v: number) => void }) {
-  return (
-    <View style={sStyles.row}>
-      <Text style={sStyles.chanLabel}>{label}</Text>
-      <View style={sStyles.dots}>
-        {/* Mute button */}
-        <TouchableOpacity
-          style={[sStyles.muteBtn, vol === 0 && sStyles.muteBtnActive]}
-          onPress={() => onChange(vol === 0 ? 0.75 : 0)}
-          activeOpacity={0.7}
-        >
-          <Text style={[sStyles.muteBtnTxt, vol === 0 && { color: "#ff4444" }]}>
-            {vol === 0 ? "✕" : "♪"}
-          </Text>
-        </TouchableOpacity>
-        {/* Volume level dots: 0.25, 0.5, 0.75, 1.0 */}
-        {[0.25, 0.5, 0.75, 1.0].map((step) => (
-          <TouchableOpacity
-            key={step}
-            style={[styles.volDot, vol >= step && styles.volDotFilled]}
-            onPress={() => onChange(step)}
-            activeOpacity={0.7}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
 export function GameHUD({
   hp, maxHp, battery, maxBattery, berserkerTimer,
   score, wave, killCount, waveTotalKills,
@@ -69,7 +30,7 @@ export function GameHUD({
 }: GameHUDProps) {
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
-  const topPad    = isWeb ? 67 : insets.top;
+  const topPad    = isWeb ? 10 : insets.top;
   const bottomPad = isWeb ? 34 : insets.bottom;
 
   const hpRatio      = hp / maxHp;
@@ -80,29 +41,14 @@ export function GameHUD({
   const isBerserking = berserkerTimer > 0;
   const berserkSecs  = Math.ceil(berserkerTimer / 1000);
 
-  // ── Sound settings state ────────────────────────────────────────────────────
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [musicVol, setMusicVolState] = useState(() => snapVolume(getMusicVolume()));
-  const [sfxVol,   setSfxVolState]   = useState(() => snapVolume(getSfxVolume()));
-
-  const handleMusicVol = useCallback((v: number) => {
-    setMusicVolState(v);
-    setMusicVolume(v);
-  }, []);
-
-  const handleSfxVol = useCallback((v: number) => {
-    setSfxVolState(v);
-    setSfxVolume(v);
-  }, []);
-
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents="box-none">
       {/* Berserker screen pulse */}
       {isBerserking && (
         <View style={styles.berserkerOverlay} pointerEvents="none" />
       )}
 
-      {/* Top bar */}
+      {/* Top bar — HP/battery left, wave+score center, kills right */}
       <View style={[styles.topBar, { paddingTop: topPad + 8 }]}>
         {/* HP + Battery stacked */}
         <View style={styles.leftSection}>
@@ -122,31 +68,15 @@ export function GameHUD({
           <Text style={[styles.smallText, { color: batteryColor }]}>{Math.ceil(battery)}%</Text>
         </View>
 
-        {/* Score / Wave */}
+        {/* Wave (large) + Score */}
         <View style={styles.centerInfo}>
           <Text style={styles.waveText}>WAVE {wave}</Text>
           <Text style={styles.scoreText}>{score.toLocaleString()}</Text>
         </View>
 
-        {/* Kill progress / boss shield + settings button */}
+        {/* Kill progress */}
         <View style={styles.killSection}>
-          <View style={styles.killHeaderRow}>
-            {waveProgress < 1 ? (
-              <Text style={[styles.label, { color: "#ff8800" }]}>🛡 BOSS SHIELD</Text>
-            ) : (
-              <Text style={[styles.label, { color: "#ff2222" }]}>⚠ BOSS EXPOSED</Text>
-            )}
-            {/* ── Sound settings button ── */}
-            <TouchableOpacity
-              style={styles.settingsBtn}
-              onPress={() => setSettingsOpen((o) => !o)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.settingsBtnTxt}>
-                {musicVol === 0 && sfxVol === 0 ? "🔇" : sfxVol === 0 ? "🎵" : "🔊"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.label}>KILLS</Text>
           <View style={styles.barTrack}>
             <View style={[styles.barFill, {
               width: `${Math.min(waveProgress, 1) * 100}%` as any,
@@ -157,21 +87,26 @@ export function GameHUD({
         </View>
       </View>
 
-      {/* ── Sound settings panel ── */}
-      {settingsOpen && (
-        <View style={sStyles.panel}>
-          <View style={sStyles.panelInner}>
-            <View style={sStyles.header}>
-              <Text style={sStyles.title}>SOUND</Text>
-              <TouchableOpacity onPress={() => setSettingsOpen(false)} activeOpacity={0.7}>
-                <Text style={sStyles.close}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <VolumeControl label="MUSIC" vol={musicVol} onChange={handleMusicVol} />
-            <VolumeControl label="SFX"   vol={sfxVol}   onChange={handleSfxVol} />
-          </View>
+      {/* Boss shield bar — full-width, very prominent, separate from top bar */}
+      <View style={styles.bossShieldRow}>
+        <View style={styles.bossShieldLabelRow}>
+          {waveProgress < 1 ? (
+            <Text style={styles.bossShieldLabel}>🛡 BOSS SHIELD</Text>
+          ) : (
+            <Text style={[styles.bossShieldLabel, { color: "#ff2222" }]}>⚠ BOSS EXPOSED</Text>
+          )}
+          <Text style={styles.bossShieldPct}>{Math.min(100, Math.round(waveProgress * 100))}%</Text>
         </View>
-      )}
+        <View style={styles.bossShieldTrack}>
+          <View style={[styles.bossShieldFill, {
+            width: `${Math.min(waveProgress, 1) * 100}%` as any,
+            backgroundColor: waveProgress < 1 ? "#ff6600" : "#ff2222",
+          }]} />
+          {waveProgress >= 1 && (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: "#ff0000", opacity: 0.18 }]} />
+          )}
+        </View>
+      </View>
 
       {/* Berserker timer bar */}
       {isBerserking && (
@@ -234,48 +169,6 @@ function BuffBadge({ label, color }: { label: string; color: string }) {
   );
 }
 
-// ── Settings panel styles ─────────────────────────────────────────────────────
-const sStyles = StyleSheet.create({
-  panel: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    paddingTop: 80,
-    paddingRight: 12,
-    alignItems: "flex-end",
-    zIndex: 999,
-  },
-  panelInner: {
-    backgroundColor: "rgba(10,8,14,0.92)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    minWidth: 210,
-    gap: 8,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 2,
-  },
-  title: { color: "#aaa", fontSize: 10, fontWeight: "700", letterSpacing: 2 },
-  close:  { color: "#888", fontSize: 14, paddingLeft: 12 },
-  row:    { flexDirection: "row", alignItems: "center", gap: 8 },
-  chanLabel: { color: "#ccc", fontSize: 10, fontWeight: "700", letterSpacing: 1.5, width: 42 },
-  dots:   { flexDirection: "row", alignItems: "center", gap: 5 },
-  muteBtn: {
-    width: 24, height: 24, borderRadius: 4,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.25)",
-    alignItems: "center", justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.05)",
-  },
-  muteBtnActive: { borderColor: "#ff4444", backgroundColor: "rgba(255,40,40,0.15)" },
-  muteBtnTxt: { color: "#aaa", fontSize: 11, lineHeight: 14 },
-});
-
 const styles = StyleSheet.create({
   container: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
 
@@ -294,26 +187,52 @@ const styles = StyleSheet.create({
   barFill:  { height: "100%", borderRadius: 3 },
   smallText: { color: "#aaa", fontSize: 9, fontWeight: "700" },
 
-  centerInfo: { alignItems: "center", minWidth: 80 },
-  waveText:  { color: "#ff6644", fontSize: 10, fontWeight: "700", letterSpacing: 2 },
-  scoreText: { color: "#fff", fontSize: 20, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  // Wave is now much bigger — centered, very prominent
+  centerInfo: { alignItems: "center", minWidth: 90 },
+  waveText:  {
+    color: "#ff6644",
+    fontSize: 22,
+    fontWeight: "900",
+    letterSpacing: 3,
+    textShadow: "0 0 12px rgba(255,80,30,0.7)" as any,
+  },
+  scoreText: { color: "#fff", fontSize: 18, fontWeight: "700", fontVariant: ["tabular-nums"] },
 
   killSection:   { flex: 1, gap: 1, alignItems: "flex-end" },
-  killHeaderRow: { flexDirection: "row", alignItems: "center", gap: 6 },
 
-  settingsBtn:    { padding: 3 },
-  settingsBtnTxt: { fontSize: 16 },
-
-  // Volume dots (in sStyles panel but using StyleSheet for dot style)
-  volDot: {
-    width: 16, height: 16, borderRadius: 3,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.3)",
-    backgroundColor: "rgba(255,255,255,0.05)",
+  // ── Boss shield — full-width, very prominent ────────────────────────────────
+  bossShieldRow: {
+    marginHorizontal: 12,
+    marginTop: 6,
   },
-  volDotFilled: {
-    backgroundColor: "#00cfff",
-    borderColor: "#00cfff",
+  bossShieldLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 3,
   },
+  bossShieldLabel: {
+    color: "#ff8800",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 1.5,
+    textShadow: "0 0 8px rgba(255,120,0,0.6)" as any,
+  },
+  bossShieldPct: {
+    color: "#ff8800",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  bossShieldTrack: {
+    height: 10,
+    backgroundColor: "#1a1a1a",
+    borderRadius: 5,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,100,0,0.3)",
+  },
+  bossShieldFill: { height: "100%", borderRadius: 5 },
 
   berserkerBar: { alignItems: "center", paddingHorizontal: 20, paddingTop: 6, gap: 3 },
   berserkerBarTrack: { width: "100%", height: 8, backgroundColor: "#330011", borderRadius: 4, overflow: "hidden", borderWidth: 1, borderColor: "#ff0044" },

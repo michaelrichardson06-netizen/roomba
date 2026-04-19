@@ -17,7 +17,7 @@ function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number): Ene
   return {
     id: uid(), x, y, vx: 0, vy: 0, hp, maxHp: hp, type, radius,
     knockbackX: 0, knockbackY: 0, hitFlash: 0, angle: 0, legPhase: 0,
-    damageCooldown: 0,
+    damageCooldown: 1500,     // 1.5s spawn-immunity so freshly-spawned enemies don't instantly hit
     isImmune: type === "boss",           // boss starts immune; cleared when kill threshold reached
     webCooldown: type === "boss" ? C.BOSS_WEB_COOLDOWN : 0,
     burrowTimer: type === "mole" ? C.MOLE_BURROW_AFTER : 0,
@@ -52,6 +52,7 @@ export function createInitialState(): GameState {
     bossWebs: [],
     iceWaves: [], floatingTexts: [],
     tripleShot: false, quadShot: false, rapidFireStacks: 0, bazookaMode: false, lightningStrike: false, lightningArcs: [],
+    playerDamageCooldown: 0,
     shootCooldown: 0, dashCooldown: 0, isDashing: false,
     dashDx: 0, dashDy: 0, dashTime: 0,
     spawnTimer: 0, spawnGrace: 3000, bossSpawned: false,
@@ -78,6 +79,7 @@ export function updateGame(
   s.screenShake = { ...s.screenShake };
 
   // ── Cooldown timers ────────────────────────────────────────────────────────
+  s.playerDamageCooldown = Math.max(0, s.playerDamageCooldown - dt);
   s.shootCooldown = Math.max(0, s.shootCooldown - dt);
   s.dashCooldown = Math.max(0, s.dashCooldown - dt);
   s.whiteFlash = Math.max(0, s.whiteFlash - dt * 3);
@@ -90,6 +92,7 @@ export function updateGame(
     // Low-battery screen flicker — also set red flash so player notices HP drain
     if (Math.random() < 0.04) s.whiteFlash = Math.max(s.whiteFlash, 0.08);
     s.redFlash = Math.max(s.redFlash, 0.3); // persistent dim red while draining
+    if (s.hp <= 0) { s.phase = "dead"; return s; } // battery killed the player
   }
 
   // ── Battery HP regen (very slow while battery charged) ───────────────────
@@ -508,14 +511,17 @@ export function updateGame(
     const minD = enemy.radius + C.PLAYER_RADIUS;
     if (d < minD) {
       if (d > 0) { s.playerX += ((s.playerX - enemy.x) / d) * (minD - d); s.playerY += ((s.playerY - enemy.y) / d) * (minD - d); }
-      if (enemy.damageCooldown <= 0) {
+      // playerDamageCooldown gives brief invincibility frames so a cluster of enemies
+      // can't all land damage simultaneously (the main source of "random instant death")
+      if (enemy.damageCooldown <= 0 && s.playerDamageCooldown <= 0) {
         const dmg = enemy.type === "boss" ? 10 : enemy.type === "elite" ? 7 : enemy.type === "mole" ? 8 : 4;
         s.hp = Math.max(0, s.hp - dmg);
         enemy.damageCooldown = 800;
+        s.playerDamageCooldown = 500; // 500ms window where no other enemy can land a hit
         s.screenShake.magnitude = C.SHAKE_DAMAGE;
         s.redFlash = 1.0; // full red flash on every hit — unmissable
       }
-      if (s.hp <= 0) s.phase = "dead";
+      if (s.hp <= 0) { s.phase = "dead"; }
     }
   }
 
@@ -536,9 +542,10 @@ export function updateGame(
     if (w.x < -100 || w.x > s.mapWidth + 100 || w.y < -100 || w.y > s.mapHeight + 100 || w.age > 6000) return false;
     const d = dist(w.x, w.y, s.playerX, s.playerY);
     if (d < w.radius + C.PLAYER_RADIUS) {
-      if (!s.isDashing) {
+      if (!s.isDashing && s.playerDamageCooldown <= 0) {
         // Player takes web damage; dash avoids it
         s.hp = Math.max(0, s.hp - C.BOSS_WEB_DAMAGE);
+        s.playerDamageCooldown = 400;
         s.screenShake.magnitude = C.SHAKE_DAMAGE + 4;
         s.redFlash = 1.0; // boss web hit = full red flash
         // Green poison splatter

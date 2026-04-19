@@ -174,6 +174,7 @@ export interface GameState {
   // Floating texts (IMMUNE!, etc.)
   floatingTexts: FloatingText[];
   // Cooldowns / timers
+  playerDamageCooldown: number; // invincibility frames after any hit
   shootCooldown: number;
   dashCooldown: number;
   isDashing: boolean;
