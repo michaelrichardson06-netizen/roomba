@@ -14,6 +14,9 @@ interface GameCanvasProps {
 interface HUDState {
   hp: number;
   maxHp: number;
+  battery: number;
+  maxBattery: number;
+  berserkerTimer: number;
   score: number;
   wave: number;
   killCount: number;
@@ -35,7 +38,9 @@ interface JoyState {
 }
 
 const DEFAULT_HUD: HUDState = {
-  hp: 200, maxHp: 200, score: 0, wave: 1,
+  hp: 200, maxHp: 200,
+  battery: 100, maxBattery: 100, berserkerTimer: 0,
+  score: 0, wave: 1,
   killCount: 0, waveTotalKills: 12,
   tripleShot: false, quadShot: false,
   rapidFireStacks: 0, bazookaMode: false,
@@ -83,6 +88,9 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       setHudState({
         hp: newState.hp,
         maxHp: newState.maxHp,
+        battery: newState.battery,
+        maxBattery: newState.maxBattery,
+        berserkerTimer: newState.berserkerTimer,
         score: newState.score,
         wave: newState.wave,
         killCount: newState.killCount,
@@ -157,6 +165,16 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+
+    // ── Stuck-input safety: reset everything on focus loss ────────────────
+    const onBlur = () => {
+      keys.clear();
+      syncKeys();
+      inputRef.current.shooting = false;
+      inputRef.current.dashing = false;
+    };
+    window.addEventListener("blur", onBlur);
+    document.addEventListener("visibilitychange", () => { if (document.hidden) onBlur(); });
 
     // ── Mouse ─────────────────────────────────────────────────────────────
     const onMouseMove = (e: MouseEvent) => {
@@ -276,6 +294,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       document.removeEventListener("contextmenu", noDefault);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mouseup", onMouseUp);

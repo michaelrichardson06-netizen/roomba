@@ -61,9 +61,53 @@ export function renderFrame(
 
   drawRoomba(ctx, state.playerX, state.playerY, state.playerAngle, state.isDashing);
 
+  // ── Berserker AoE ring (world space) ──────────────────────────────────────
+  if (state.berserkerTimer > 0) {
+    const pulse = (Date.now() * 0.004) % 1;
+    const aoeR = (state as any).berserkerAoeRadius ?? 120;
+    ctx.save();
+    ctx.globalAlpha = 0.25 + pulse * 0.2;
+    const aoeGrd = ctx.createRadialGradient(state.playerX, state.playerY, aoeR * 0.6, state.playerX, state.playerY, aoeR);
+    aoeGrd.addColorStop(0, "rgba(255,0,50,0)");
+    aoeGrd.addColorStop(0.7, "rgba(255,0,50,0.35)");
+    aoeGrd.addColorStop(1, "rgba(255,0,50,0)");
+    ctx.fillStyle = aoeGrd;
+    ctx.beginPath();
+    ctx.arc(state.playerX, state.playerY, aoeR, 0, Math.PI * 2);
+    ctx.fill();
+    // Ring border
+    ctx.globalAlpha = 0.5 + pulse * 0.4;
+    ctx.strokeStyle = "#ff0044";
+    ctx.lineWidth = 2 + pulse * 2;
+    ctx.shadowColor = "#ff0044";
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(state.playerX, state.playerY, aoeR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
   ctx.restore();
 
   drawLightingOverlay(ctx, state, cameraX, cameraY, canvasW, canvasH);
+
+  // ── Berserker screen vignette (screen space) ──────────────────────────────
+  if (state.berserkerTimer > 0) {
+    const pulse = 0.12 + Math.sin(Date.now() * 0.008) * 0.06;
+    const vGrd = ctx.createRadialGradient(canvasW / 2, canvasH / 2, canvasH * 0.3, canvasW / 2, canvasH / 2, canvasH * 0.85);
+    vGrd.addColorStop(0, "rgba(255,0,44,0)");
+    vGrd.addColorStop(1, `rgba(255,0,44,${pulse})`);
+    ctx.fillStyle = vGrd;
+    ctx.fillRect(0, 0, canvasW, canvasH);
+  }
+
+  // ── Battery critical flicker vignette ─────────────────────────────────────
+  if ((state as any).battery !== undefined && (state as any).battery <= 0) {
+    const flicker = Math.sin(Date.now() * 0.025) * 0.5 + 0.5;
+    ctx.fillStyle = `rgba(255,60,0,${flicker * 0.08})`;
+    ctx.fillRect(0, 0, canvasW, canvasH);
+  }
 
   if (state.muzzleFlash) {
     const flashAlpha = 1 - state.muzzleFlash.age / state.muzzleFlash.maxAge;
@@ -1018,6 +1062,111 @@ function drawBullet(ctx: CanvasRenderingContext2D, bullet: {
   ctx.restore();
 }
 
+/** AA Battery icon */
+function drawBatteryIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: string) {
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Battery body
+  ctx.fillStyle = "#1a2a1a";
+  ctx.beginPath();
+  ctx.roundRect(-10, -18, 20, 34, 3);
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-10, -18, 20, 34, 3);
+  ctx.stroke();
+
+  // Positive terminal (top)
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(-4, -22, 8, 5, 2);
+  ctx.fill();
+
+  // Charge level (green fill from bottom)
+  const now = Date.now() * 0.001;
+  const chargeH = 22 + Math.sin(now * 2) * 3;
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.8;
+  ctx.beginPath();
+  ctx.roundRect(-7, 14 - chargeH, 14, chargeH, 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Lightning bolt symbol
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 14px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("⚡", 0, 0);
+
+  ctx.restore();
+}
+
+/** Berserker rage icon — skull with flames */
+function drawBerserkerIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  const now = Date.now() * 0.003;
+
+  // Flame background
+  for (let i = 0; i < 5; i++) {
+    const fa = ((i / 5) * Math.PI * 2) + now;
+    const fr = 12 + Math.sin(now * 2 + i) * 4;
+    const fx = Math.cos(fa) * fr;
+    const fy = Math.sin(fa) * fr;
+    ctx.fillStyle = i % 2 === 0 ? "rgba(255,60,0,0.7)" : "rgba(255,150,0,0.5)";
+    ctx.beginPath();
+    ctx.arc(fx, fy, 6 + Math.sin(now * 3 + i) * 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Skull body
+  ctx.fillStyle = "#cc0022";
+  ctx.beginPath();
+  ctx.arc(0, -3, 13, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Jaw
+  ctx.fillStyle = "#aa0018";
+  ctx.beginPath();
+  ctx.ellipse(0, 8, 9, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye sockets
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.arc(-5, -4, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(5, -4, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Glowing eyes
+  ctx.fillStyle = "#ff0044";
+  ctx.shadowColor = "#ff0044";
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(-5, -4, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(5, -4, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Teeth
+  ctx.fillStyle = "#ffffff";
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.rect(i * 3.2 - 1, 4, 2.5, 5);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 // ─── BUFF DROP ───────────────────────────────────────────────────────────────
 
 function drawBuffDrop(ctx: CanvasRenderingContext2D, bd: {
@@ -1043,22 +1192,22 @@ function drawBuffDrop(ctx: CanvasRenderingContext2D, bd: {
   ctx.shadowBlur = 16;
 
   if (bd.type === "rapidFire") {
-    // Single bullet — large, fast, glowing yellow
     drawBulletIcon(ctx, 0, 0, 10, 24, "#ffea00", "#ffff88");
   } else if (bd.type === "tripleShot") {
-    // Three bullets side by side
     drawBulletIcon(ctx, -10, 0, 7, 18, "#00e5ff", "#88ffff");
     drawBulletIcon(ctx,   0, 0, 7, 18, "#00e5ff", "#88ffff");
     drawBulletIcon(ctx,  10, 0, 7, 18, "#00e5ff", "#88ffff");
   } else if (bd.type === "quadShot") {
-    // Four bullets in a 2×2 grid
     drawBulletIcon(ctx, -9, -6, 6, 14, "#7c4dff", "#cc88ff");
     drawBulletIcon(ctx,  9, -6, 6, 14, "#7c4dff", "#cc88ff");
     drawBulletIcon(ctx, -9,  6, 6, 14, "#7c4dff", "#cc88ff");
     drawBulletIcon(ctx,  9,  6, 6, 14, "#7c4dff", "#cc88ff");
   } else if (bd.type === "bazookaMode") {
-    // Rocket/bazooka shell
     drawRocketIcon(ctx, 0, 0, "#ff6d00", "#ffcc00");
+  } else if (bd.type === "battery") {
+    drawBatteryIcon(ctx, 0, 0, "#44ff88");
+  } else if (bd.type === "berserker") {
+    drawBerserkerIcon(ctx, 0, 0);
   }
 
   ctx.restore();

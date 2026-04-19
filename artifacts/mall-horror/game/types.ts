@@ -26,7 +26,7 @@ export interface Enemy {
   isBurrowed: boolean;
 }
 
-export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode";
+export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode" | "berserker" | "battery";
 
 export interface BuffDrop {
   id: string;
@@ -94,10 +94,19 @@ export interface GameState {
   playerVy: number;
   hp: number;
   maxHp: number;
+  // Battery system
+  battery: number;
+  maxBattery: number;
+  batterySpawnTimer: number;
+  // Berserker
+  berserkerTimer: number;
+  berserkerAutoUsed: boolean;
+  // Scores / wave
   score: number;
   wave: number;
   killCount: number;
   waveTotalKills: number;
+  // Entities
   enemies: Enemy[];
   bullets: Bullet[];
   explosions: Explosion[];
@@ -105,12 +114,15 @@ export interface GameState {
   buffDrops: BuffDrop[];
   muzzleFlash: MuzzleFlash | null;
   lamps: LampLight[];
+  // FX
   screenShake: { x: number; y: number; magnitude: number };
   whiteFlash: number;
+  // Power-ups
   tripleShot: boolean;
   quadShot: boolean;
   rapidFireStacks: number;
   bazookaMode: boolean;
+  // Cooldowns / timers
   shootCooldown: number;
   dashCooldown: number;
   isDashing: boolean;

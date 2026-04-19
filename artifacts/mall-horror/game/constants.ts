@@ -33,10 +33,10 @@ export const GAME_CONFIG = {
   AMBIENT_LIGHT_RADIUS: 180,
 
   // Enemy base stats (wave 1)
-  ENEMY_SPEED_STANDARD: 1.2,   // slightly slower in wave 1
+  ENEMY_SPEED_STANDARD: 1.2,
   ENEMY_SPEED_ELITE: 1.9,
   ENEMY_SPEED_BOSS: 0.9,
-  ENEMY_SPEED_MOLE: 2.8,       // fast when above ground
+  ENEMY_SPEED_MOLE: 2.8,
   ENEMY_HP_STANDARD: 30,
   ENEMY_HP_ELITE: 70,
   ENEMY_HP_BOSS: 300,
@@ -47,17 +47,17 @@ export const GAME_CONFIG = {
   ENEMY_RADIUS_MOLE: 11,
 
   // Mole burrow timing (ms)
-  MOLE_BURROW_AFTER: 2800,     // above ground before burrowing
-  MOLE_EMERGE_AFTER: 1600,     // underground before re-emerging near player
-  MOLE_EMERGE_DIST: 140,       // how close to player moles emerge
+  MOLE_BURROW_AFTER: 2800,
+  MOLE_EMERGE_AFTER: 1600,
+  MOLE_EMERGE_DIST: 140,
 
   // Wave scaling
   WAVE_HP_SCALE: 0.12,
   WAVE_DENSITY_SCALE: 0.15,
   WAVE_BASE_KILLS: 12,
-  WAVE_SPEED_SCALE: 0.08,      // per-wave enemy speed multiplier
-  SPAWN_COUNT_BASE: 3,         // enemies per spawn batch, wave 1
-  SPAWN_COUNT_SCALE: 0.8,      // additional per wave
+  WAVE_SPEED_SCALE: 0.08,
+  SPAWN_COUNT_BASE: 3,
+  SPAWN_COUNT_SCALE: 0.8,
 
   // Scoring
   SCORE_STANDARD: 3,
@@ -77,15 +77,31 @@ export const GAME_CONFIG = {
 
   // Drop rates
   ELITE_DROP_CHANCE: 0.55,
+  BOSS_BERSERKER_DROP_CHANCE: 0.6,
 
   // Lamps per scene
   LAMP_COUNT: 28,
 
   // Spawn
   SPAWN_MIN_DIST: 500,
-  SPAWN_INTERVAL_BASE: 2400,   // ms (longer in wave 1)
+  SPAWN_INTERVAL_BASE: 2400,
   MIN_SPAWN_INTERVAL: 500,
-  WAVE_INTERVAL_REDUCTION: 140, // ms reduction per wave
+  WAVE_INTERVAL_REDUCTION: 140,
+
+  // ── Battery ──────────────────────────────────────────────────────────────
+  BATTERY_MAX: 100,
+  BATTERY_DRAIN_RATE: 4.5,       // units/second (always draining)
+  BATTERY_HEALTH_DRAIN: 3,       // HP/second when battery empty
+  BATTERY_SPAWN_INTERVAL: 16000, // ms between spawn checks
+  BATTERY_CHARGE_AMOUNT: 100,    // full recharge per pickup
+
+  // ── Berserker ────────────────────────────────────────────────────────────
+  BERSERKER_HP_THRESHOLD: 0.3,   // auto-triggers at 30% HP
+  BERSERKER_DURATION_AUTO: 30000, // 30 seconds (automatic)
+  BERSERKER_DURATION_BUFF: 15000, // 15 seconds (from boss drop)
+  BERSERKER_AOE_RADIUS: 120,     // pixels
+  BERSERKER_AOE_DPS: 14,         // damage per second to nearby enemies
+  BERSERKER_SPREAD: 8,           // bullets in the 180° arc
 };
 
 export const BUFF_COLORS: Record<string, string> = {
@@ -93,6 +109,8 @@ export const BUFF_COLORS: Record<string, string> = {
   quadShot: "#7c4dff",
   rapidFire: "#ffea00",
   bazookaMode: "#ff6d00",
+  berserker: "#ff0044",
+  battery: "#44ff88",
 };
 
 export const ENEMY_COLORS: Record<string, { body: string; glow: string }> = {
