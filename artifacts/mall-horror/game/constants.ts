@@ -53,11 +53,12 @@ export const GAME_CONFIG = {
 
   // Wave scaling
   WAVE_HP_SCALE: 0.12,
-  WAVE_DENSITY_SCALE: 0.15,
-  WAVE_BASE_KILLS: 12,
-  WAVE_SPEED_SCALE: 0.08,
-  SPAWN_COUNT_BASE: 3,
-  SPAWN_COUNT_SCALE: 0.8,
+  WAVE_DENSITY_SCALE: 0.18,
+  WAVE_BASE_KILLS: 100,      // Wave 1 kill threshold (boss immune until met)
+  WAVE_KILL_INCREMENT: 120,  // Per wave: 100 → 220 → 340 → 460 …
+  WAVE_SPEED_SCALE: 0.09,
+  SPAWN_COUNT_BASE: 6,       // Enemies per spawn batch
+  SPAWN_COUNT_SCALE: 1.8,    // Scales steeply per wave
 
   // Scoring
   SCORE_STANDARD: 3,
@@ -84,9 +85,15 @@ export const GAME_CONFIG = {
 
   // Spawn
   SPAWN_MIN_DIST: 500,
-  SPAWN_INTERVAL_BASE: 2400,
-  MIN_SPAWN_INTERVAL: 500,
-  WAVE_INTERVAL_REDUCTION: 140,
+  SPAWN_INTERVAL_BASE: 1600,   // Faster spawning for denser waves
+  MIN_SPAWN_INTERVAL: 300,     // Minimum interval
+  WAVE_INTERVAL_REDUCTION: 90, // Reduces per wave
+
+  // ── Boss web attack ───────────────────────────────────────────────────────
+  BOSS_WEB_COOLDOWN: 3500,   // ms between web throws
+  BOSS_WEB_SPEED: 3.5,       // px/frame movement speed
+  BOSS_WEB_RADIUS: 16,       // collision radius
+  BOSS_WEB_DAMAGE: 12,       // slightly more than standard enemy contact (4)
 
   // ── Battery ──────────────────────────────────────────────────────────────
   BATTERY_MAX: 100,

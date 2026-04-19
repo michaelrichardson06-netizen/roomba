@@ -75,11 +75,18 @@ export function GameHUD({
           <Text style={styles.scoreText}>{score.toLocaleString()}</Text>
         </View>
 
-        {/* Kill progress */}
+        {/* Kill progress / boss shield */}
         <View style={styles.killSection}>
-          <Text style={styles.label}>KILLS</Text>
+          {waveProgress < 1 ? (
+            <Text style={[styles.label, { color: "#ff8800" }]}>🛡 BOSS SHIELD</Text>
+          ) : (
+            <Text style={[styles.label, { color: "#ff2222" }]}>⚠ BOSS EXPOSED</Text>
+          )}
           <View style={styles.barTrack}>
-            <View style={[styles.barFill, { width: `${Math.min(waveProgress, 1) * 100}%` as any, backgroundColor: "#ff4400" }]} />
+            <View style={[styles.barFill, {
+              width: `${Math.min(waveProgress, 1) * 100}%` as any,
+              backgroundColor: waveProgress < 1 ? "#ff6600" : "#ff2222",
+            }]} />
           </View>
           <Text style={styles.smallText}>{killCount}/{waveTotalKills}</Text>
         </View>

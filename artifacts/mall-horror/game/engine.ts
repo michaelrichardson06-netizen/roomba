@@ -18,6 +18,8 @@ function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number): Ene
     id: uid(), x, y, vx: 0, vy: 0, hp, maxHp: hp, type, radius,
     knockbackX: 0, knockbackY: 0, hitFlash: 0, angle: 0, legPhase: 0,
     damageCooldown: 0,
+    isImmune: type === "boss",           // boss starts immune; cleared when kill threshold reached
+    webCooldown: type === "boss" ? C.BOSS_WEB_COOLDOWN : 0,
     burrowTimer: type === "mole" ? C.MOLE_BURROW_AFTER : 0,
     isBurrowed: false,
   };
@@ -40,11 +42,12 @@ export function createInitialState(): GameState {
     batterySpawnTimer: C.BATTERY_SPAWN_INTERVAL,
     berserkerTimer: 0, berserkerAutoUsed: false,
     score: 0, wave: 1, killCount: 0,
-    waveTotalKills: Math.ceil(C.WAVE_BASE_KILLS),
+    waveTotalKills: C.WAVE_BASE_KILLS, // 100 on wave 1
     enemies: [], bullets: [], explosions: [], particles: [],
     buffDrops: [], muzzleFlash: null, lamps,
     screenShake: { x: 0, y: 0, magnitude: 0 },
     whiteFlash: 0,
+    bossWebs: [],
     tripleShot: false, quadShot: false, rapidFireStacks: 0, bazookaMode: false, lightningStrike: false, lightningArcs: [],
     shootCooldown: 0, dashCooldown: 0, isDashing: false,
     dashDx: 0, dashDy: 0, dashTime: 0,
@@ -63,6 +66,7 @@ export function updateGame(
   s.enemies = [...s.enemies];
   s.bullets = [...s.bullets];
   s.explosions = [...s.explosions];
+  s.bossWebs = [...s.bossWebs];
   s.particles = [...s.particles];
   s.buffDrops = [...s.buffDrops];
   s.lightningArcs = [...s.lightningArcs];
@@ -259,27 +263,34 @@ export function updateGame(
   // ── Spawn enemies ─────────────────────────────────────────────────────────
   const spawnInterval = Math.max(C.MIN_SPAWN_INTERVAL, C.SPAWN_INTERVAL_BASE - (s.wave - 1) * C.WAVE_INTERVAL_REDUCTION);
   s.spawnTimer += dt;
-  const killsNeeded = s.waveTotalKills;
-  const shouldSpawnBoss = s.killCount >= killsNeeded && !s.bossSpawned;
 
   if (s.spawnGrace <= 0) {
-    if (shouldSpawnBoss) {
+    // Boss spawns immediately at wave start (immune until kill threshold)
+    if (!s.bossSpawned) {
       s.bossSpawned = true;
       const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
       s.enemies.push(makeEnemy("boss", pos.x, pos.y, s.wave));
-    } else if (!shouldSpawnBoss && s.killCount < killsNeeded) {
-      if (s.spawnTimer >= spawnInterval) {
-        s.spawnTimer = 0;
-        const batchSize = Math.min(8, Math.ceil(C.SPAWN_COUNT_BASE + (s.wave - 1) * C.SPAWN_COUNT_SCALE));
-        for (let i = 0; i < batchSize; i++) {
-          const roll = Math.random();
-          const type: Enemy["type"] = s.wave >= 3 && roll < 0.12 ? "mole" : roll < 0.2 ? "elite" : "standard";
-          const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
-          s.enemies.push(makeEnemy(type, pos.x, pos.y, s.wave));
-        }
+    }
+    // Regular enemies always spawn throughout the wave
+    if (s.spawnTimer >= spawnInterval) {
+      s.spawnTimer = 0;
+      const batchSize = Math.min(14, Math.ceil(C.SPAWN_COUNT_BASE + (s.wave - 1) * C.SPAWN_COUNT_SCALE));
+      for (let i = 0; i < batchSize; i++) {
+        const roll = Math.random();
+        const type: Enemy["type"] = s.wave >= 3 && roll < 0.12 ? "mole" : roll < 0.22 ? "elite" : "standard";
+        const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
+        s.enemies.push(makeEnemy(type, pos.x, pos.y, s.wave));
       }
     }
   }
+
+  // ── Update boss immunity flag ─────────────────────────────────────────────
+  // Boss is immune until kill threshold is reached; once met it becomes vulnerable
+  const bossVulnerable = s.killCount >= s.waveTotalKills;
+  s.enemies = s.enemies.map((e) => {
+    if (e.type === "boss") return { ...e, isImmune: !bossVulnerable };
+    return e;
+  });
 
   // ── Move enemies ──────────────────────────────────────────────────────────
   s.enemies = s.enemies.map((e) => {
@@ -310,6 +321,22 @@ export function updateGame(
     const ny = d > 0 ? (dy / d) * speed : 0;
     const kbX = e.knockbackX * 0.8, kbY = e.knockbackY * 0.8;
 
+    // ── Boss web attack (only when boss is vulnerable) ──────────────────────
+    let newWebCooldown = e.webCooldown;
+    if (e.type === "boss" && !e.isImmune) {
+      newWebCooldown = e.webCooldown - dt;
+      if (newWebCooldown <= 0) {
+        newWebCooldown = C.BOSS_WEB_COOLDOWN;
+        const angle = Math.atan2(dy, dx);
+        s.bossWebs.push({
+          id: uid(), x: e.x, y: e.y,
+          vx: Math.cos(angle) * C.BOSS_WEB_SPEED,
+          vy: Math.sin(angle) * C.BOSS_WEB_SPEED,
+          radius: C.BOSS_WEB_RADIUS, age: 0,
+        });
+      }
+    }
+
     return {
       ...e,
       x: e.x + nx + (Math.abs(kbX) < 0.1 ? 0 : kbX) * (dt / 16),
@@ -320,6 +347,7 @@ export function updateGame(
       angle: Math.atan2(dy, dx) - Math.PI / 2,
       legPhase: e.legPhase + dt * 0.01,
       damageCooldown: Math.max(0, e.damageCooldown - dt),
+      webCooldown: newWebCooldown,
       burrowTimer: e.type === "mole" ? e.burrowTimer - dt : e.burrowTimer,
     };
   });
@@ -341,7 +369,7 @@ export function updateGame(
         s.explosions.push({ id: uid(), x: bullet.x, y: bullet.y, radius: 0, maxRadius: C.BAZOOKA_EXPLOSION_RADIUS, alpha: 1, age: 0 });
         s.screenShake.magnitude = C.SHAKE_BAZOOKA;
         for (const enemy of s.enemies) {
-          if (enemy.isBurrowed) continue;
+          if (enemy.isBurrowed || enemy.isImmune) continue;  // immune boss shrugs off bazooka
           const d = dist(bullet.x, bullet.y, enemy.x, enemy.y);
           if (d < C.BAZOOKA_EXPLOSION_RADIUS + enemy.radius) {
             const dmg = Math.ceil(999 * (1 - d / (C.BAZOOKA_EXPLOSION_RADIUS + enemy.radius)));
@@ -368,6 +396,15 @@ export function updateGame(
         if (enemiesToRemove.has(enemy.id) || enemy.isBurrowed) continue;
         const d = dist(bullet.x, bullet.y, enemy.x, enemy.y);
         if (d < enemy.radius + bullet.radius) {
+          // Immune boss deflects bullets with sparks
+          if (enemy.isImmune) {
+            bulletsToRemove.add(bullet.id);
+            for (let i = 0; i < 6; i++) {
+              const a = Math.random() * Math.PI * 2;
+              s.particles.push({ id: uid(), x: bullet.x, y: bullet.y, vx: Math.cos(a) * rand(3, 8), vy: Math.sin(a) * rand(3, 8), life: rand(80, 200), maxLife: 200, color: Math.random() > 0.5 ? "#ff8800" : "#ffee00", size: rand(2, 5) });
+            }
+            break;
+          }
           bulletsToRemove.add(bullet.id);
           const bLen = Math.sqrt(bullet.vx * bullet.vx + bullet.vy * bullet.vy);
           const kbMag = enemy.type === "boss" ? C.KNOCKBACK_BOSS : enemy.type === "elite" ? C.KNOCKBACK_ELITE : enemy.type === "mole" ? C.KNOCKBACK_MOLE : C.KNOCKBACK_STANDARD;
@@ -428,7 +465,8 @@ export function updateGame(
     s.killCount = 0;
     s.bossSpawned = false;
     s.spawnGrace = 2500;
-    s.waveTotalKills = Math.ceil(C.WAVE_BASE_KILLS * Math.pow(1 + C.WAVE_DENSITY_SCALE, s.wave - 1));
+    s.waveTotalKills = C.WAVE_BASE_KILLS + (s.wave - 1) * C.WAVE_KILL_INCREMENT; // 100, 220, 340 …
+    s.bossWebs = [];
     for (let i = 0; i < 20; i++) {
       const a = Math.random() * Math.PI * 2;
       s.particles.push({ id: uid(), x: s.playerX, y: s.playerY, vx: Math.cos(a) * rand(3, 10), vy: Math.sin(a) * rand(3, 10), life: rand(400, 1000), maxLife: 1000, color: "#ffff44", size: rand(4, 9) });
@@ -443,7 +481,7 @@ export function updateGame(
     if (d < minD) {
       if (d > 0) { s.playerX += ((s.playerX - enemy.x) / d) * (minD - d); s.playerY += ((s.playerY - enemy.y) / d) * (minD - d); }
       if (enemy.damageCooldown <= 0) {
-        const dmg = enemy.type === "boss" ? 8 : enemy.type === "elite" ? 5 : enemy.type === "mole" ? 6 : 3;
+        const dmg = enemy.type === "boss" ? 10 : enemy.type === "elite" ? 7 : enemy.type === "mole" ? 8 : 4;
         s.hp = Math.max(0, s.hp - dmg);
         enemy.damageCooldown = 800;
         s.screenShake.magnitude = C.SHAKE_DAMAGE;
@@ -455,6 +493,39 @@ export function updateGame(
   // ── Buff pickup ───────────────────────────────────────────────────────────
   s.buffDrops = s.buffDrops.map((b) => ({ ...b, pulse: b.pulse + dt * 0.003 })).filter((bd) => {
     if (dist(s.playerX, s.playerY, bd.x, bd.y) < C.PLAYER_RADIUS + 22) { applyBuff(s, bd.type); return false; }
+    return true;
+  });
+
+  // ── Boss web movement + player collision ──────────────────────────────────
+  const webStep = dt / 16;
+  s.bossWebs = s.bossWebs.map((w) => ({
+    ...w,
+    x: w.x + w.vx * webStep,
+    y: w.y + w.vy * webStep,
+    age: w.age + dt,
+  })).filter((w) => {
+    if (w.x < -100 || w.x > s.mapWidth + 100 || w.y < -100 || w.y > s.mapHeight + 100 || w.age > 6000) return false;
+    const d = dist(w.x, w.y, s.playerX, s.playerY);
+    if (d < w.radius + C.PLAYER_RADIUS) {
+      if (!s.isDashing) {
+        // Player takes web damage; dash avoids it
+        s.hp = Math.max(0, s.hp - C.BOSS_WEB_DAMAGE);
+        s.screenShake.magnitude = C.SHAKE_DAMAGE + 4;
+        // Green poison splatter
+        for (let i = 0; i < 12; i++) {
+          const a = Math.random() * Math.PI * 2;
+          s.particles.push({ id: uid(), x: w.x, y: w.y, vx: Math.cos(a) * rand(2, 7), vy: Math.sin(a) * rand(2, 7), life: rand(200, 500), maxLife: 500, color: Math.random() > 0.4 ? "#66ff22" : "#cc4400", size: rand(3, 8) });
+        }
+        if (s.hp <= 0) s.phase = "dead";
+      } else {
+        // Dashed through — tiny dodge particles
+        for (let i = 0; i < 6; i++) {
+          const a = Math.random() * Math.PI * 2;
+          s.particles.push({ id: uid(), x: w.x, y: w.y, vx: Math.cos(a) * rand(2, 5), vy: Math.sin(a) * rand(2, 5), life: rand(100, 250), maxLife: 250, color: "#44aaff", size: rand(2, 5) });
+        }
+      }
+      return false; // web consumed
+    }
     return true;
   });
 

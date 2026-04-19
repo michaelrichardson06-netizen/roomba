@@ -21,9 +21,19 @@ export interface Enemy {
   angle: number;
   legPhase: number;
   damageCooldown: number;
+  isImmune: boolean;    // boss only: immune until kill threshold
+  webCooldown: number;  // boss only: time until next web throw
   // Mole-specific
   burrowTimer: number;
   isBurrowed: boolean;
+}
+
+export interface BossWeb {
+  id: string;
+  x: number; y: number;
+  vx: number; vy: number;
+  radius: number;
+  age: number;
 }
 
 export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode" | "berserker" | "battery" | "lightningStrike";
@@ -134,6 +144,7 @@ export interface GameState {
   bazookaMode: boolean;
   lightningStrike: boolean;
   lightningArcs: LightningArc[];
+  bossWebs: BossWeb[];
   // Cooldowns / timers
   shootCooldown: number;
   dashCooldown: number;

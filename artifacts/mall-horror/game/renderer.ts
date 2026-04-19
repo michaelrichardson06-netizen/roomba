@@ -55,6 +55,11 @@ export function renderFrame(
     drawEnemy(ctx, enemy);
   }
 
+  // ── Boss webs ──────────────────────────────────────────────────────────────
+  for (const web of state.bossWebs) {
+    drawBossWeb(ctx, web);
+  }
+
   for (const bullet of state.bullets) {
     drawBullet(ctx, bullet);
   }
@@ -1057,10 +1062,58 @@ function _drawRoombaBody(ctx: CanvasRenderingContext2D, dashing: boolean, spinPh
 
 // ─── ENEMY ───────────────────────────────────────────────────────────────────
 
+function drawBossWeb(ctx: CanvasRenderingContext2D, web: { x: number; y: number; radius: number; age: number }) {
+  const now = Date.now();
+  const pulse = 0.75 + Math.sin(now * 0.012) * 0.25;
+  ctx.save();
+  ctx.translate(web.x, web.y);
+  // Radioactive glow
+  ctx.shadowColor = "#cc2200";
+  ctx.shadowBlur = 18;
+  // Outer ring
+  ctx.strokeStyle = `rgba(220,50,0,${0.9 * pulse})`;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, web.radius, 0, Math.PI * 2);
+  ctx.stroke();
+  // Web strands (8 spokes + 3 rings)
+  const spokes = 8;
+  ctx.strokeStyle = `rgba(255,80,20,${0.7 * pulse})`;
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < spokes; i++) {
+    const a = (i / spokes) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * web.radius, Math.sin(a) * web.radius);
+    ctx.stroke();
+  }
+  // Concentric web rings
+  for (let ri = 1; ri <= 3; ri++) {
+    const rr = (ri / 3.5) * web.radius;
+    ctx.strokeStyle = `rgba(200,40,0,${0.55 * pulse})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i <= spokes; i++) {
+      const a = (i / spokes) * Math.PI * 2;
+      const px = Math.cos(a) * rr, py = Math.sin(a) * rr;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+  // Central nucleus dot
+  ctx.fillStyle = `rgba(255,30,0,${pulse})`;
+  ctx.beginPath();
+  ctx.arc(0, 0, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawEnemy(ctx: CanvasRenderingContext2D, enemy: {
   x: number; y: number; radius: number; type: string;
   hp: number; maxHp: number; hitFlash: number; angle: number; legPhase: number;
   isBurrowed?: boolean;
+  isImmune?: boolean;
 }) {
   // Burrowed moles: draw only a slight ground disturbance
   if (enemy.isBurrowed) {
@@ -1139,6 +1192,45 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: {
     ctx.closePath();
     ctx.fill();
     drawLegs(ctx, r, 8, enemy.legPhase, "#5c0000", "#8a0000");
+
+    // ── Immunity shield ──────────────────────────────────────────────────────
+    if (enemy.isImmune) {
+      const now = Date.now();
+      const pulse = 0.6 + Math.sin(now * 0.008) * 0.4;
+      const shieldR = r * 1.35 + Math.sin(now * 0.015) * 6;
+      // Outer glow ring
+      ctx.shadowColor = "#ff4400";
+      ctx.shadowBlur = 30 + pulse * 20;
+      ctx.strokeStyle = `rgba(255,${Math.floor(60 + pulse * 80)},0,${0.7 + pulse * 0.3})`;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(0, 0, shieldR, 0, Math.PI * 2);
+      ctx.stroke();
+      // Inner shield fill
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = `rgba(255,30,0,${0.06 + pulse * 0.06})`;
+      ctx.beginPath();
+      ctx.arc(0, 0, shieldR, 0, Math.PI * 2);
+      ctx.fill();
+      // Hex-web pattern on shield
+      ctx.strokeStyle = `rgba(255,100,0,${0.3 + pulse * 0.2})`;
+      ctx.lineWidth = 1;
+      const hexN = 6;
+      for (let hi = 0; hi < hexN; hi++) {
+        const a = (hi / hexN) * Math.PI * 2 + now * 0.001;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a) * shieldR, Math.sin(a) * shieldR);
+        ctx.stroke();
+      }
+      // "IMMUNE" label above boss
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = "#ff4400";
+      ctx.fillStyle = `rgba(255,${Math.floor(100 + pulse * 100)},0,${0.8 + pulse * 0.2})`;
+      ctx.font = `bold ${Math.floor(r * 0.35)}px monospace`;
+      ctx.textAlign = "center";
+      ctx.fillText("IMMUNE", 0, -r * 1.8);
+    }
   } else if (enemy.type === "elite") {
     ctx.fillStyle = enemy.hitFlash > 0 ? "#ffffff" : colors.body;
     ctx.beginPath();
