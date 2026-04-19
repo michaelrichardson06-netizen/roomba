@@ -12,7 +12,7 @@ export const GAME_CONFIG = {
   // Dash
   DASH_SPEED: 18,
   DASH_DURATION: 120,
-  DASH_COOLDOWN: 1500,
+  DASH_COOLDOWN: 600,
 
   // Shooting
   BASE_SHOOT_COOLDOWN: 350,

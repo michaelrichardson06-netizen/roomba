@@ -206,38 +206,42 @@ export function renderFrame(
 
   drawLightingOverlay(ctx, state, cameraX, cameraY, canvasW, canvasH);
 
-  // ── Player HP bar — screen space, drawn ON TOP of fog so it's always visible ─
-  // Positioned just below the player (screen center), so eyes never leave action.
-  if (state.hp < state.maxHp) {
+  // ── Player HP bar — always visible, screen-space, just below player ─────────
+  {
     const hpRatio = Math.max(0, state.hp / state.maxHp);
-    const barW = 56;
-    const barH = 7;
+    const barW = 72;
+    const barH = 9;
     const sx = canvasW / 2 - barW / 2;
-    const sy = canvasH / 2 + 30; // 30px below screen center (below the Roomba)
+    const sy = canvasH / 2 + 28;
     ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    // Track background
+    ctx.fillStyle = "rgba(0,0,0,0.8)";
     ctx.beginPath();
-    ctx.roundRect(sx - 1, sy - 1, barW + 2, barH + 2, 4);
+    ctx.roundRect(sx - 2, sy - 2, barW + 4, barH + 4, 5);
     ctx.fill();
+    // Dim empty track
+    ctx.fillStyle = "rgba(60,10,10,0.6)";
+    ctx.beginPath();
+    ctx.roundRect(sx, sy, barW, barH, 3);
+    ctx.fill();
+    // Filled portion
     const barColor = hpRatio > 0.5 ? "#22cc44" : hpRatio > 0.25 ? "#ffaa00" : "#ff2222";
-    if (hpRatio <= 0.30) {
+    if (hpRatio <= 0.50) {
       ctx.shadowColor = barColor;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
     }
     ctx.fillStyle = barColor;
     ctx.beginPath();
-    ctx.roundRect(sx, sy, Math.max(1, barW * hpRatio), barH, 3);
+    ctx.roundRect(sx, sy, Math.max(2, barW * hpRatio), barH, 3);
     ctx.fill();
     ctx.shadowBlur = 0;
-    if (hpRatio <= 0.30) {
-      ctx.font = "bold 10px monospace";
-      ctx.textAlign = "center";
-      ctx.fillStyle = "#ff3333";
-      ctx.shadowColor = "#ff0000";
-      ctx.shadowBlur = 8;
-      ctx.fillText(`${Math.ceil(state.hp)} HP`, canvasW / 2, sy + barH + 12);
-      ctx.shadowBlur = 0;
-    }
+    // HP number always shown
+    ctx.font = `bold ${hpRatio <= 0.30 ? 11 : 9}px monospace`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = hpRatio <= 0.30 ? "#ff3333" : "#aaaaaa";
+    if (hpRatio <= 0.30) { ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 8; }
+    ctx.fillText(`${Math.ceil(state.hp)} HP`, canvasW / 2, sy + barH + 13);
+    ctx.shadowBlur = 0;
     ctx.restore();
   }
 
@@ -294,30 +298,33 @@ export function renderFrame(
     ctx.fillRect(0, 0, canvasW, canvasH);
   }
 
-  // ── Low HP pulsing red glow + critical text (≤ 30% HP) ───────────────────
+  // ── Low HP pulsing red glow + critical text (≤ 50% HP) ───────────────────
   const hpRatio = state.hp / state.maxHp;
-  if (hpRatio < 0.30 && state.redFlash < 0.5) {
-    const pulse = (Math.sin(Date.now() * 0.004) * 0.5 + 0.5) * (0.30 - hpRatio) / 0.30;
+  if (hpRatio < 0.50 && state.redFlash < 0.5) {
+    const pulse = (Math.sin(Date.now() * 0.004) * 0.5 + 0.5) * (0.50 - hpRatio) / 0.50;
     const lowGrd = ctx.createRadialGradient(canvasW / 2, canvasH / 2, canvasH * 0.35, canvasW / 2, canvasH / 2, canvasH * 0.9);
     lowGrd.addColorStop(0, "rgba(200,0,0,0)");
     lowGrd.addColorStop(1, `rgba(200,0,0,${pulse * 0.55})`);
     ctx.fillStyle = lowGrd;
     ctx.fillRect(0, 0, canvasW, canvasH);
-    // Bold "⚠ CRITICAL HP" text at top-center — impossible to miss
-    const critAlpha = 0.5 + pulse * 0.5;
+    // Warning text — "DANGER" at 50%, "CRITICAL HP" at 30%
+    const isCritical = hpRatio < 0.30;
+    const critAlpha = isCritical ? (0.6 + pulse * 0.4) : (0.3 + pulse * 0.3);
     const critY = canvasH * 0.18;
+    const critLabel = isCritical ? "⚠ CRITICAL HP" : "⚠ TAKING DAMAGE";
+    const critSize = isCritical ? 20 : 15;
     ctx.save();
     ctx.globalAlpha = critAlpha;
-    ctx.font = "bold 20px monospace";
+    ctx.font = `bold ${critSize}px monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.shadowColor = "#ff0000";
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = isCritical ? 18 : 10;
     ctx.strokeStyle = "rgba(0,0,0,0.9)";
     ctx.lineWidth = 4;
-    ctx.strokeText("⚠ CRITICAL HP", canvasW / 2, critY);
-    ctx.fillStyle = "#ff3333";
-    ctx.fillText("⚠ CRITICAL HP", canvasW / 2, critY);
+    ctx.strokeText(critLabel, canvasW / 2, critY);
+    ctx.fillStyle = isCritical ? "#ff3333" : "#ff7744";
+    ctx.fillText(critLabel, canvasW / 2, critY);
     ctx.shadowBlur = 0;
     ctx.restore();
   }

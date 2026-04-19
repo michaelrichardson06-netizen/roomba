@@ -381,6 +381,22 @@ export function updateGame(
     };
   });
 
+  // ── Enemy separation — prevent pile-ups that corner the player ────────────
+  // O(n²) over active enemies; fine at typical counts (<30)
+  for (let i = 0; i < s.enemies.length; i++) {
+    for (let j = i + 1; j < s.enemies.length; j++) {
+      const a = s.enemies[i], b = s.enemies[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const overlap = a.radius + b.radius - Math.sqrt(dx * dx + dy * dy);
+      if (overlap > 0) {
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const push = (overlap / len) * 0.5; // split evenly
+        s.enemies[i] = { ...a, x: a.x - dx * push, y: a.y - dy * push };
+        s.enemies[j] = { ...b, x: b.x + dx * push, y: b.y + dy * push };
+      }
+    }
+  }
+
   // ── Bullet vs enemy collision ─────────────────────────────────────────────
   const bulletsToRemove = new Set<string>();
   const enemiesToRemove = new Set<string>();
