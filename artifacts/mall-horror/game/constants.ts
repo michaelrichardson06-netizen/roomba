@@ -34,7 +34,7 @@ export const GAME_CONFIG = {
 
   // Enemy base stats (wave 1)
   ENEMY_SPEED_STANDARD: 1.2,
-  ENEMY_SPEED_ELITE: 1.9,
+  ENEMY_SPEED_ELITE: 1.5,
   ENEMY_SPEED_BOSS: 0.9,
   ENEMY_HP_STANDARD: 30,
   ENEMY_HP_ELITE: 70,

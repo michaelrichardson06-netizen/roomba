@@ -532,13 +532,21 @@ export function updateGame(
       // playerDamageCooldown gives brief invincibility frames so a cluster of enemies
       // can't all land damage simultaneously
       if (enemy.damageCooldown <= 0 && s.playerDamageCooldown <= 0) {
-        const dmg = enemy.type === "boss" ? 10 : enemy.type === "elite" ? 7 : 4;
+        const dmg = enemy.type === "boss" ? 10 : enemy.type === "elite" ? 5 : 4;
         const hpBefore = s.hp;
         s.hp = Math.max(0, s.hp - dmg);
         enemy.damageCooldown = 900;
-        s.playerDamageCooldown = 750;
+        s.playerDamageCooldown = 1000;
         s.screenShake.magnitude = C.SHAKE_DAMAGE;
         s.redFlash = 1.0;
+        // ── Bite-and-recoil: push the enemy back so the player has an escape window ──
+        const recoil = 65;
+        if (d > 0) {
+          enemy.x += ((enemy.x - s.playerX) / d) * recoil;
+          enemy.y += ((enemy.y - s.playerY) / d) * recoil;
+          enemy.x = Math.max(enemy.radius, Math.min(s.mapWidth - enemy.radius, enemy.x));
+          enemy.y = Math.max(enemy.radius, Math.min(s.mapHeight - enemy.radius, enemy.y));
+        }
         // Floating damage number above the player — makes every hit unmissable
         s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-12, 12), y: s.playerY - 28, text: `-${dmg}`, age: 0, maxAge: 900, color: "#ff2222", vy: -1.2 });
         const nearbyCount = s.enemies.filter((e) => dist(s.playerX, s.playerY, e.x, e.y) < 120).length;
