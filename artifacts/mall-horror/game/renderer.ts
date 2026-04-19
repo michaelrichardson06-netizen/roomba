@@ -59,7 +59,7 @@ export function renderFrame(
     drawBullet(ctx, bullet);
   }
 
-  drawDog(ctx, state.playerX, state.playerY, state.playerAngle, state.isDashing);
+  drawRoomba(ctx, state.playerX, state.playerY, state.playerAngle, state.isDashing);
 
   ctx.restore();
 
@@ -245,9 +245,9 @@ function drawLamp(ctx: CanvasRenderingContext2D, x: number, y: number, color: st
   ctx.restore();
 }
 
-// ─── DOG (K-9) PLAYER ────────────────────────────────────────────────────────
+// ─── ROOMBA ROBOT PLAYER ─────────────────────────────────────────────────────
 
-function drawDog(
+function drawRoomba(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
   angle: number,
@@ -255,169 +255,168 @@ function drawDog(
 ) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(angle);
+  // angle convention: -PI/2 = facing right. +PI flips so local-top = forward direction
+  ctx.rotate(angle + Math.PI);
 
   if (dashing) {
-    ctx.shadowColor = "#60aaff";
-    ctx.shadowBlur = 24;
-    // Dash trail ghost
-    ctx.globalAlpha = 0.3;
-    _drawDogBody(ctx, false);
+    ctx.globalAlpha = 0.25;
+    _drawRoombaBody(ctx, false, 0);
     ctx.globalAlpha = 1;
-    ctx.translate(0, 6);
   }
-
-  _drawDogBody(ctx, dashing);
+  if (dashing) {
+    ctx.shadowColor = "#60ccff";
+    ctx.shadowBlur = 28;
+  }
+  _drawRoombaBody(ctx, dashing, Date.now() * 0.004);
   ctx.restore();
 }
 
-function _drawDogBody(ctx: CanvasRenderingContext2D, dashing: boolean) {
-  const FUR = "#c8a060";
-  const FUR_DARK = "#a07838";
-  const FUR_SHADOW = "#7a5820";
-  const NOSE = "#1a0c04";
-  const EYE = "#2a1a00";
-  const GUN = "#303030";
-  const VEST = "#3a5a3a";
+function _drawRoombaBody(ctx: CanvasRenderingContext2D, dashing: boolean, spinPhase: number) {
+  const R = 16;
+  const PI = Math.PI;
 
-  // Shadow
-  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  // Drop shadow
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
   ctx.beginPath();
-  ctx.ellipse(3, 3, 13, 10, 0, 0, Math.PI * 2);
+  ctx.ellipse(3, 5, R + 2, R * 0.55, 0, 0, PI * 2);
   ctx.fill();
 
-  // Tail (at bottom = behind player)
-  ctx.strokeStyle = FUR_DARK;
-  ctx.lineWidth = 5;
+  // Main body — metallic dark disc
+  const bodyGrd = ctx.createRadialGradient(-5, -5, 2, 0, 0, R);
+  bodyGrd.addColorStop(0, "#52525f");
+  bodyGrd.addColorStop(0.4, "#28282f");
+  bodyGrd.addColorStop(1, "#18181e");
+  ctx.fillStyle = bodyGrd;
+  ctx.beginPath();
+  ctx.arc(0, 0, R, 0, PI * 2);
+  ctx.fill();
+
+  // Outer ring (chrome edge)
+  ctx.strokeStyle = "#5a5a6e";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, R, 0, PI * 2);
+  ctx.stroke();
+
+  // Spinning brush disc (underneath, visible at edges)
+  if (dashing) {
+    ctx.strokeStyle = "rgba(80,170,255,0.5)";
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 6; i++) {
+      const a = spinPhase + (i / 6) * PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 4, Math.sin(a) * 4);
+      ctx.lineTo(Math.cos(a) * (R - 2), Math.sin(a) * (R - 2));
+      ctx.stroke();
+    }
+  } else {
+    // Subtle spin lines
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) {
+      const a = spinPhase * 0.3 + (i / 4) * PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 5, Math.sin(a) * 5);
+      ctx.lineTo(Math.cos(a) * (R - 3), Math.sin(a) * (R - 3));
+      ctx.stroke();
+    }
+  }
+
+  // Front bumper strip — bright arc on forward half (local -y = forward after rotation)
+  ctx.strokeStyle = "#8080a0";
+  ctx.lineWidth = 4;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(0, 10);
-  ctx.quadraticCurveTo(dashing ? -14 : 12, 22, dashing ? -6 : 18, 14);
-  ctx.stroke();
-  ctx.strokeStyle = FUR;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(0, 10);
-  ctx.quadraticCurveTo(dashing ? -14 : 12, 22, dashing ? -6 : 18, 14);
+  ctx.arc(0, 0, R - 1, -PI * 0.72, -PI * 0.28);
   ctx.stroke();
 
-  // Body (torso)
-  ctx.fillStyle = FUR_SHADOW;
-  ctx.beginPath();
-  ctx.ellipse(0, 2, 10, 13, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = FUR;
-  ctx.beginPath();
-  ctx.ellipse(0, 1, 9, 12, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // Rear exhaust slits
+  ctx.strokeStyle = "#333340";
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = "butt";
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * 3.5, 10);
+    ctx.lineTo(i * 3.5, 14);
+    ctx.stroke();
+  }
 
-  // Tactical vest
-  ctx.fillStyle = VEST;
-  ctx.fillRect(-6, -4, 12, 9);
-  // Vest strap
-  ctx.fillStyle = "#2a4a2a";
-  ctx.fillRect(-7, -2, 2, 7);
-  ctx.fillRect(5, -2, 2, 7);
+  // Side wheel bumps (3 and 9 o'clock)
+  ctx.fillStyle = "#111118";
+  ctx.beginPath(); ctx.ellipse(-R + 1, 0, 4.5, 7, 0, 0, PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(R - 1, 0, 4.5, 7, 0, 0, PI * 2); ctx.fill();
+  ctx.strokeStyle = "#2a2a38";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(-R + 1, 0, 4.5, 7, 0, 0, PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(R - 1, 0, 4.5, 7, 0, 0, PI * 2); ctx.stroke();
 
-  // Gun barrel (pointing up = forward)
-  ctx.fillStyle = GUN;
-  ctx.fillRect(-2, -30, 4, 14); // barrel
-  ctx.fillRect(-3, -18, 6, 6);  // body/grip
-  // Muzzle highlight
-  ctx.fillStyle = "#505050";
-  ctx.fillRect(-1, -32, 2, 4);
-
-  // Head
-  ctx.fillStyle = FUR_SHADOW;
+  // Top plate (center panel)
+  const topGrd = ctx.createRadialGradient(0, 0, 2, 0, 0, 9);
+  topGrd.addColorStop(0, "#38384a");
+  topGrd.addColorStop(1, "#22222e");
+  ctx.fillStyle = topGrd;
   ctx.beginPath();
-  ctx.ellipse(0, -14, 9, 8, 0, 0, Math.PI * 2);
+  ctx.arc(0, 0, 9, 0, PI * 2);
   ctx.fill();
-  ctx.fillStyle = FUR;
+  ctx.strokeStyle = "#48485a";
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.ellipse(0, -15, 8, 7, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Ears (left + right, triangular + floppy)
-  ctx.fillStyle = FUR_DARK;
-  // Left ear
-  ctx.beginPath();
-  ctx.moveTo(-8, -16);
-  ctx.lineTo(-14, -24);
-  ctx.lineTo(-6, -21);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#c87060";
-  ctx.beginPath();
-  ctx.moveTo(-8, -17);
-  ctx.lineTo(-12, -22);
-  ctx.lineTo(-7, -20);
-  ctx.closePath();
-  ctx.fill();
-  // Right ear
-  ctx.fillStyle = FUR_DARK;
-  ctx.beginPath();
-  ctx.moveTo(8, -16);
-  ctx.lineTo(14, -24);
-  ctx.lineTo(6, -21);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#c87060";
-  ctx.beginPath();
-  ctx.moveTo(8, -17);
-  ctx.lineTo(12, -22);
-  ctx.lineTo(7, -20);
-  ctx.closePath();
-  ctx.fill();
-
-  // Snout
-  ctx.fillStyle = FUR_DARK;
-  ctx.beginPath();
-  ctx.ellipse(0, -14, 5, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = FUR;
-  ctx.beginPath();
-  ctx.ellipse(0, -14, 4, 3, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Nose
-  ctx.fillStyle = NOSE;
-  ctx.beginPath();
-  ctx.ellipse(0, -16, 2.5, 2, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Eyes
-  ctx.fillStyle = EYE;
-  ctx.beginPath();
-  ctx.arc(-4, -18, 1.8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(4, -18, 1.8, 0, Math.PI * 2);
-  ctx.fill();
-  // Eye shine
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.arc(-3.2, -18.6, 0.7, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(4.8, -18.6, 0.7, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Collar — dog tag
-  ctx.strokeStyle = "#cc9900";
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.arc(0, -10, 7, -Math.PI * 0.1, Math.PI * 1.1);
+  ctx.arc(0, 0, 9, 0, PI * 2);
   ctx.stroke();
-  // Tag
-  ctx.fillStyle = "#ffcc00";
+
+  // Screw heads (4 corners)
+  const screws = [[-6, -5], [6, -5], [6, 5], [-6, 5]] as [number, number][];
+  screws.forEach(([sx, sy]) => {
+    ctx.fillStyle = "#50506a";
+    ctx.beginPath(); ctx.arc(sx, sy, 1.8, 0, PI * 2); ctx.fill();
+    ctx.fillStyle = "#686878";
+    ctx.beginPath(); ctx.arc(sx - 0.4, sy - 0.4, 0.7, 0, PI * 2); ctx.fill();
+  });
+
+  // Front sensor LED (glowing cyan — forward = local -y)
+  ctx.shadowColor = "#00ddff";
+  ctx.shadowBlur = 14;
+  ctx.fillStyle = "#00ddff";
   ctx.beginPath();
-  ctx.arc(0, -4, 2.5, 0, Math.PI * 2);
+  ctx.arc(0, -(R - 5), 3.5, 0, PI * 2);
   ctx.fill();
-  ctx.fillStyle = "#333";
-  ctx.font = "bold 3px monospace";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("K9", 0, -4);
+  // LED highlight
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#99eeff";
+  ctx.beginPath();
+  ctx.arc(-0.6, -(R - 6.5), 1.2, 0, PI * 2);
+  ctx.fill();
+
+  // Side status LEDs (red, at the rear)
+  ctx.shadowColor = "#ff4422";
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = "#ff3300";
+  ctx.beginPath(); ctx.arc(-5, R - 5, 2.2, 0, PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5, R - 5, 2.2, 0, PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Central power button
+  ctx.fillStyle = dashing ? "#00ffcc" : "#00aa88";
+  ctx.shadowColor = dashing ? "#00ffcc" : "transparent";
+  ctx.shadowBlur = dashing ? 12 : 0;
+  ctx.beginPath();
+  ctx.arc(0, 0, 3.5, 0, PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Spin ring when dashing
+  if (dashing) {
+    ctx.strokeStyle = "rgba(0,200,255,0.5)";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, R + 5, 0, PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(0,200,255,0.2)";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(0, 0, R + 8, 0, PI * 2);
+    ctx.stroke();
+  }
 }
 
 // ─── ENEMY ───────────────────────────────────────────────────────────────────
