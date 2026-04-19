@@ -218,11 +218,33 @@ export function renderFrame(
     ctx.fillRect(0, 0, canvasW, canvasH);
   }
 
-  // ── Battery critical flicker vignette ─────────────────────────────────────
-  if ((state as any).battery !== undefined && (state as any).battery <= 0) {
-    const flicker = Math.sin(Date.now() * 0.025) * 0.5 + 0.5;
-    ctx.fillStyle = `rgba(255,60,0,${flicker * 0.08})`;
+  // ── Battery DEAD — HP draining warning ────────────────────────────────────
+  if (state.battery !== undefined && state.battery <= 0) {
+    const t = Date.now();
+    const pulse = Math.sin(t * 0.006) * 0.5 + 0.5;
+    // Orange vignette edge (distinct from the red HP-low vignette)
+    const batGrd = ctx.createRadialGradient(canvasW / 2, canvasH / 2, canvasH * 0.3, canvasW / 2, canvasH / 2, canvasH * 0.9);
+    batGrd.addColorStop(0, "rgba(255,120,0,0)");
+    batGrd.addColorStop(1, `rgba(255,100,0,${0.18 + pulse * 0.18})`);
+    ctx.fillStyle = batGrd;
     ctx.fillRect(0, 0, canvasW, canvasH);
+    // Pulsing warning text just below the HUD
+    const batAlpha = 0.6 + pulse * 0.4;
+    const batY = canvasH * 0.28;
+    ctx.save();
+    ctx.globalAlpha = batAlpha;
+    ctx.font = "bold 18px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "#ff6600";
+    ctx.shadowBlur = 16;
+    ctx.strokeStyle = "rgba(0,0,0,0.95)";
+    ctx.lineWidth = 4;
+    ctx.strokeText("⚡ BATTERY DEAD — HP DRAINING!", canvasW / 2, batY);
+    ctx.fillStyle = "#ffaa00";
+    ctx.fillText("⚡ BATTERY DEAD — HP DRAINING!", canvasW / 2, batY);
+    ctx.shadowBlur = 0;
+    ctx.restore();
   }
 
   // ── Red damage flash — fires on every hit, unmissable ─────────────────────

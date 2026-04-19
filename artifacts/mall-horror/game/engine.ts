@@ -94,7 +94,7 @@ export function updateGame(
     if (Math.random() < 0.04) s.whiteFlash = Math.max(s.whiteFlash, 0.08);
     s.redFlash = Math.max(s.redFlash, 0.3); // persistent dim red while draining
     // Show a battery-drain damage number every ~1.5s so the player knows what's killing them
-    if (Math.floor(prevHp) !== Math.floor(s.hp) && Math.random() < 0.12) {
+    if (Math.floor(prevHp) !== Math.floor(s.hp) && Math.random() < 0.45) {
       s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-16, 16), y: s.playerY - 34, text: "🔋-HP", age: 0, maxAge: 1200, color: "#ff8800", vy: -0.7 });
     }
     if (s.hp <= 0) { s.deathCause = "battery"; s.hpAtDeath = prevHp; s.phase = "dead"; return s; }
