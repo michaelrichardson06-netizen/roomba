@@ -59,6 +59,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const hudTickRef = useRef<number>(0);
+  const lastHudHpRef = useRef<number>(200);
   const [hudState, setHudState] = useState<HUDState>(DEFAULT_HUD);
   const [leftJoy, setLeftJoy] = useState<JoyState>(IDLE_JOY);
   const [rightJoy, setRightJoy] = useState<JoyState>(IDLE_JOY);
@@ -130,8 +131,13 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     }
 
     hudTickRef.current += dt;
-    if (hudTickRef.current > 100) {
+    // Force-update HUD immediately on any HP drop ≥ 3 (e.g. an enemy hit) so
+    // the bar never shows stale "full" data on iOS between throttle windows.
+    const hpDrop = lastHudHpRef.current - newState.hp;
+    const hudDue = hudTickRef.current > 100 || hpDrop >= 3;
+    if (hudDue) {
       hudTickRef.current = 0;
+      lastHudHpRef.current = newState.hp;
       setHudState({
         hp: newState.hp,
         maxHp: newState.maxHp,
