@@ -48,7 +48,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState>(createInitialState());
-  const inputRef = useRef({ dx: 0, dy: 0, aimAngle: 0, shooting: false, dashing: false });
+  const inputRef = useRef({ dx: 0, dy: 0, aimAngle: 0, shooting: false, dashing: false, autoAim: false });
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const hudTickRef = useRef<number>(0);
@@ -166,8 +166,9 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       const mx = e.clientX - rect.left - canvas.width / 2;
       const my = e.clientY - rect.top - canvas.height / 2;
       inputRef.current.aimAngle = Math.atan2(my, mx) - Math.PI / 2;
+      inputRef.current.autoAim = false; // mouse = manual aim
     };
-    const onMouseDown = () => { inputRef.current.shooting = true; };
+    const onMouseDown = () => { inputRef.current.shooting = true; inputRef.current.autoAim = false; };
     const onMouseUp = () => { inputRef.current.shooting = false; };
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mousedown", onMouseDown);
@@ -187,8 +188,10 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           leftTouch[0] = { id: t.identifier, sx: t.clientX, sy: t.clientY };
           setLeftJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
         } else if (!isLeft && !rightTouch[0]) {
+          // Right side: shoot only — auto-aim finds nearest enemy
           rightTouch[0] = { id: t.identifier, sx: t.clientX, sy: t.clientY };
           inputRef.current.shooting = true;
+          inputRef.current.autoAim = true;
           setRightJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
         }
       });
@@ -203,19 +206,22 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           const len = Math.hypot(dx, dy);
           inputRef.current.dx = len > 5 ? dx / len : 0;
           inputRef.current.dy = len > 5 ? dy / len : 0;
-          const cx = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, dx));
-          const cy = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, dy));
-          setLeftJoy(j => ({ ...j, stickX: j.baseX + cx, stickY: j.baseY + cy }));
+          // Floating joystick: slide base when thumb goes beyond clamp
+          if (len > JOY_CLAMP) {
+            leftTouch[0].sx = t.clientX - (dx / len) * JOY_CLAMP;
+            leftTouch[0].sy = t.clientY - (dy / len) * JOY_CLAMP;
+          }
+          const newBaseX = leftTouch[0].sx;
+          const newBaseY = leftTouch[0].sy;
+          const cx = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, t.clientX - newBaseX));
+          const cy = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, t.clientY - newBaseY));
+          setLeftJoy({ active: true, baseX: newBaseX, baseY: newBaseY, stickX: newBaseX + cx, stickY: newBaseY + cy });
         }
         if (rightTouch[0] && t.identifier === rightTouch[0].id) {
-          const dx = t.clientX - rightTouch[0].sx;
-          const dy = t.clientY - rightTouch[0].sy;
-          const len = Math.hypot(dx, dy);
-          if (len > 8) inputRef.current.aimAngle = Math.atan2(dy, dx) - Math.PI / 2;
+          // Right side just keeps shooting; auto-aim handles direction in engine
           inputRef.current.shooting = true;
-          const cx = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, dx));
-          const cy = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, dy));
-          setRightJoy(j => ({ ...j, stickX: j.baseX + cx, stickY: j.baseY + cy }));
+          inputRef.current.autoAim = true;
+          setRightJoy(j => ({ ...j, stickX: t.clientX, stickY: t.clientY }));
         }
       });
     };
@@ -232,6 +238,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
         if (rightTouch[0] && t.identifier === rightTouch[0].id) {
           rightTouch[0] = null;
           inputRef.current.shooting = false;
+          inputRef.current.autoAim = false;
           setRightJoy(IDLE_JOY);
         }
       });

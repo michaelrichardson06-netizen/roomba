@@ -3,7 +3,7 @@ export interface Vec2 {
   y: number;
 }
 
-export type EnemyType = "standard" | "elite" | "boss";
+export type EnemyType = "standard" | "elite" | "boss" | "mole";
 
 export interface Enemy {
   id: string;
@@ -20,7 +20,10 @@ export interface Enemy {
   hitFlash: number;
   angle: number;
   legPhase: number;
-  damageCooldown: number; // ms before this enemy can damage player again
+  damageCooldown: number;
+  // Mole-specific
+  burrowTimer: number;
+  isBurrowed: boolean;
 }
 
 export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode";

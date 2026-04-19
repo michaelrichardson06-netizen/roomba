@@ -88,6 +88,46 @@ export function renderFrame(
   }
 }
 
+// ─── FLOOR HELPERS ───────────────────────────────────────────────────────────
+
+function tileHash(tx: number, ty: number): number {
+  let h = ((tx * 2654435761) ^ (ty * 2246822519)) >>> 0;
+  h ^= h >>> 16;
+  h = (h * 0x45d9f3b) >>> 0;
+  h ^= h >>> 16;
+  return h / 0xffffffff;
+}
+
+function drawBrokenGlass(ctx: CanvasRenderingContext2D, wx: number, wy: number, tile: number, seed: number) {
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  // Glass shards — deterministic cracks from seed
+  const cx = wx + tile * ((seed * 7.3) % 1 * 0.4 + 0.3);
+  const cy = wy + tile * ((seed * 3.7) % 1 * 0.4 + 0.3);
+  const shards = 5 + Math.floor((seed * 13) % 4);
+  ctx.strokeStyle = "rgba(180,220,255,0.7)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < shards; i++) {
+    const a = (seed * (i + 1) * 2.39996) % (Math.PI * 2);
+    const len = 8 + (seed * (i * 3 + 1) * 5.7) % 16;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len);
+    ctx.stroke();
+  }
+  // Glass glint fill
+  ctx.fillStyle = "rgba(200,230,255,0.15)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5 + (seed * 4.1) % 8, 0, Math.PI * 2);
+  ctx.fill();
+  // Bright specular
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  ctx.beginPath();
+  ctx.arc(cx - 1, cy - 1, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 // ─── MALL FLOOR ──────────────────────────────────────────────────────────────
 
 function drawFloor(
@@ -122,6 +162,12 @@ function drawFloor(
         ctx.fillStyle = "rgba(255,255,255,0.06)";
         ctx.fillRect(wx + 2, wy + 2, TILE * 0.4, TILE * 0.3);
       }
+
+      // Broken glass — deterministic per tile
+      const h = tileHash(tx, ty);
+      if (h > 0.91) {
+        drawBrokenGlass(ctx, wx, wy, TILE, h);
+      }
     }
   }
 
@@ -142,88 +188,275 @@ function drawMallFeatures(ctx: CanvasRenderingContext2D, mw: number, mh: number)
   const storeW = 280;
   const storeH = 140;
   const storeColors = ["#1e3a5f", "#3a1e1e", "#1e3a1e", "#3a2a0e", "#2a1e3a"];
-  let storeCount = Math.floor(mw / (storeW + 30));
+  const storeCount = Math.floor(mw / (storeW + 30));
   const gapX = (mw - storeCount * storeW) / (storeCount + 1);
   for (let i = 0; i < storeCount; i++) {
     const sx = gapX + i * (storeW + gapX);
-    const sy = 10;
     const col = storeColors[i % storeColors.length];
-    // Store back wall
+    // Top store
     ctx.fillStyle = col;
-    ctx.fillRect(sx, sy, storeW, storeH);
-    // Glass storefront
+    ctx.fillRect(sx, 10, storeW, storeH);
     ctx.fillStyle = "rgba(120,200,255,0.18)";
-    ctx.fillRect(sx + 10, sy + storeH - 30, storeW - 20, 25);
-    // Door
+    ctx.fillRect(sx + 10, 10 + storeH - 30, storeW - 20, 25);
     ctx.fillStyle = "rgba(180,230,255,0.35)";
-    ctx.fillRect(sx + storeW / 2 - 18, sy + storeH - 30, 36, 25);
-    // Store sign
+    ctx.fillRect(sx + storeW / 2 - 18, 10 + storeH - 30, 36, 25);
     ctx.fillStyle = "#ffffff";
     ctx.globalAlpha = 0.7;
-    ctx.fillRect(sx + 20, sy + 15, storeW - 40, 22);
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = col;
-    ctx.fillRect(sx + 24, sy + 18, storeW - 48, 16);
+    ctx.fillRect(sx + 20, 25, storeW - 40, 22);
+    ctx.globalAlpha = 1;
+    // Bottom store
+    const col2 = storeColors[(i + 2) % storeColors.length];
+    ctx.fillStyle = col2;
+    ctx.fillRect(sx, mh - storeH - 10, storeW, storeH);
+    ctx.fillStyle = "rgba(120,200,255,0.18)";
+    ctx.fillRect(sx + 10, mh - storeH - 10, storeW - 20, 25);
+    ctx.fillStyle = "rgba(180,230,255,0.35)";
+    ctx.fillRect(sx + storeW / 2 - 18, mh - storeH - 10, 36, 25);
+    ctx.fillStyle = "#ffffff";
+    ctx.globalAlpha = 0.7;
+    ctx.fillRect(sx + 20, mh - storeH + 10, storeW - 40, 22);
     ctx.globalAlpha = 1;
   }
 
-  // ── Store fronts along bottom wall ──
-  for (let i = 0; i < storeCount; i++) {
-    const sx = gapX + i * (storeW + gapX);
-    const sy = mh - storeH - 10;
-    const col = storeColors[(i + 2) % storeColors.length];
-    ctx.fillStyle = col;
-    ctx.fillRect(sx, sy, storeW, storeH);
-    ctx.fillStyle = "rgba(120,200,255,0.18)";
-    ctx.fillRect(sx + 10, sy, storeW - 20, 25);
-    ctx.fillStyle = "rgba(180,230,255,0.35)";
-    ctx.fillRect(sx + storeW / 2 - 18, sy, 36, 25);
-    ctx.fillStyle = "#ffffff";
-    ctx.globalAlpha = 0.7;
-    ctx.fillRect(sx + 20, sy + storeH - 35, storeW - 40, 22);
-    ctx.globalAlpha = 1;
-  }
-
-  // ── Central atrium / walkway stripe ──
-  const midY = mh / 2;
-  ctx.fillStyle = "rgba(0,0,0,0.08)";
-  ctx.fillRect(0, midY - 8, mw, 16);
-
-  // ── Pillars (structural columns) ──
+  // ── Pillars ──
   const pillarR = 18;
-  const pillarSpacingX = 350;
-  const pillarSpacingY = 300;
-  for (let px = pillarSpacingX; px < mw; px += pillarSpacingX) {
-    for (let py = pillarSpacingY; py < mh; py += pillarSpacingY) {
-      // Shadow
+  for (let px = 350; px < mw; px += 350) {
+    for (let py = 300; py < mh; py += 300) {
       ctx.fillStyle = "rgba(0,0,0,0.25)";
       ctx.beginPath();
       ctx.ellipse(px + 6, py + 6, pillarR, pillarR, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Pillar base
       ctx.fillStyle = "#a09080";
-      ctx.beginPath();
-      ctx.rect(px - pillarR, py - pillarR, pillarR * 2, pillarR * 2);
-      ctx.fill();
-      // Pillar top lighter
+      ctx.fillRect(px - pillarR, py - pillarR, pillarR * 2, pillarR * 2);
       ctx.fillStyle = "#c8b8a8";
       ctx.fillRect(px - pillarR + 3, py - pillarR + 3, pillarR - 3, pillarR - 3);
-      // Pillar dark edge
       ctx.strokeStyle = "#706050";
       ctx.lineWidth = 2;
       ctx.strokeRect(px - pillarR, py - pillarR, pillarR * 2, pillarR * 2);
     }
   }
 
-  // ── Abandoned mall details: overturned benches, debris ──
-  // Bench 1
+  // ── Benches ──
   ctx.fillStyle = "#5a4030";
-  ctx.fillRect(mw * 0.25 - 40, mh * 0.5 - 8, 80, 16);
-  ctx.fillRect(mw * 0.75 - 40, mh * 0.5 - 8, 80, 16);
-  ctx.fillRect(mw * 0.5 - 40, mh * 0.3 - 8, 80, 16);
-  ctx.fillStyle = "#3a2820";
-  ctx.fillRect(mw * 0.25 - 38, mh * 0.5 - 6, 76, 6);
-  ctx.fillRect(mw * 0.75 - 38, mh * 0.5 - 6, 76, 6);
+  [[0.25, 0.5], [0.75, 0.5], [0.5, 0.3], [0.5, 0.7]].forEach(([fx, fy]) => {
+    ctx.fillRect(mw * fx - 40, mh * fy - 8, 80, 16);
+    ctx.fillStyle = "#3a2820";
+    ctx.fillRect(mw * fx - 38, mh * fy - 6, 76, 6);
+    ctx.fillStyle = "#5a4030";
+  });
+
+  // ── DRY FOUNTAIN (center of mall) ──────────────────────────────────────────
+  drawDryFountain(ctx, mw / 2, mh / 2);
+
+  // ── ELECTRIC ESCALATORS ────────────────────────────────────────────────────
+  // Left side escalator
+  drawEscalator(ctx, 80, mh / 2 - 180, 100, 360, false);
+  // Right side escalator
+  drawEscalator(ctx, mw - 180, mh / 2 - 180, 100, 360, true);
+}
+
+function drawDryFountain(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
+  const PI = Math.PI;
+
+  // Outer basin shadow
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.ellipse(cx + 8, cy + 8, 115, 115, 0, 0, PI * 2);
+  ctx.fill();
+
+  // Outer basin — weathered stone
+  const basinGrd = ctx.createRadialGradient(cx - 30, cy - 30, 10, cx, cy, 115);
+  basinGrd.addColorStop(0, "#b8a890");
+  basinGrd.addColorStop(0.6, "#9a8878");
+  basinGrd.addColorStop(1, "#786858");
+  ctx.fillStyle = basinGrd;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 115, 0, PI * 2);
+  ctx.fill();
+
+  // Basin rim
+  ctx.strokeStyle = "#706050";
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 115, 0, PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "#c8b8a0";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 112, 0, PI * 2);
+  ctx.stroke();
+
+  // Dry cracked basin floor
+  const floorGrd = ctx.createRadialGradient(cx, cy, 10, cx, cy, 100);
+  floorGrd.addColorStop(0, "#c4b090");
+  floorGrd.addColorStop(1, "#a89070");
+  ctx.fillStyle = floorGrd;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 100, 0, PI * 2);
+  ctx.fill();
+
+  // Crack lines (dry basin)
+  ctx.strokeStyle = "rgba(80,55,30,0.6)";
+  ctx.lineWidth = 1.5;
+  [
+    [0, -70, 30, -20], [-50, 10, 10, 60], [40, 30, -30, 80],
+    [-20, -40, -60, 30], [60, -50, 20, 20],
+  ].forEach(([x1, y1, x2, y2]) => {
+    ctx.beginPath();
+    ctx.moveTo(cx + x1, cy + y1);
+    ctx.quadraticCurveTo(cx + (x1 + x2) / 2 + 15, cy + (y1 + y2) / 2 - 10, cx + x2, cy + y2);
+    ctx.stroke();
+  });
+
+  // Inner raised column base
+  ctx.fillStyle = "#8a7860";
+  ctx.beginPath();
+  ctx.arc(cx, cy, 36, 0, PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#706050";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 36, 0, PI * 2);
+  ctx.stroke();
+
+  // Column shaft
+  ctx.fillStyle = "#a09080";
+  ctx.fillRect(cx - 12, cy - 70, 24, 34);
+  ctx.fillStyle = "#c0b0a0";
+  ctx.fillRect(cx - 10, cy - 68, 10, 30);
+  ctx.strokeStyle = "#706050";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(cx - 12, cy - 70, 24, 34);
+
+  // Broken top bowl (tilted, no water)
+  ctx.save();
+  ctx.translate(cx, cy - 70);
+  ctx.rotate(0.3);
+  ctx.fillStyle = "#9a8878";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 28, 10, 0, 0, PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#706050";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 28, 10, 0, 0, PI * 2);
+  ctx.stroke();
+  // Cracked piece fallen off
+  ctx.restore();
+  ctx.fillStyle = "#9a8878";
+  ctx.save();
+  ctx.translate(cx + 45, cy - 30);
+  ctx.rotate(1.2);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 18, 7, 0, 0, PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Debris / old leaves in basin
+  ctx.fillStyle = "rgba(60,40,10,0.5)";
+  [[-30, 40], [50, -20], [-60, -30], [20, 70], [-70, 10]].forEach(([dx, dy]) => {
+    ctx.beginPath();
+    ctx.ellipse(cx + dx, cy + dy, 8 + Math.abs(dx % 5), 4, (dx * 0.1) % PI, 0, PI * 2);
+    ctx.fill();
+  });
+
+  // Label plaque (knocked over)
+  ctx.save();
+  ctx.translate(cx - 30, cy + 85);
+  ctx.rotate(-0.2);
+  ctx.fillStyle = "#6a5040";
+  ctx.fillRect(-25, -8, 50, 16);
+  ctx.restore();
+}
+
+function drawEscalator(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  reversed: boolean
+) {
+  const PI = Math.PI;
+  const now = Date.now() * 0.002;
+
+  // Platform base
+  ctx.fillStyle = "#2a2a30";
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "#3a3a45";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x, y, w, h);
+
+  // Escalator steps (animated diagonal treads)
+  const stepH = 22;
+  const stepCount = Math.ceil(h / stepH) + 1;
+  const offset = (now * 20) % stepH;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x + 8, y + 8, w - 16, h - 16);
+  ctx.clip();
+
+  for (let i = -1; i < stepCount; i++) {
+    const stepY = y + 8 + i * stepH + (reversed ? -offset : offset);
+    ctx.fillStyle = i % 2 === 0 ? "#38383e" : "#30303a";
+    ctx.fillRect(x + 8, stepY, w - 16, stepH - 2);
+    // Step edge (yellow safety strip)
+    ctx.fillStyle = "rgba(255,200,0,0.6)";
+    ctx.fillRect(x + 8, stepY, w - 16, 3);
+    // Tread grooves
+    ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.lineWidth = 1;
+    for (let g = 0; g < 4; g++) {
+      ctx.beginPath();
+      ctx.moveTo(x + 12 + g * 18, stepY + 6);
+      ctx.lineTo(x + 12 + g * 18, stepY + stepH - 5);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // Electric arcs (sparking)
+  const arcCount = 3;
+  for (let i = 0; i < arcCount; i++) {
+    const t = (now + i * 1.3) % 2;
+    if (t > 1.2) continue; // not always visible
+    const ax = x + 10 + (i / arcCount) * (w - 20);
+    const ay = y + 10 + (Math.sin(now * 3 + i) * 0.5 + 0.5) * (h - 20);
+    ctx.save();
+    ctx.strokeStyle = `rgba(${100 + Math.floor(Math.sin(now * 5 + i) * 50)},150,255,${0.5 + Math.sin(now * 7 + i) * 0.3})`;
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = "#6688ff";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    for (let j = 0; j < 5; j++) {
+      const jx = ax + (Math.random() - 0.5) * 30;
+      const jy = ay + (Math.random() - 0.5) * 30;
+      ctx.lineTo(jx, jy);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Hazard tape border
+  const tapeW = 10;
+  ctx.save();
+  const pat = ctx.createLinearGradient(x, y, x + tapeW, y + tapeW * 2);
+  pat.addColorStop(0, "rgba(255,180,0,0.7)");
+  pat.addColorStop(0.5, "rgba(0,0,0,0.7)");
+  pat.addColorStop(1, "rgba(255,180,0,0.7)");
+  ctx.strokeStyle = pat;
+  ctx.lineWidth = tapeW;
+  ctx.strokeRect(x + tapeW / 2, y + tapeW / 2, w - tapeW, h - tapeW);
+  ctx.restore();
+
+  // "ESCALATOR" sign at top
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.fillRect(x + 4, y - 22, w - 8, 20);
+  ctx.fillStyle = "rgba(255,200,50,0.9)";
+  ctx.font = "bold 9px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("⚡ ESCALATOR ⚡", x + w / 2, y - 7);
+  ctx.restore();
 }
 
 // ─── LAMP ─────────────────────────────────────────────────────────────────────
@@ -423,8 +656,26 @@ function _drawRoombaBody(ctx: CanvasRenderingContext2D, dashing: boolean, spinPh
 
 function drawEnemy(ctx: CanvasRenderingContext2D, enemy: {
   x: number; y: number; radius: number; type: string;
-  hp: number; maxHp: number; hitFlash: number; angle: number; legPhase: number
+  hp: number; maxHp: number; hitFlash: number; angle: number; legPhase: number;
+  isBurrowed?: boolean;
 }) {
+  // Burrowed moles: draw only a slight ground disturbance
+  if (enemy.isBurrowed) {
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = "#6b3a12";
+    ctx.beginPath();
+    ctx.ellipse(enemy.x, enemy.y, 12, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  if (enemy.type === "mole") {
+    drawMole(ctx, enemy);
+    return;
+  }
+
   const colors = ENEMY_COLORS[enemy.type as keyof typeof ENEMY_COLORS] || ENEMY_COLORS.standard;
   ctx.save();
   ctx.translate(enemy.x, enemy.y);
@@ -546,6 +797,93 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: {
     ctx.lineWidth = 1;
     ctx.strokeRect(barX, barY, barW, barH);
   }
+  ctx.restore();
+}
+
+function drawMole(ctx: CanvasRenderingContext2D, enemy: {
+  x: number; y: number; radius: number;
+  hp: number; maxHp: number; hitFlash: number; angle: number; legPhase: number;
+}) {
+  ctx.save();
+  ctx.translate(enemy.x, enemy.y);
+  ctx.rotate(enemy.angle);
+
+  if (enemy.hitFlash > 0) {
+    ctx.shadowColor = "#ffffff";
+    ctx.shadowBlur = 20;
+    ctx.globalAlpha = 0.5 + enemy.hitFlash * 0.5;
+  } else {
+    ctx.shadowColor = "#c87040";
+    ctx.shadowBlur = 10;
+  }
+
+  const r = enemy.radius;
+  // Body — earthy brown oval
+  ctx.fillStyle = enemy.hitFlash > 0 ? "#ffffff" : "#7a4e28";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.85, r * 0.65, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Fur texture (dark patches)
+  ctx.fillStyle = "#5c3a1a";
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.12, r * 0.5, r * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head
+  ctx.fillStyle = "#6b3e1c";
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.45, r * 0.42, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Snout / star-nose
+  ctx.fillStyle = "#e07060";
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.72, r * 0.18, 0, Math.PI * 2);
+  ctx.fill();
+  // Nose spikes
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    ctx.fillStyle = "#ff8866";
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * r * 0.22, -r * 0.72 + Math.sin(a) * r * 0.22, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Eyes (tiny, blind)
+  ctx.fillStyle = "#1a0800";
+  ctx.beginPath();
+  ctx.arc(-r * 0.16, -r * 0.56, r * 0.065, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(r * 0.16, -r * 0.56, r * 0.065, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Claws (4 big digging claws)
+  ctx.strokeStyle = "#d4a060";
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  const clawAngles = [-1.4, -1.0, 1.0, 1.4];
+  clawAngles.forEach((a) => {
+    const cx = Math.cos(a + Math.PI * 0.5) * r * 0.7;
+    const cy = Math.sin(a + Math.PI * 0.5) * r * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(cx * 0.6, cy * 0.6);
+    ctx.lineTo(cx * 1.2, cy * 1.2);
+    ctx.stroke();
+  });
+
+  // HP bar
+  if (enemy.hp < enemy.maxHp) {
+    const barW = r * 2.2;
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#1a0000";
+    ctx.fillRect(-r * 1.1, r + 4, barW, 4);
+    ctx.fillStyle = "#c87040";
+    ctx.fillRect(-r * 1.1, r + 4, barW * (enemy.hp / enemy.maxHp), 4);
+  }
+
   ctx.restore();
 }
 
