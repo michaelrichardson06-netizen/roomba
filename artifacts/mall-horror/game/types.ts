@@ -3,7 +3,7 @@ export interface Vec2 {
   y: number;
 }
 
-export type EnemyType = "standard" | "elite" | "boss" | "mole";
+export type EnemyType = "standard" | "elite" | "boss";
 
 export interface Enemy {
   id: string;
@@ -23,11 +23,8 @@ export interface Enemy {
   damageCooldown: number;
   isImmune: boolean;    // boss only: immune until kill threshold
   webCooldown: number;  // boss only: time until next web throw
-  // Mole-specific
-  burrowTimer: number;
-  isBurrowed: boolean;
   // Freeze state
-  frozenTimer: number;  // > 0 = frozen/slowed; standard/mole = fully frozen, elite/boss = slowed
+  frozenTimer: number;  // > 0 = frozen/slowed; standard = fully frozen, elite/boss = slowed
 }
 
 export interface BossWeb {

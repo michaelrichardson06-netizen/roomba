@@ -54,8 +54,8 @@ export function renderFrame(
   for (const enemy of state.enemies) {
     drawEnemy(ctx, enemy);
     // Frozen/slowed ice overlay
-    if (!enemy.isBurrowed && enemy.frozenTimer > 0) {
-      const isFull = (enemy.type === "standard" || enemy.type === "mole");
+    if (enemy.frozenTimer > 0) {
+      const isFull = (enemy.type === "standard");
       ctx.save();
       ctx.globalAlpha = isFull ? 0.55 : 0.35;
       const frozenGrd = ctx.createRadialGradient(enemy.x, enemy.y, 0, enemy.x, enemy.y, enemy.radius * 1.2);
@@ -98,10 +98,8 @@ export function renderFrame(
     const now = Date.now();
     for (let i = 0; i < state.enemies.length; i++) {
       const a = state.enemies[i];
-      if (a.isBurrowed) continue;
       for (let j = i + 1; j < state.enemies.length; j++) {
         const b = state.enemies[j];
-        if (b.isBurrowed) continue;
         const d = Math.hypot(b.x - a.x, b.y - a.y);
         if (d < 180) {
           // Flicker: randomize based on time + pair index
@@ -298,7 +296,6 @@ export function renderFrame(
     const EDGE_PAD = 28; // px from screen edge where arrow tip sits
     ctx.save();
     for (const enemy of state.enemies) {
-      if (enemy.isBurrowed) continue;
       const ex = enemy.x - state.playerX; // relative to player (world units ≈ screen px at 1:1)
       const ey = enemy.y - state.playerY;
       const worldDist = Math.hypot(ex, ey);
@@ -1310,26 +1307,8 @@ function drawBossWeb(ctx: CanvasRenderingContext2D, web: { x: number; y: number;
 function drawEnemy(ctx: CanvasRenderingContext2D, enemy: {
   x: number; y: number; radius: number; type: string;
   hp: number; maxHp: number; hitFlash: number; angle: number; legPhase: number;
-  isBurrowed?: boolean;
   isImmune?: boolean;
 }) {
-  // Burrowed moles: draw only a slight ground disturbance
-  if (enemy.isBurrowed) {
-    ctx.save();
-    ctx.globalAlpha = 0.35;
-    ctx.fillStyle = "#6b3a12";
-    ctx.beginPath();
-    ctx.ellipse(enemy.x, enemy.y, 12, 7, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    return;
-  }
-
-  if (enemy.type === "mole") {
-    drawMole(ctx, enemy);
-    return;
-  }
-
   const colors = ENEMY_COLORS[enemy.type as keyof typeof ENEMY_COLORS] || ENEMY_COLORS.standard;
   ctx.save();
   ctx.translate(enemy.x, enemy.y);
@@ -1490,93 +1469,6 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: {
     ctx.lineWidth = 1;
     ctx.strokeRect(barX, barY, barW, barH);
   }
-  ctx.restore();
-}
-
-function drawMole(ctx: CanvasRenderingContext2D, enemy: {
-  x: number; y: number; radius: number;
-  hp: number; maxHp: number; hitFlash: number; angle: number; legPhase: number;
-}) {
-  ctx.save();
-  ctx.translate(enemy.x, enemy.y);
-  ctx.rotate(enemy.angle);
-
-  if (enemy.hitFlash > 0) {
-    ctx.shadowColor = "#ffffff";
-    ctx.shadowBlur = 20;
-    ctx.globalAlpha = 0.5 + enemy.hitFlash * 0.5;
-  } else {
-    ctx.shadowColor = "#c87040";
-    ctx.shadowBlur = 10;
-  }
-
-  const r = enemy.radius;
-  // Body — earthy brown oval
-  ctx.fillStyle = enemy.hitFlash > 0 ? "#ffffff" : "#7a4e28";
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r * 0.85, r * 0.65, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Fur texture (dark patches)
-  ctx.fillStyle = "#5c3a1a";
-  ctx.beginPath();
-  ctx.ellipse(0, r * 0.12, r * 0.5, r * 0.32, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Head
-  ctx.fillStyle = "#6b3e1c";
-  ctx.beginPath();
-  ctx.arc(0, -r * 0.45, r * 0.42, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Snout / star-nose
-  ctx.fillStyle = "#e07060";
-  ctx.beginPath();
-  ctx.arc(0, -r * 0.72, r * 0.18, 0, Math.PI * 2);
-  ctx.fill();
-  // Nose spikes
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    ctx.fillStyle = "#ff8866";
-    ctx.beginPath();
-    ctx.arc(Math.cos(a) * r * 0.22, -r * 0.72 + Math.sin(a) * r * 0.22, 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Eyes (tiny, blind)
-  ctx.fillStyle = "#1a0800";
-  ctx.beginPath();
-  ctx.arc(-r * 0.16, -r * 0.56, r * 0.065, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(r * 0.16, -r * 0.56, r * 0.065, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Claws (4 big digging claws)
-  ctx.strokeStyle = "#d4a060";
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
-  const clawAngles = [-1.4, -1.0, 1.0, 1.4];
-  clawAngles.forEach((a) => {
-    const cx = Math.cos(a + Math.PI * 0.5) * r * 0.7;
-    const cy = Math.sin(a + Math.PI * 0.5) * r * 0.5;
-    ctx.beginPath();
-    ctx.moveTo(cx * 0.6, cy * 0.6);
-    ctx.lineTo(cx * 1.2, cy * 1.2);
-    ctx.stroke();
-  });
-
-  // HP bar
-  if (enemy.hp < enemy.maxHp) {
-    const barW = r * 2.2;
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = "#1a0000";
-    ctx.fillRect(-r * 1.1, r + 4, barW, 4);
-    ctx.fillStyle = "#c87040";
-    ctx.fillRect(-r * 1.1, r + 4, barW * (enemy.hp / enemy.maxHp), 4);
-  }
-
   ctx.restore();
 }
 

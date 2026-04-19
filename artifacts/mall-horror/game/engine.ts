@@ -11,17 +11,15 @@ function dist(ax: number, ay: number, bx: number, by: number) {
 
 function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number): Enemy {
   const hpScale = 1 + (wave - 1) * C.WAVE_HP_SCALE;
-  const baseHp = type === "boss" ? C.ENEMY_HP_BOSS : type === "elite" ? C.ENEMY_HP_ELITE : type === "mole" ? C.ENEMY_HP_MOLE : C.ENEMY_HP_STANDARD;
-  const radius = type === "boss" ? C.ENEMY_RADIUS_BOSS : type === "elite" ? C.ENEMY_RADIUS_ELITE : type === "mole" ? C.ENEMY_RADIUS_MOLE : C.ENEMY_RADIUS_STANDARD;
+  const baseHp = type === "boss" ? C.ENEMY_HP_BOSS : type === "elite" ? C.ENEMY_HP_ELITE : C.ENEMY_HP_STANDARD;
+  const radius = type === "boss" ? C.ENEMY_RADIUS_BOSS : type === "elite" ? C.ENEMY_RADIUS_ELITE : C.ENEMY_RADIUS_STANDARD;
   const hp = Math.ceil(baseHp * hpScale);
   return {
     id: uid(), x, y, vx: 0, vy: 0, hp, maxHp: hp, type, radius,
     knockbackX: 0, knockbackY: 0, hitFlash: 0, angle: 0, legPhase: 0,
-    damageCooldown: 1500,     // 1.5s spawn-immunity so freshly-spawned enemies don't instantly hit
-    isImmune: type === "boss",           // boss starts immune; cleared when kill threshold reached
+    damageCooldown: 1500,
+    isImmune: type === "boss",
     webCooldown: type === "boss" ? C.BOSS_WEB_COOLDOWN : 0,
-    burrowTimer: type === "mole" ? C.MOLE_BURROW_AFTER : 0,
-    isBurrowed: false,
     frozenTimer: 0,
   };
 }
@@ -217,7 +215,6 @@ export function updateGame(
     if (input.autoAim && s.enemies.length > 0) {
       let nearest = Infinity;
       for (const e of s.enemies) {
-        if (e.isBurrowed) continue;
         const d = dist(s.playerX, s.playerY, e.x, e.y);
         if (d < nearest) { nearest = d; shootAngle = Math.atan2(e.y - s.playerY, e.x - s.playerX); }
       }
@@ -300,8 +297,7 @@ export function updateGame(
       s.spawnTimer = 0;
       const batchSize = Math.min(14, Math.ceil(C.SPAWN_COUNT_BASE + (s.wave - 1) * C.SPAWN_COUNT_SCALE));
       for (let i = 0; i < batchSize; i++) {
-        const roll = Math.random();
-        const type: Enemy["type"] = s.wave >= 3 && roll < 0.12 ? "mole" : roll < 0.22 ? "elite" : "standard";
+        const type: Enemy["type"] = Math.random() < 0.22 ? "elite" : "standard";
         const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
         s.enemies.push(makeEnemy(type, pos.x, pos.y, s.wave));
       }
@@ -318,47 +314,11 @@ export function updateGame(
 
   // ── Move enemies ──────────────────────────────────────────────────────────
   s.enemies = s.enemies.map((e) => {
-    if (e.type === "mole") {
-      const newBurrowTimer = e.burrowTimer - dt;
-      if (!e.isBurrowed && newBurrowTimer <= 0) {
-        return { ...e, isBurrowed: true, burrowTimer: C.MOLE_EMERGE_AFTER, hitFlash: 0, damageCooldown: Math.max(0, e.damageCooldown - dt) };
-      }
-      if (e.isBurrowed && newBurrowTimer <= 0) {
-        // Try up to 8 angles to find a valid emergence position.
-        // Near walls the Math.max/min clamp can shrink the safe distance to
-        // near-zero, causing the mole to surface right on the player — the main
-        // source of "random death with full HP".  We require the actual clamped
-        // position to be at least MOLE_EMERGE_DIST*0.75 away from the player.
-        const MIN_SAFE = C.MOLE_EMERGE_DIST * 0.75;
-        let ex = s.playerX, ey = s.playerY, validPos = false;
-        for (let attempt = 0; attempt < 10; attempt++) {
-          const a = Math.random() * Math.PI * 2;
-          const d = C.MOLE_EMERGE_DIST + Math.random() * 80;
-          const tx = Math.max(50, Math.min(s.mapWidth  - 50, s.playerX + Math.cos(a) * d));
-          const ty = Math.max(50, Math.min(s.mapHeight - 50, s.playerY + Math.sin(a) * d));
-          if (dist(tx, ty, s.playerX, s.playerY) >= MIN_SAFE) {
-            ex = tx; ey = ty; validPos = true; break;
-          }
-        }
-        if (!validPos) {
-          // Player is cornered — stay burrowed a little longer and retry
-          return { ...e, burrowTimer: 600, damageCooldown: Math.max(0, e.damageCooldown - dt), hitFlash: Math.max(0, e.hitFlash - dt * 4) };
-        }
-        for (let i = 0; i < 8; i++) {
-          const pa = Math.random() * Math.PI * 2;
-          s.particles.push({ id: uid(), x: ex, y: ey, vx: Math.cos(pa) * rand(2, 6), vy: Math.sin(pa) * rand(2, 6), life: rand(200, 500), maxLife: 500, color: Math.random() > 0.5 ? "#8b5e3c" : "#c4965a", size: rand(3, 7) });
-        }
-        // Fresh damageCooldown on emergence so a wall-clamped mole can't instant-hit
-        return { ...e, x: ex, y: ey, isBurrowed: false, burrowTimer: C.MOLE_BURROW_AFTER + Math.random() * 1500, damageCooldown: 1200, hitFlash: 0, legPhase: e.legPhase + dt * 0.01 };
-      }
-      if (e.isBurrowed) return { ...e, burrowTimer: newBurrowTimer, damageCooldown: Math.max(0, e.damageCooldown - dt), hitFlash: Math.max(0, e.hitFlash - dt * 4) };
-    }
-
-    const baseSpeed = e.type === "mole" ? C.ENEMY_SPEED_MOLE : e.type === "boss" ? C.ENEMY_SPEED_BOSS : e.type === "elite" ? C.ENEMY_SPEED_ELITE : C.ENEMY_SPEED_STANDARD;
+    const baseSpeed = e.type === "boss" ? C.ENEMY_SPEED_BOSS : e.type === "elite" ? C.ENEMY_SPEED_ELITE : C.ENEMY_SPEED_STANDARD;
     let speed = baseSpeed * (1 + (s.wave - 1) * C.WAVE_SPEED_SCALE) * (dt / 16);
     // ── Freeze wave effect ──────────────────────────────────────────────────
     if (e.frozenTimer > 0) {
-      if (e.type === "standard" || e.type === "mole") speed = 0;       // fully frozen
+      if (e.type === "standard") speed = 0;
       else if (e.type === "elite") speed *= C.FREEZE_SLOW_ELITE;
       else if (e.type === "boss")  speed *= C.FREEZE_SLOW_BOSS;
     }
@@ -395,7 +355,6 @@ export function updateGame(
       legPhase: e.legPhase + dt * 0.01,
       damageCooldown: Math.max(0, e.damageCooldown - dt),
       webCooldown: newWebCooldown,
-      burrowTimer: e.type === "mole" ? e.burrowTimer - dt : e.burrowTimer,
       frozenTimer: Math.max(0, e.frozenTimer - dt),
     };
   });
@@ -409,7 +368,6 @@ export function updateGame(
     if (bullet.isBazooka) {
       let hit = false;
       for (const enemy of s.enemies) {
-        if (enemy.isBurrowed) continue;
         if (dist(bullet.x, bullet.y, enemy.x, enemy.y) < enemy.radius + bullet.radius + 10) { hit = true; break; }
       }
       if (hit || bullet.x < 0 || bullet.x > s.mapWidth || bullet.y < 0 || bullet.y > s.mapHeight) {
@@ -417,7 +375,7 @@ export function updateGame(
         s.explosions.push({ id: uid(), x: bullet.x, y: bullet.y, radius: 0, maxRadius: C.BAZOOKA_EXPLOSION_RADIUS, alpha: 1, age: 0 });
         s.screenShake.magnitude = C.SHAKE_BAZOOKA;
         for (const enemy of s.enemies) {
-          if (enemy.isBurrowed || enemy.isImmune) continue;  // immune boss shrugs off bazooka
+          if (enemy.isImmune) continue;  // immune boss shrugs off bazooka
           const d = dist(bullet.x, bullet.y, enemy.x, enemy.y);
           if (d < C.BAZOOKA_EXPLOSION_RADIUS + enemy.radius) {
             const dmg = Math.ceil(999 * (1 - d / (C.BAZOOKA_EXPLOSION_RADIUS + enemy.radius)));
@@ -441,7 +399,7 @@ export function updateGame(
       }
     } else {
       for (const enemy of s.enemies) {
-        if (enemiesToRemove.has(enemy.id) || enemy.isBurrowed) continue;
+        if (enemiesToRemove.has(enemy.id)) continue;
         const d = dist(bullet.x, bullet.y, enemy.x, enemy.y);
         if (d < enemy.radius + bullet.radius) {
           // Immune boss deflects bullets with sparks + IMMUNE! text
@@ -460,7 +418,7 @@ export function updateGame(
           }
           bulletsToRemove.add(bullet.id);
           const bLen = Math.sqrt(bullet.vx * bullet.vx + bullet.vy * bullet.vy);
-          const kbMag = enemy.type === "boss" ? C.KNOCKBACK_BOSS : enemy.type === "elite" ? C.KNOCKBACK_ELITE : enemy.type === "mole" ? C.KNOCKBACK_MOLE : C.KNOCKBACK_STANDARD;
+          const kbMag = enemy.type === "boss" ? C.KNOCKBACK_BOSS : enemy.type === "elite" ? C.KNOCKBACK_ELITE : C.KNOCKBACK_STANDARD;
           if (enemy.hp - 25 <= 0) {
             enemiesToRemove.add(enemy.id);
             spawnDeathParticles(s, enemy);
@@ -491,7 +449,7 @@ export function updateGame(
   // ── Berserker AoE damage ──────────────────────────────────────────────────
   if (isBerserking) {
     for (const enemy of s.enemies) {
-      if (enemy.isBurrowed || enemiesToRemove.has(enemy.id)) continue;
+      if (enemiesToRemove.has(enemy.id)) continue;
       const d = dist(s.playerX, s.playerY, enemy.x, enemy.y);
       if (d < C.BERSERKER_AOE_RADIUS + enemy.radius) {
         const dmg = C.BERSERKER_AOE_DPS * dt / 1000;
@@ -529,7 +487,6 @@ export function updateGame(
   // ── Enemy vs player collision ─────────────────────────────────────────────
   for (const enemy of s.enemies) {
     if (s.phase === "dead") break; // stop the moment a previous iteration killed us
-    if (enemy.isBurrowed) continue;
     const d = dist(s.playerX, s.playerY, enemy.x, enemy.y);
     const minD = enemy.radius + C.PLAYER_RADIUS;
     if (d < minD) {
@@ -537,7 +494,7 @@ export function updateGame(
       // playerDamageCooldown gives brief invincibility frames so a cluster of enemies
       // can't all land damage simultaneously
       if (enemy.damageCooldown <= 0 && s.playerDamageCooldown <= 0) {
-        const dmg = enemy.type === "boss" ? 10 : enemy.type === "elite" ? 7 : enemy.type === "mole" ? 8 : 4;
+        const dmg = enemy.type === "boss" ? 10 : enemy.type === "elite" ? 7 : 4;
         const hpBefore = s.hp;
         s.hp = Math.max(0, s.hp - dmg);
         enemy.damageCooldown = 900;
@@ -622,7 +579,7 @@ export function updateGame(
 function chainLightning(state: GameState, origin: Enemy, excluded: Set<string>, count: number) {
   // Gather all enemies within chain radius sorted by distance
   const candidates = state.enemies
-    .filter((e) => !excluded.has(e.id) && e.id !== origin.id && !e.isBurrowed)
+    .filter((e) => !excluded.has(e.id) && e.id !== origin.id)
     .map((e) => ({ e, d: dist(origin.x, origin.y, e.x, e.y) }))
     .filter(({ d }) => d < C.LIGHTNING_CHAIN_RADIUS)
     .sort((a, b) => a.d - b.d)
@@ -667,7 +624,7 @@ function handleBossDeath(state: GameState, enemy: Enemy) {
 }
 
 function scoreFor(type: Enemy["type"]): number {
-  return type === "boss" ? C.SCORE_BOSS : type === "elite" ? C.SCORE_ELITE : type === "mole" ? C.SCORE_MOLE : C.SCORE_STANDARD;
+  return type === "boss" ? C.SCORE_BOSS : type === "elite" ? C.SCORE_ELITE : C.SCORE_STANDARD;
 }
 
 function randomSpawnPos(px: number, py: number, mw: number, mh: number) {
@@ -678,7 +635,7 @@ function randomSpawnPos(px: number, py: number, mw: number, mh: number) {
 
 function spawnDeathParticles(state: GameState, enemy: Enemy) {
   const count = enemy.type === "boss" ? 20 : enemy.type === "elite" ? 10 : 6;
-  const color = enemy.type === "boss" ? "#ff0000" : enemy.type === "elite" ? "#ff44ff" : enemy.type === "mole" ? "#c87040" : "#44ff44";
+  const color = enemy.type === "boss" ? "#ff0000" : enemy.type === "elite" ? "#ff44ff" : "#44ff44";
   for (let i = 0; i < count; i++) {
     const a = Math.random() * Math.PI * 2, speed = rand(2, 8);
     state.particles.push({ id: uid(), x: enemy.x, y: enemy.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, life: rand(300, 700), maxLife: 700, color, size: rand(3, 8) });
@@ -753,8 +710,7 @@ function applyBuff(state: GameState, type: string) {
     state.iceWaves.push({ id: uid(), x: state.playerX, y: state.playerY, radius: 0, maxRadius: C.FREEZE_AOE_RADIUS, age: 0, maxAge: C.FREEZE_RING_DURATION });
     state.screenShake.magnitude = 6;
     for (const e of state.enemies) {
-      if (e.isBurrowed) continue;
-      if (e.type === "standard" || e.type === "mole") {
+      if (e.type === "standard") {
         e.frozenTimer = C.FREEZE_STANDARD_DURATION;
       } else if (e.type === "elite") {
         e.frozenTimer = C.FREEZE_ELITE_DURATION;

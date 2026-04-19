@@ -36,20 +36,12 @@ export const GAME_CONFIG = {
   ENEMY_SPEED_STANDARD: 1.2,
   ENEMY_SPEED_ELITE: 1.9,
   ENEMY_SPEED_BOSS: 0.9,
-  ENEMY_SPEED_MOLE: 2.8,
   ENEMY_HP_STANDARD: 30,
   ENEMY_HP_ELITE: 70,
   ENEMY_HP_BOSS: 300,
-  ENEMY_HP_MOLE: 45,
   ENEMY_RADIUS_STANDARD: 14,
   ENEMY_RADIUS_ELITE: 18,
   ENEMY_RADIUS_BOSS: 36,
-  ENEMY_RADIUS_MOLE: 11,
-
-  // Mole burrow timing (ms)
-  MOLE_BURROW_AFTER: 2800,
-  MOLE_EMERGE_AFTER: 1600,
-  MOLE_EMERGE_DIST: 140,
 
   // Wave scaling
   WAVE_HP_SCALE: 0.12,
@@ -64,13 +56,11 @@ export const GAME_CONFIG = {
   SCORE_STANDARD: 3,
   SCORE_ELITE: 6,
   SCORE_BOSS: 10,
-  SCORE_MOLE: 4,
 
   // Knockback
   KNOCKBACK_STANDARD: 6,
   KNOCKBACK_ELITE: 4,
   KNOCKBACK_BOSS: 2,
-  KNOCKBACK_MOLE: 9,
 
   // Screen shake
   SHAKE_DAMAGE: 8,
@@ -105,7 +95,7 @@ export const GAME_CONFIG = {
   // ── Freeze Wave ───────────────────────────────────────────────────────────
   FREEZE_AOE_RADIUS: 500,           // px — ring expands to this size
   FREEZE_RING_DURATION: 700,        // ms for the ring animation
-  FREEZE_STANDARD_DURATION: 3500,   // ms — standard/mole fully frozen
+  FREEZE_STANDARD_DURATION: 3500,   // ms — standard enemy fully frozen
   FREEZE_ELITE_DURATION: 2500,      // ms — elite slowed
   FREEZE_BOSS_DURATION: 1500,       // ms — boss slowed
   FREEZE_SLOW_ELITE: 0.28,          // speed multiplier for elite while frozen
@@ -145,5 +135,4 @@ export const ENEMY_COLORS: Record<string, { body: string; glow: string }> = {
   standard: { body: "#1a5c1a", glow: "#2aff2a" },
   elite: { body: "#5c1a5c", glow: "#ff2aff" },
   boss: { body: "#5c0000", glow: "#ff0000" },
-  mole: { body: "#5c3a1a", glow: "#c87040" },
 };
