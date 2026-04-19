@@ -618,15 +618,28 @@ function spawnDeathParticles(state: GameState, enemy: Enemy) {
 
 // Drop chance ramps from 0% on wave 1 up to ~45% by wave 5+
 function eliteDropChance(wave: number): number {
-  if (wave === 1) return 0;           // no combat buffs on wave 1
-  if (wave === 2) return 0.12;
-  if (wave === 3) return 0.22;
-  if (wave === 4) return 0.32;
-  return 0.42;                        // wave 5+ cap
+  if (wave === 1) return 0;     // no combat buffs on wave 1
+  if (wave === 2) return 0.15;
+  if (wave === 3) return 0.25;
+  if (wave === 4) return 0.35;
+  return 0.45;                  // wave 5+ cap
 }
+
+// Max buff drops on the floor at any one time
+const MAX_FLOOR_BUFFS = 2;
+// Minimum pixel distance between any two floor buffs
+const MIN_BUFF_SPREAD = 220;
 
 // Which buffs are unlocked per wave (progressive unlock)
 function spawnBuff(state: GameState, x: number, y: number, wave: number) {
+  // Hard cap: never more than MAX_FLOOR_BUFFS on the ground at once
+  if (state.buffDrops.length >= MAX_FLOOR_BUFFS) return;
+
+  // Enforce spacing — don't drop too close to an existing buff
+  for (const existing of state.buffDrops) {
+    if (dist(x, y, existing.x, existing.y) < MIN_BUFF_SPREAD) return;
+  }
+
   const types: string[] = [];
   if (wave >= 2) types.push("rapidFire");
   if (wave >= 3) types.push("tripleShot");

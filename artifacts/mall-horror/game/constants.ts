@@ -56,9 +56,9 @@ export const GAME_CONFIG = {
   WAVE_DENSITY_SCALE: 0.18,
   WAVE_BASE_KILLS: 100,      // Wave 1 kill threshold (boss immune until met)
   WAVE_KILL_INCREMENT: 120,  // Per wave: 100 → 220 → 340 → 460 …
-  WAVE_SPEED_SCALE: 0.09,
-  SPAWN_COUNT_BASE: 6,       // Enemies per spawn batch
-  SPAWN_COUNT_SCALE: 1.8,    // Scales steeply per wave
+  WAVE_SPEED_SCALE: 0.07,
+  SPAWN_COUNT_BASE: 2,       // Enemies per spawn batch (wave 1 = gentle)
+  SPAWN_COUNT_SCALE: 1.5,    // Grows per wave: w1=2, w3=5, w5=8, w8=13
 
   // Scoring
   SCORE_STANDARD: 3,
@@ -85,9 +85,9 @@ export const GAME_CONFIG = {
 
   // Spawn
   SPAWN_MIN_DIST: 500,
-  SPAWN_INTERVAL_BASE: 1600,   // Faster spawning for denser waves
-  MIN_SPAWN_INTERVAL: 300,     // Minimum interval
-  WAVE_INTERVAL_REDUCTION: 90, // Reduces per wave
+  SPAWN_INTERVAL_BASE: 2800,   // Wave 1 = leisurely pace
+  MIN_SPAWN_INTERVAL: 500,     // Floor for late waves
+  WAVE_INTERVAL_REDUCTION: 180, // -180ms/wave: w1=2800, w4=1900, w8=1060
 
   // ── Boss web attack ───────────────────────────────────────────────────────
   BOSS_WEB_COOLDOWN: 3500,   // ms between web throws
