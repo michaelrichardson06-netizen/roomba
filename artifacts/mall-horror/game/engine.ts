@@ -60,7 +60,7 @@ export function createInitialState(): GameState {
 export function updateGame(
   state: GameState,
   dt: number,
-  input: { dx: number; dy: number; aimAngle: number; shooting: boolean; dashing: boolean; autoAim: boolean }
+  input: { dx: number; dy: number; aimAngle: number; shooting: boolean; dashing: boolean; autoAim: boolean; shootOverrideAngle: number | null }
 ): GameState {
   const s = { ...state };
   s.enemies = [...s.enemies];
@@ -154,18 +154,9 @@ export function updateGame(
     if (s.muzzleFlash.age > s.muzzleFlash.maxAge) s.muzzleFlash = null;
   }
 
-  // ── Player aim angle ──────────────────────────────────────────────────────
-  if (input.autoAim && s.enemies.length > 0) {
-    let nearest = Infinity, nearestAngle = s.playerAngle;
-    for (const e of s.enemies) {
-      if (e.isBurrowed) continue;
-      const d = dist(s.playerX, s.playerY, e.x, e.y);
-      if (d < nearest) { nearest = d; nearestAngle = Math.atan2(e.y - s.playerY, e.x - s.playerX) - Math.PI / 2; }
-    }
-    s.playerAngle = nearestAngle;
-  } else {
-    s.playerAngle = input.aimAngle;
-  }
+  // ── Player aim angle (flashlight always follows aimAngle / movement direction) ──
+  // autoAim only affects the shoot angle, not the flashlight cone
+  s.playerAngle = input.aimAngle;
 
   // ── Player movement ───────────────────────────────────────────────────────
   if (s.isDashing) {
@@ -203,7 +194,11 @@ export function updateGame(
   if (input.shooting && s.shootCooldown <= 0) {
     s.shootCooldown = cooldown;
 
-    let shootAngle = s.playerAngle + Math.PI / 2;
+    // shootOverrideAngle (mobile right stick) takes priority; otherwise use flashlight direction
+    let shootAngle = input.shootOverrideAngle !== null
+      ? input.shootOverrideAngle
+      : s.playerAngle + Math.PI / 2;
+    // Auto-aim snaps shoot angle to nearest enemy (right-stick tap on mobile, or explicit autoAim)
     if (input.autoAim && s.enemies.length > 0) {
       let nearest = Infinity;
       for (const e of s.enemies) {

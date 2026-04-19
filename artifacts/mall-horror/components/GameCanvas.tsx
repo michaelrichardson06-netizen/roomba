@@ -54,7 +54,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState>(createInitialState());
-  const inputRef = useRef({ dx: 0, dy: 0, aimAngle: 0, shooting: false, dashing: false, autoAim: false });
+  const inputRef = useRef({ dx: 0, dy: 0, aimAngle: 0, shooting: false, dashing: false, autoAim: false, shootOverrideAngle: null as number | null });
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const hudTickRef = useRef<number>(0);
@@ -199,7 +199,10 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     const touchRole = new Map<number, "left" | "right">();
     // Mutable floating bases for both joysticks (avoids React re-render lag)
     const leftBase = { x: 0, y: 0 };
-    const rightBase = { x: 0, y: 0 };
+    // Right joystick is FIXED — always centred at the idle-hint position (bottom-right)
+    const RIGHT_JOY_CX = window.innerWidth  - 84;   // 44px margin + 40 (half of 80px hint ring)
+    const RIGHT_JOY_CY = window.innerHeight - 150;  // 110px margin + 40
+    const rightBase = { x: RIGHT_JOY_CX, y: RIGHT_JOY_CY };
     const JOY_CLAMP = 55;
 
     const resetLeft = () => {
@@ -210,6 +213,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     const resetRight = () => {
       inputRef.current.shooting = false;
       inputRef.current.autoAim = false;
+      inputRef.current.shootOverrideAngle = null;
       setRightJoy(IDLE_JOY);
     };
 
@@ -229,11 +233,10 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           setLeftJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
         } else if (!isLeft && !hasRole("right")) {
           touchRole.set(t.identifier, "right");
-          rightBase.x = t.clientX;
-          rightBase.y = t.clientY;
+          // Base stays at the pre-defined fixed centre — do NOT move it
           inputRef.current.shooting = true;
           inputRef.current.autoAim = true; // brief tap = auto-aim nearest
-          setRightJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
+          setRightJoy({ active: true, baseX: rightBase.x, baseY: rightBase.y, stickX: rightBase.x, stickY: rightBase.y });
         }
       });
     };
@@ -256,32 +259,33 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           const ndx = t.clientX - leftBase.x;
           const ndy = t.clientY - leftBase.y;
           const nlen = Math.hypot(ndx, ndy);
-          inputRef.current.dx = nlen > 5 ? ndx / nlen : 0;
-          inputRef.current.dy = nlen > 5 ? ndy / nlen : 0;
+          if (nlen > 5) {
+            inputRef.current.dx = ndx / nlen;
+            inputRef.current.dy = ndy / nlen;
+            // ── Flashlight tracks movement direction ──────────────────────
+            inputRef.current.aimAngle = Math.atan2(ndy, ndx) - Math.PI / 2;
+          } else {
+            inputRef.current.dx = 0;
+            inputRef.current.dy = 0;
+          }
           const cx = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, ndx));
           const cy = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, ndy));
           setLeftJoy({ active: true, baseX: leftBase.x, baseY: leftBase.y, stickX: leftBase.x + cx, stickY: leftBase.y + cy });
         }
 
         if (role === "right") {
-          // ── Twin-stick aim: drag direction = aim direction ────────────────
-          const rdx = t.clientX - rightBase.x;
-          const rdy = t.clientY - rightBase.y;
-          const rlen = Math.hypot(rdx, rdy);
-          // Float the base when thumb drifts past clamp
-          if (rlen > JOY_CLAMP) {
-            rightBase.x = t.clientX - (rdx / rlen) * JOY_CLAMP;
-            rightBase.y = t.clientY - (rdy / rlen) * JOY_CLAMP;
-          }
+          // ── Right stick: FIXED base, shoot direction only (does not affect flashlight) ──
           const nrdx = t.clientX - rightBase.x;
           const nrdy = t.clientY - rightBase.y;
           const nrlen = Math.hypot(nrdx, nrdy);
-          if (nrlen > 8) {
-            // Manual aim from stick direction
-            inputRef.current.aimAngle = Math.atan2(nrdy, nrdx) - Math.PI / 2;
+          if (nrlen > 10) {
+            // Manual shoot direction from right stick drag
+            inputRef.current.shootOverrideAngle = Math.atan2(nrdy, nrdx);
             inputRef.current.autoAim = false;
           } else {
-            inputRef.current.autoAim = true; // small nudge = snap to nearest
+            // Small nudge = auto-aim to nearest enemy
+            inputRef.current.shootOverrideAngle = null;
+            inputRef.current.autoAim = true;
           }
           inputRef.current.shooting = true;
           const rcx = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, nrdx));
