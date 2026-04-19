@@ -62,7 +62,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     const dt = Math.min(timestamp - (lastTimeRef.current || timestamp), 50);
     lastTimeRef.current = timestamp;
 
-    const newState = updateGame(stateRef.current, inputRef.current, dt);
+    const newState = updateGame(stateRef.current, dt, inputRef.current);
     stateRef.current = newState;
     inputRef.current.dashing = false;
 
