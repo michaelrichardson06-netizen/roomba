@@ -3,9 +3,10 @@ import {
   Platform,
   StyleSheet,
   View,
-  PanResponder,
   useWindowDimensions,
 } from "react-native";
+import Constants from "expo-constants";
+import { WebView } from "react-native-webview";
 import { createInitialState, updateGame } from "@/game/engine";
 import { renderFrame } from "@/game/renderer";
 import type { GameState } from "@/game/types";
@@ -238,80 +239,34 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     );
   }
 
-  // Native: Use a pan responder view (canvas rendering not available natively)
-  return (
-    <NativeGameView inputRef={inputRef} hudState={hudState} screenW={SCREEN_W} />
-  );
-}
+  // Native: Load web version in WebView so canvas renders properly on iOS/Android
+  const webUrl = (Constants.expoConfig?.extra as any)?.webUrl;
+  const gameUrl = webUrl ? `${webUrl}/game` : null;
 
-function NativeGameView({
-  inputRef,
-  hudState,
-  screenW,
-}: {
-  inputRef: React.MutableRefObject<{ dx: number; dy: number; aimAngle: number; shooting: boolean; dashing: boolean }>;
-  hudState: HUDState;
-  screenW: number;
-}) {
-  const leftTouch = useRef<{ id: number; sx: number; sy: number } | null>(null);
-  const rightTouch = useRef<{ id: number; sx: number; sy: number } | null>(null);
-
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: (e) => {
-      const touch = e.nativeEvent;
-      const isLeft = touch.locationX < screenW / 2;
-      if (isLeft) {
-        leftTouch.current = { id: touch.identifier, sx: touch.pageX, sy: touch.pageY };
-      } else {
-        rightTouch.current = { id: touch.identifier, sx: touch.pageX, sy: touch.pageY };
-        inputRef.current.shooting = true;
-      }
-    },
-    onPanResponderMove: (e) => {
-      const touches = e.nativeEvent.touches;
-      for (let i = 0; i < touches.length; i++) {
-        const t = touches[i];
-        if (leftTouch.current && t.identifier === leftTouch.current.id) {
-          const dx = t.pageX - leftTouch.current.sx;
-          const dy = t.pageY - leftTouch.current.sy;
-          const len = Math.sqrt(dx * dx + dy * dy);
-          if (len > 5) {
-            inputRef.current.dx = dx / len;
-            inputRef.current.dy = dy / len;
-          }
-        }
-        if (rightTouch.current && t.identifier === rightTouch.current.id) {
-          const dx = t.pageX - rightTouch.current.sx;
-          const dy = t.pageY - rightTouch.current.sy;
-          const len = Math.sqrt(dx * dx + dy * dy);
-          if (len > 10) {
-            inputRef.current.aimAngle = Math.atan2(dy, dx) - Math.PI / 2;
-          }
-        }
-      }
-    },
-    onPanResponderRelease: () => {
-      leftTouch.current = null;
-      rightTouch.current = null;
-      inputRef.current.dx = 0;
-      inputRef.current.dy = 0;
-      inputRef.current.shooting = false;
-    },
-    onPanResponderTerminate: () => {
-      leftTouch.current = null;
-      rightTouch.current = null;
-      inputRef.current.dx = 0;
-      inputRef.current.dy = 0;
-      inputRef.current.shooting = false;
-    },
-  });
+  if (!gameUrl) {
+    return (
+      <View style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
+        <View style={{ padding: 24 }}>
+          <GameHUD {...hudState} onDash={() => {}} />
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.container, { backgroundColor: "#0a0806" }]} {...panResponder.panHandlers}>
-      <GameHUD {...hudState} onDash={() => { inputRef.current.dashing = true; }} />
-    </View>
+    <WebView
+      source={{ uri: gameUrl }}
+      style={styles.container}
+      allowsInlineMediaPlayback
+      mediaPlaybackRequiresUserAction={false}
+      javaScriptEnabled
+      domStorageEnabled
+      bounces={false}
+      scrollEnabled={false}
+      overScrollMode="never"
+      showsHorizontalScrollIndicator={false}
+      showsVerticalScrollIndicator={false}
+    />
   );
 }
 

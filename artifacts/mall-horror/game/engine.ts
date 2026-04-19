@@ -22,10 +22,10 @@ export function createInitialState(): GameState {
     lamps.push({
       x: rand(100, C.MAP_WIDTH - 100),
       y: rand(100, C.MAP_HEIGHT - 100),
-      radius: rand(80, 130),
+      radius: rand(160, 280),
       flicker: 1.0,
-      flickerTarget: rand(0.85, 1.0),
-      color: Math.random() > 0.3 ? "#ff8800" : "#4488ff",
+      flickerTarget: rand(0.82, 1.0),
+      color: Math.random() > 0.25 ? "#ffcc66" : Math.random() > 0.5 ? "#ff8800" : "#4488ff",
     });
   }
 

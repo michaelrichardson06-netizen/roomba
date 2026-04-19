@@ -26,11 +26,11 @@ export const GAME_CONFIG = {
   BAZOOKA_EXPLOSION_RADIUS: 250,
 
   // Flashlight
-  FLASHLIGHT_LENGTH: 260,
-  FLASHLIGHT_ANGLE: Math.PI / 3, // 60 degrees
+  FLASHLIGHT_LENGTH: 520,
+  FLASHLIGHT_ANGLE: Math.PI / 2, // 90 degrees
 
   // Lighting
-  AMBIENT_LIGHT_RADIUS: 80,
+  AMBIENT_LIGHT_RADIUS: 180,
 
   // Enemy base stats (wave 1)
   ENEMY_SPEED_STANDARD: 1.4,
@@ -66,7 +66,7 @@ export const GAME_CONFIG = {
   ELITE_DROP_CHANCE: 0.55,
 
   // Lamps per scene
-  LAMP_COUNT: 14,
+  LAMP_COUNT: 28,
 
   // Spawn
   SPAWN_MIN_DIST: 500, // minimum distance enemies spawn from player
