@@ -14,6 +14,7 @@ interface GameHUDProps {
   rapidFireStacks: number;
   bazookaMode: boolean;
   dashCooldown: number;
+  spawnGrace: number;
   onDash: () => void;
 }
 
@@ -29,6 +30,7 @@ export function GameHUD({
   rapidFireStacks,
   bazookaMode,
   dashCooldown,
+  spawnGrace,
   onDash,
 }: GameHUDProps) {
   const insets = useSafeAreaInsets();
@@ -70,6 +72,15 @@ export function GameHUD({
           <Text style={styles.killText}>{killCount}/{waveTotalKills}</Text>
         </View>
       </View>
+
+      {/* Spawn grace countdown */}
+      {spawnGrace > 0 && (
+        <View style={styles.graceRow}>
+          <Text style={styles.graceText}>
+            ENEMIES INCOMING IN {Math.ceil(spawnGrace / 1000)}...
+          </Text>
+        </View>
+      )}
 
       {/* Active buffs */}
       <View style={styles.buffRow}>
@@ -173,6 +184,19 @@ const styles = StyleSheet.create({
     color: "#ff8866",
     fontSize: 10,
     fontWeight: "700",
+  },
+  graceRow: {
+    alignItems: "center",
+    paddingTop: 6,
+  },
+  graceText: {
+    color: "#ff8800",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textShadowColor: "#000",
+    textShadowRadius: 4,
+    textShadowOffset: { width: 1, height: 1 },
   },
   buffRow: {
     flexDirection: "row",

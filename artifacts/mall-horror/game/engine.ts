@@ -66,6 +66,7 @@ export function createInitialState(): GameState {
     totalInsects: 0,
     mapWidth: C.MAP_WIDTH,
     mapHeight: C.MAP_HEIGHT,
+    spawnGrace: 3000, // 3 second grace period before first enemies
   };
 }
 
@@ -247,6 +248,11 @@ export function updateGame(
         b.y < s.mapHeight + 100
     );
 
+  // Spawn grace period countdown
+  if (s.spawnGrace > 0) {
+    s.spawnGrace = Math.max(0, s.spawnGrace - dt);
+  }
+
   // Spawn enemies
   const spawnInterval = Math.max(
     C.MIN_SPAWN_INTERVAL,
@@ -257,54 +263,58 @@ export function updateGame(
   const killsNeeded = s.waveTotalKills;
   const shouldSpawnBoss = s.killCount >= killsNeeded && !s.bossSpawned;
 
-  if (shouldSpawnBoss) {
-    s.bossSpawned = true;
-    const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
-    const hpScale = 1 + (s.wave - 1) * C.WAVE_HP_SCALE;
-    const hp = Math.ceil(C.ENEMY_HP_BOSS * hpScale);
-    s.enemies.push({
-      id: uid(),
-      x: pos.x,
-      y: pos.y,
-      vx: 0,
-      vy: 0,
-      hp,
-      maxHp: hp,
-      type: "boss",
-      radius: C.ENEMY_RADIUS_BOSS,
-      knockbackX: 0,
-      knockbackY: 0,
-      hitFlash: 0,
-      angle: 0,
-      legPhase: 0,
-    });
-  } else if (!shouldSpawnBoss && s.killCount < killsNeeded) {
-    if (s.spawnTimer >= spawnInterval) {
-      s.spawnTimer = 0;
-      const waveCount = Math.ceil(1 + (s.wave - 1) * C.WAVE_DENSITY_SCALE * 0.5);
-      for (let i = 0; i < waveCount; i++) {
-        const isElite = Math.random() < 0.2;
-        const type = isElite ? "elite" : "standard";
-        const hpScale = 1 + (s.wave - 1) * C.WAVE_HP_SCALE;
-        const baseHp = type === "elite" ? C.ENEMY_HP_ELITE : C.ENEMY_HP_STANDARD;
-        const hp = Math.ceil(baseHp * hpScale);
-        const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
-        s.enemies.push({
-          id: uid(),
-          x: pos.x,
-          y: pos.y,
-          vx: 0,
-          vy: 0,
-          hp,
-          maxHp: hp,
-          type,
-          radius: type === "elite" ? C.ENEMY_RADIUS_ELITE : C.ENEMY_RADIUS_STANDARD,
-          knockbackX: 0,
-          knockbackY: 0,
-          hitFlash: 0,
-          angle: 0,
-          legPhase: 0,
-        });
+  if (s.spawnGrace <= 0) {
+    if (shouldSpawnBoss) {
+      s.bossSpawned = true;
+      const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
+      const hpScale = 1 + (s.wave - 1) * C.WAVE_HP_SCALE;
+      const hp = Math.ceil(C.ENEMY_HP_BOSS * hpScale);
+      s.enemies.push({
+        id: uid(),
+        x: pos.x,
+        y: pos.y,
+        vx: 0,
+        vy: 0,
+        hp,
+        maxHp: hp,
+        type: "boss",
+        radius: C.ENEMY_RADIUS_BOSS,
+        knockbackX: 0,
+        knockbackY: 0,
+        hitFlash: 0,
+        angle: 0,
+        legPhase: 0,
+        damageCooldown: 0,
+      });
+    } else if (!shouldSpawnBoss && s.killCount < killsNeeded) {
+      if (s.spawnTimer >= spawnInterval) {
+        s.spawnTimer = 0;
+        const waveCount = Math.ceil(1 + (s.wave - 1) * C.WAVE_DENSITY_SCALE * 0.5);
+        for (let i = 0; i < waveCount; i++) {
+          const isElite = Math.random() < 0.2;
+          const type = isElite ? "elite" : "standard";
+          const hpScale = 1 + (s.wave - 1) * C.WAVE_HP_SCALE;
+          const baseHp = type === "elite" ? C.ENEMY_HP_ELITE : C.ENEMY_HP_STANDARD;
+          const hp = Math.ceil(baseHp * hpScale);
+          const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
+          s.enemies.push({
+            id: uid(),
+            x: pos.x,
+            y: pos.y,
+            vx: 0,
+            vy: 0,
+            hp,
+            maxHp: hp,
+            type,
+            radius: type === "elite" ? C.ENEMY_RADIUS_ELITE : C.ENEMY_RADIUS_STANDARD,
+            knockbackX: 0,
+            knockbackY: 0,
+            hitFlash: 0,
+            angle: 0,
+            legPhase: 0,
+            damageCooldown: 0,
+          });
+        }
       }
     }
   }
@@ -341,6 +351,7 @@ export function updateGame(
       hitFlash: Math.max(0, e.hitFlash - dt * 4),
       angle: Math.atan2(dy, dx) - Math.PI / 2,
       legPhase: e.legPhase + dt * 0.01,
+      damageCooldown: Math.max(0, e.damageCooldown - dt),
     };
   });
 
@@ -504,15 +515,11 @@ export function updateGame(
     s.waveTotalKills = Math.ceil(C.WAVE_BASE_KILLS * Math.pow(1 + C.WAVE_DENSITY_SCALE, s.wave - 1));
   }
 
-  // Enemy vs player collision
+  // Enemy vs player collision (with per-enemy damage cooldown so no per-frame draining)
   for (const enemy of s.enemies) {
     const d = dist(s.playerX, s.playerY, enemy.x, enemy.y);
     const minDist = enemy.radius + C.PLAYER_RADIUS;
     if (d < minDist) {
-      const dmg = enemy.type === "boss" ? 3 : enemy.type === "elite" ? 2 : 1;
-      s.hp -= dmg;
-      s.screenShake.magnitude = C.SHAKE_DAMAGE;
-
       // Push player away
       if (d > 0) {
         const nx = (s.playerX - enemy.x) / d;
@@ -521,8 +528,15 @@ export function updateGame(
         s.playerY += ny * (minDist - d);
       }
 
+      // Only deal damage when cooldown has expired
+      if (enemy.damageCooldown <= 0) {
+        const dmg = enemy.type === "boss" ? 8 : enemy.type === "elite" ? 5 : 3;
+        s.hp = Math.max(0, s.hp - dmg);
+        enemy.damageCooldown = 800; // 800ms between hits per enemy
+        s.screenShake.magnitude = C.SHAKE_DAMAGE;
+      }
+
       if (s.hp <= 0) {
-        s.hp = 0;
         s.phase = "dead";
       }
     }
@@ -567,13 +581,13 @@ export function updateGame(
 }
 
 function randomSpawnPos(px: number, py: number, mw: number, mh: number) {
-  const minDist = 300;
+  const minDist = C.SPAWN_MIN_DIST;
   let x: number, y: number, tries = 0;
   do {
     x = rand(50, mw - 50);
     y = rand(50, mh - 50);
     tries++;
-  } while (dist(x, y, px, py) < minDist && tries < 20);
+  } while (dist(x, y, px, py) < minDist && tries < 30);
   return { x, y };
 }
 

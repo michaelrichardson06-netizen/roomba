@@ -69,6 +69,7 @@ export const GAME_CONFIG = {
   LAMP_COUNT: 14,
 
   // Spawn
+  SPAWN_MIN_DIST: 500, // minimum distance enemies spawn from player
   SPAWN_INTERVAL_BASE: 2200,
   MIN_SPAWN_INTERVAL: 600,
 };

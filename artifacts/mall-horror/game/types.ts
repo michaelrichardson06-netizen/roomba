@@ -20,6 +20,7 @@ export interface Enemy {
   hitFlash: number;
   angle: number;
   legPhase: number;
+  damageCooldown: number; // ms before this enemy can damage player again
 }
 
 export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode";
@@ -114,6 +115,7 @@ export interface GameState {
   dashDy: number;
   dashTime: number;
   spawnTimer: number;
+  spawnGrace: number;
   bossSpawned: boolean;
   phase: "playing" | "dead";
   totalInsects: number;

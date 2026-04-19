@@ -3,8 +3,8 @@ import {
   Platform,
   StyleSheet,
   View,
-  Dimensions,
   PanResponder,
+  useWindowDimensions,
 } from "react-native";
 import { createInitialState, updateGame } from "@/game/engine";
 import { renderFrame } from "@/game/renderer";
@@ -27,19 +27,19 @@ interface HUDState {
   rapidFireStacks: number;
   bazookaMode: boolean;
   dashCooldown: number;
+  spawnGrace: number;
 }
-
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 const DEFAULT_HUD: HUDState = {
   hp: 200, maxHp: 200, score: 0, wave: 1,
   killCount: 0, waveTotalKills: 12,
   tripleShot: false, quadShot: false,
   rapidFireStacks: 0, bazookaMode: false,
-  dashCooldown: 0,
+  dashCooldown: 0, spawnGrace: 3000,
 };
 
 export function GameCanvas({ onDeath }: GameCanvasProps) {
+  const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState>(createInitialState());
   const inputRef = useRef({
@@ -92,6 +92,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
         rapidFireStacks: newState.rapidFireStacks,
         bazookaMode: newState.bazookaMode,
         dashCooldown: newState.dashCooldown,
+        spawnGrace: newState.spawnGrace,
       });
     }
 
@@ -239,16 +240,18 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
 
   // Native: Use a pan responder view (canvas rendering not available natively)
   return (
-    <NativeGameView inputRef={inputRef} hudState={hudState} />
+    <NativeGameView inputRef={inputRef} hudState={hudState} screenW={SCREEN_W} />
   );
 }
 
 function NativeGameView({
   inputRef,
   hudState,
+  screenW,
 }: {
   inputRef: React.MutableRefObject<{ dx: number; dy: number; aimAngle: number; shooting: boolean; dashing: boolean }>;
   hudState: HUDState;
+  screenW: number;
 }) {
   const leftTouch = useRef<{ id: number; sx: number; sy: number } | null>(null);
   const rightTouch = useRef<{ id: number; sx: number; sy: number } | null>(null);
@@ -258,7 +261,7 @@ function NativeGameView({
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: (e) => {
       const touch = e.nativeEvent;
-      const isLeft = touch.locationX < SCREEN_W / 2;
+      const isLeft = touch.locationX < screenW / 2;
       if (isLeft) {
         leftTouch.current = { id: touch.identifier, sx: touch.pageX, sy: touch.pageY };
       } else {
