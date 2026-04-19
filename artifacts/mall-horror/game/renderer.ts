@@ -93,39 +93,6 @@ export function renderFrame(
 
   drawRoomba(ctx, state.playerX, state.playerY, state.playerAngle, state.isDashing);
 
-  // ── On-canvas HP bar above the player — always visible, updates every frame ──
-  {
-    const px = state.playerX;
-    const py = state.playerY;
-    const ratio = Math.max(0, state.hp / state.maxHp);
-    const barW = 48, barH = 7, barX = px - barW / 2, barY = py - 30;
-    const hpColor = ratio > 0.5 ? "#22dd55" : ratio > 0.25 ? "#ffaa00" : "#ff2222";
-    // Background
-    ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.65)";
-    ctx.beginPath();
-    ctx.roundRect(barX - 1, barY - 1, barW + 2, barH + 2, 3);
-    ctx.fill();
-    // Fill
-    ctx.fillStyle = hpColor;
-    ctx.shadowColor = hpColor;
-    ctx.shadowBlur = ratio < 0.3 ? 6 : 0;
-    ctx.beginPath();
-    ctx.roundRect(barX, barY, barW * ratio, barH, 3);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    // HP number above bar — big, always readable
-    const hpText = `${Math.ceil(state.hp)}`;
-    ctx.font = "bold 11px monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    ctx.strokeStyle = "rgba(0,0,0,0.9)";
-    ctx.lineWidth = 3;
-    ctx.strokeText(hpText, px, barY - 1);
-    ctx.fillStyle = ratio < 0.3 ? "#ff6666" : "#ffffff";
-    ctx.fillText(hpText, px, barY - 1);
-    ctx.restore();
-  }
 
   // ── Lightning: ambient static arcs between nearby enemies ─────────────────
   if (state.lightningStrike && state.enemies.length > 1) {
@@ -240,42 +207,65 @@ export function renderFrame(
 
   drawLightingOverlay(ctx, state, cameraX, cameraY, canvasW, canvasH);
 
-  // ── Player HP bar — always visible, screen-space, just below player ─────────
+  // ── LARGE HP bar — bottom-center of screen, always readable ─────────────────
   {
     const hpRatio = Math.max(0, state.hp / state.maxHp);
-    const barW = 72;
-    const barH = 9;
+    const barW = Math.min(canvasW * 0.55, 280);
+    const barH = 18;
     const sx = canvasW / 2 - barW / 2;
-    const sy = canvasH / 2 + 28;
+    const sy = canvasH - 80; // near the bottom where eyes are
+    const barColor = hpRatio > 0.5 ? "#22ee55" : hpRatio > 0.25 ? "#ffbb00" : "#ff2222";
+    const pulse = hpRatio < 0.3 ? (Math.sin(Date.now() * 0.008) * 0.5 + 0.5) : 0;
+
     ctx.save();
-    // Track background
-    ctx.fillStyle = "rgba(0,0,0,0.8)";
-    ctx.beginPath();
-    ctx.roundRect(sx - 2, sy - 2, barW + 4, barH + 4, 5);
-    ctx.fill();
-    // Dim empty track
-    ctx.fillStyle = "rgba(60,10,10,0.6)";
-    ctx.beginPath();
-    ctx.roundRect(sx, sy, barW, barH, 3);
-    ctx.fill();
-    // Filled portion
-    const barColor = hpRatio > 0.5 ? "#22cc44" : hpRatio > 0.25 ? "#ffaa00" : "#ff2222";
-    if (hpRatio <= 0.50) {
-      ctx.shadowColor = barColor;
-      ctx.shadowBlur = 12;
-    }
+    // Dark backing panel
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.fillRect(sx - 6, sy - 22, barW + 12, barH + 34);
+
+    // "HP" label
+    ctx.font = "bold 11px monospace";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#666";
+    ctx.fillText("HP", sx, sy - 6);
+
+    // HP number right-aligned
+    ctx.textAlign = "right";
+    ctx.font = `bold ${hpRatio < 0.3 ? 14 : 12}px monospace`;
+    ctx.fillStyle = hpRatio < 0.3 ? "#ff4444" : "#cccccc";
+    if (hpRatio < 0.3) { ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 6 + pulse * 8; }
+    ctx.fillText(`${Math.ceil(state.hp)} / ${state.maxHp}`, sx + barW, sy - 6);
+    ctx.shadowBlur = 0;
+
+    // Empty track
+    ctx.fillStyle = "rgba(40,5,5,0.9)";
+    ctx.fillRect(sx, sy, barW, barH);
+
+    // Filled bar
+    if (hpRatio < 0.3) { ctx.shadowColor = barColor; ctx.shadowBlur = 10 + pulse * 14; }
     ctx.fillStyle = barColor;
-    ctx.beginPath();
-    ctx.roundRect(sx, sy, Math.max(2, barW * hpRatio), barH, 3);
-    ctx.fill();
+    ctx.fillRect(sx, sy, Math.max(3, barW * hpRatio), barH);
     ctx.shadowBlur = 0;
-    // HP number always shown
-    ctx.font = `bold ${hpRatio <= 0.30 ? 11 : 9}px monospace`;
-    ctx.textAlign = "center";
-    ctx.fillStyle = hpRatio <= 0.30 ? "#ff3333" : "#aaaaaa";
-    if (hpRatio <= 0.30) { ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 8; }
-    ctx.fillText(`${Math.ceil(state.hp)} HP`, canvasW / 2, sy + barH + 13);
-    ctx.shadowBlur = 0;
+
+    // White fill-line at top of bar for depth
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(sx, sy, Math.max(3, barW * hpRatio), 3);
+
+    // Border
+    ctx.strokeStyle = hpRatio < 0.3 ? `rgba(255,50,50,${0.6 + pulse * 0.4})` : "rgba(80,80,80,0.5)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(sx, sy, barW, barH);
+
+    // Critical flash label
+    if (hpRatio < 0.3) {
+      ctx.globalAlpha = 0.5 + pulse * 0.5;
+      ctx.font = "bold 13px monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ff3333";
+      ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 10;
+      ctx.fillText("⚠ CRITICAL", canvasW / 2, sy + barH + 16);
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+    }
     ctx.restore();
   }
 
