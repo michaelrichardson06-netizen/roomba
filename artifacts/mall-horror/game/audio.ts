@@ -403,30 +403,35 @@ export function unlockAudio() {
   const ac = getCtx();
   if (!ac) return;
 
-  const doUnlock = () => {
-    // Play a short silent buffer — must use currentTime + offset, NOT an
-    // absolute time of 0.001 which is in the past once the context has been
-    // running for more than 1ms (so the source would stop before producing
-    // any samples and iOS wouldn't count it as "audio played during gesture").
-    try {
-      const buf = ac.createBuffer(1, ac.sampleRate * 0.05, ac.sampleRate); // 50ms silence
-      const src = ac.createBufferSource();
-      src.buffer = buf;
-      src.connect(ac.destination);
-      src.start(ac.currentTime);
-      src.stop(ac.currentTime + 0.05);
-    } catch { /* ignore */ }
+  // ── iOS Safari hard rule ───────────────────────────────────────────────────
+  // Every audio operation that needs gesture-unlock permission MUST be called
+  // SYNCHRONOUSLY inside the event handler.  A .then() callback runs in the
+  // microtask queue — after the handler returns — which iOS no longer considers
+  // a "user gesture", so ctx.resume() and BufferSource.start() called there are
+  // silently rejected and the context stays suspended forever.
+  //
+  // Correct sequence (all synchronous):
+  //   1. createBuffer + start + stop   ← satisfies "must play audio in gesture"
+  //   2. ctx.resume()                  ← unsuspends the context
+  //   3. startBgMusic()                ← schedules oscillators (also sync)
 
-    // Start music now that the context is unlocked. startBgMusic() is a
-    // no-op if already playing, so it is safe to call on every gesture.
-    // This also handles the "no music after death" case: stopBgMusic() sets
-    // bgPlaying=false; the next touch then restarts via this path.
-    startBgMusic();
-  };
+  // 1. Silent 50 ms buffer — gives iOS the "audio was played in gesture" proof
+  try {
+    const buf = ac.createBuffer(1, Math.ceil(ac.sampleRate * 0.05), ac.sampleRate);
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    src.connect(ac.destination);
+    src.start(ac.currentTime);        // "now" — synchronous schedule
+    src.stop(ac.currentTime + 0.05);  // 50 ms later — synchronous schedule
+  } catch { /* AudioContext not yet available — ignore */ }
 
+  // 2. Resume synchronously (iOS reads the _call_ as gesture-context even though
+  //    the underlying state flip happens asynchronously)
   if (ac.state === "suspended") {
-    ac.resume().then(doUnlock).catch(() => {});
-  } else {
-    doUnlock();
+    ac.resume().catch(() => {});
   }
+
+  // 3. Start or restart music — bgPlaying guard makes this a no-op if already running.
+  //    Called synchronously so the oscillator.start() calls happen in gesture context.
+  startBgMusic();
 }

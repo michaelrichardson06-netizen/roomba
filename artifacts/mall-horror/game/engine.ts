@@ -56,7 +56,7 @@ export function createInitialState(): GameState {
     shootCooldown: 0, dashCooldown: 0, isDashing: false,
     dashDx: 0, dashDy: 0, dashTime: 0,
     spawnTimer: 0, spawnGrace: 3000, bossSpawned: false,
-    phase: "playing", totalInsects: 0,
+    phase: "playing", deathCause: "", hpAtDeath: 0, totalInsects: 0,
     mapWidth: C.MAP_WIDTH, mapHeight: C.MAP_HEIGHT,
   };
 }
@@ -97,7 +97,7 @@ export function updateGame(
     if (Math.floor(prevHp) !== Math.floor(s.hp) && Math.random() < 0.12) {
       s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-16, 16), y: s.playerY - 34, text: "🔋-HP", age: 0, maxAge: 1200, color: "#ff8800", vy: -0.7 });
     }
-    if (s.hp <= 0) { s.phase = "dead"; return s; } // battery killed the player
+    if (s.hp <= 0) { s.deathCause = "battery"; s.hpAtDeath = prevHp; s.phase = "dead"; return s; }
   }
 
   // ── Battery HP regen (very slow while battery charged) ───────────────────
@@ -537,6 +537,7 @@ export function updateGame(
       // can't all land damage simultaneously (the main source of "random instant death")
       if (enemy.damageCooldown <= 0 && s.playerDamageCooldown <= 0) {
         const dmg = enemy.type === "boss" ? 10 : enemy.type === "elite" ? 7 : enemy.type === "mole" ? 8 : 4;
+        const hpBefore = s.hp;
         s.hp = Math.max(0, s.hp - dmg);
         enemy.damageCooldown = 900;
         s.playerDamageCooldown = 750;
@@ -544,8 +545,10 @@ export function updateGame(
         s.redFlash = 1.0;
         // Floating damage number above the player — makes every hit unmissable
         s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-12, 12), y: s.playerY - 28, text: `-${dmg}`, age: 0, maxAge: 900, color: "#ff2222", vy: -1.2 });
+        if (s.hp <= 0) { s.deathCause = `${enemy.type}: -${dmg} (was ${Math.round(hpBefore)} HP)`; s.hpAtDeath = hpBefore; s.phase = "dead"; }
+      } else if (s.hp <= 0) {
+        s.deathCause = "unknown (hp was 0 before hit check)"; s.hpAtDeath = s.hp; s.phase = "dead";
       }
-      if (s.hp <= 0) { s.phase = "dead"; }
     }
   }
 
@@ -572,7 +575,9 @@ export function updateGame(
         s.playerDamageCooldown = 600;
         s.screenShake.magnitude = C.SHAKE_DAMAGE + 4;
         s.redFlash = 1.0; // boss web hit = full red flash
+        const webHpBefore = s.hp + C.BOSS_WEB_DAMAGE; // hp before damage
         s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-12, 12), y: s.playerY - 28, text: `-${C.BOSS_WEB_DAMAGE}`, age: 0, maxAge: 900, color: "#ff2222", vy: -1.2 });
+        if (s.hp <= 0) { s.deathCause = `boss_web: -${C.BOSS_WEB_DAMAGE} (was ${Math.round(webHpBefore)} HP)`; s.hpAtDeath = webHpBefore; s.phase = "dead"; }
         // Green poison splatter
         for (let i = 0; i < 12; i++) {
           const a = Math.random() * Math.PI * 2;

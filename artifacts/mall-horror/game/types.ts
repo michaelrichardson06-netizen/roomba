@@ -185,6 +185,8 @@ export interface GameState {
   spawnGrace: number;
   bossSpawned: boolean;
   phase: "playing" | "dead";
+  deathCause: string;   // what killed the player ("enemy", "boss_web", "battery", "")
+  hpAtDeath: number;    // hp value the frame the kill hit landed (before clamping to 0)
   totalInsects: number;
   mapWidth: number;
   mapHeight: number;

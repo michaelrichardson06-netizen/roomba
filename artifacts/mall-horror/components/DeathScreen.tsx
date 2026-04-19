@@ -17,6 +17,8 @@ interface DeathScreenProps {
   highScore: number;
   bestWave: number;
   isNewHighScore: boolean;
+  deathCause: string;
+  hpAtDeath: number;
   onRetry: () => void;
   onMenu: () => void;
 }
@@ -28,6 +30,8 @@ export function DeathScreen({
   highScore,
   bestWave,
   isNewHighScore,
+  deathCause,
+  hpAtDeath,
   onRetry,
   onMenu,
 }: DeathScreenProps) {
@@ -76,6 +80,7 @@ export function DeathScreen({
           <StatItem label="SCORE" value={score.toLocaleString()} highlight={isNewHighScore} />
           <StatItem label="WAVES CLEARED" value={String(wavesCleared)} />
           <StatItem label="INSECTS KILLED" value={String(insectsExterminated)} />
+          <StatItem label="KILLED BY" value={deathCause} wrap />
         </View>
 
         {isNewHighScore && (
@@ -117,7 +122,15 @@ export function DeathScreen({
   );
 }
 
-function StatItem({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function StatItem({ label, value, highlight, wrap }: { label: string; value: string; highlight?: boolean; wrap?: boolean }) {
+  if (wrap) {
+    return (
+      <View style={[styles.statItem, { flexDirection: "column", alignItems: "flex-start", gap: 2 }]}>
+        <Text style={styles.statLabel}>{label}</Text>
+        <Text style={[styles.statValue, { fontSize: 13, color: "#ff8855" }]} numberOfLines={3}>{value}</Text>
+      </View>
+    );
+  }
   return (
     <View style={styles.statItem}>
       <Text style={[styles.statValue, highlight && styles.statValueHighlight]}>{value}</Text>
