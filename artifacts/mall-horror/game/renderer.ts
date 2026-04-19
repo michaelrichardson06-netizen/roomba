@@ -53,6 +53,33 @@ export function renderFrame(
 
   for (const enemy of state.enemies) {
     drawEnemy(ctx, enemy);
+    // Frozen/slowed ice overlay
+    if (!enemy.isBurrowed && enemy.frozenTimer > 0) {
+      const isFull = (enemy.type === "standard" || enemy.type === "mole");
+      ctx.save();
+      ctx.globalAlpha = isFull ? 0.55 : 0.35;
+      const frozenGrd = ctx.createRadialGradient(enemy.x, enemy.y, 0, enemy.x, enemy.y, enemy.radius * 1.2);
+      frozenGrd.addColorStop(0, "rgba(160,240,255,0.8)");
+      frozenGrd.addColorStop(0.5, "rgba(80,200,255,0.5)");
+      frozenGrd.addColorStop(1, "rgba(0,160,255,0)");
+      ctx.fillStyle = frozenGrd;
+      ctx.beginPath();
+      ctx.arc(enemy.x, enemy.y, enemy.radius * 1.2, 0, Math.PI * 2);
+      ctx.fill();
+      // Ice crystal spikes
+      ctx.globalAlpha = isFull ? 0.8 : 0.5;
+      ctx.strokeStyle = "#88eeff";
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const len = enemy.radius * (0.7 + Math.sin(i * 2.1) * 0.3);
+        ctx.beginPath();
+        ctx.moveTo(enemy.x, enemy.y);
+        ctx.lineTo(enemy.x + Math.cos(a) * len, enemy.y + Math.sin(a) * len);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   // ── Boss webs ──────────────────────────────────────────────────────────────
@@ -117,6 +144,53 @@ export function renderFrame(
     ctx.beginPath();
     ctx.arc(state.playerX, state.playerY, aoeR, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  // ── Ice wave rings ─────────────────────────────────────────────────────────
+  for (const iw of state.iceWaves) {
+    const prog = iw.age / iw.maxAge;
+    const alpha = (1 - prog) * 0.9;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = "#00cfff";
+    ctx.lineWidth = 4 + (1 - prog) * 4;
+    ctx.shadowColor = "#00cfff";
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.arc(iw.x, iw.y, iw.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    // Inner ring fill
+    ctx.globalAlpha = alpha * 0.15;
+    const iceGrd = ctx.createRadialGradient(iw.x, iw.y, 0, iw.x, iw.y, iw.radius);
+    iceGrd.addColorStop(0, "rgba(0,207,255,0)");
+    iceGrd.addColorStop(0.7, "rgba(0,207,255,0.3)");
+    iceGrd.addColorStop(1, "rgba(0,207,255,0)");
+    ctx.fillStyle = iceGrd;
+    ctx.beginPath();
+    ctx.arc(iw.x, iw.y, iw.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  // ── Floating texts (IMMUNE! etc.) ─────────────────────────────────────────
+  for (const ft of state.floatingTexts) {
+    const prog = ft.age / ft.maxAge;
+    const alpha = prog < 0.3 ? prog / 0.3 : 1 - ((prog - 0.3) / 0.7);
+    const scale = 1 + prog * 0.4;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(ft.x, ft.y);
+    ctx.scale(scale, scale);
+    ctx.font = `bold ${Math.round(14 / scale)}px monospace`;
+    ctx.fillStyle = ft.color;
+    ctx.shadowColor = ft.color;
+    ctx.shadowBlur = 10;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(ft.text, 0, 0);
     ctx.shadowBlur = 0;
     ctx.restore();
   }

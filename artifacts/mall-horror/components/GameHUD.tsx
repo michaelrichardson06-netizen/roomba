@@ -102,9 +102,12 @@ export function GameHUD({
         </View>
       )}
 
-      {/* Spawn grace countdown */}
+      {/* Spawn grace countdown + wave 1 objective hint */}
       {spawnGrace > 0 && (
         <View style={styles.graceRow}>
+          {wave === 1 && (
+            <Text style={styles.objectiveText}>SURVIVE AS MANY WAVES AS POSSIBLE!</Text>
+          )}
           <Text style={styles.graceText}>ENEMIES INCOMING IN {Math.ceil(spawnGrace / 1000)}...</Text>
         </View>
       )}
@@ -181,7 +184,8 @@ const styles = StyleSheet.create({
   berserkerBarFill: { height: "100%", backgroundColor: "#ff0044", borderRadius: 4 },
   berserkerText: { color: "#ff0044", fontSize: 14, fontWeight: "700", letterSpacing: 2 },
 
-  graceRow: { alignItems: "center", paddingTop: 6 },
+  graceRow: { alignItems: "center", paddingTop: 6, gap: 4 },
+  objectiveText: { color: "#00cfff", fontSize: 11, fontWeight: "700", letterSpacing: 1.5, textAlign: "center", opacity: 0.9 },
   graceText: { color: "#ff8800", fontSize: 13, fontWeight: "700", letterSpacing: 1 },
 
   buffRow: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12, paddingTop: 4, gap: 6 },

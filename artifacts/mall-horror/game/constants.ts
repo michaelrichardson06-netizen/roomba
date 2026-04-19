@@ -99,8 +99,17 @@ export const GAME_CONFIG = {
   BATTERY_MAX: 100,
   BATTERY_DRAIN_RATE: 1.485,     // units/second (67% slower than original 4.5)
   BATTERY_HEALTH_DRAIN: 3,       // HP/second when battery empty
-  BATTERY_SPAWN_INTERVAL: 13500, // ms between spawn checks (18% more frequent)
+  BATTERY_SPAWN_INTERVAL: 22000, // ms between spawn checks (slower — was 13500)
   BATTERY_CHARGE_AMOUNT: 100,    // full recharge per pickup
+
+  // ── Freeze Wave ───────────────────────────────────────────────────────────
+  FREEZE_AOE_RADIUS: 500,           // px — ring expands to this size
+  FREEZE_RING_DURATION: 700,        // ms for the ring animation
+  FREEZE_STANDARD_DURATION: 3500,   // ms — standard/mole fully frozen
+  FREEZE_ELITE_DURATION: 2500,      // ms — elite slowed
+  FREEZE_BOSS_DURATION: 1500,       // ms — boss slowed
+  FREEZE_SLOW_ELITE: 0.28,          // speed multiplier for elite while frozen
+  FREEZE_SLOW_BOSS: 0.38,           // speed multiplier for boss while frozen
 
   // ── Lightning Strike ─────────────────────────────────────────────────────
   LIGHTNING_CHAIN_RADIUS: 220,   // px — max distance to chain to nearby enemy
@@ -129,6 +138,7 @@ export const BUFF_COLORS: Record<string, string> = {
   berserker: "#ff0044",
   battery: "#44ff88",
   lightningStrike: "#88eeff",
+  freezeWave: "#00cfff",
 };
 
 export const ENEMY_COLORS: Record<string, { body: string; glow: string }> = {

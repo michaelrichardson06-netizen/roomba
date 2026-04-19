@@ -26,6 +26,8 @@ export interface Enemy {
   // Mole-specific
   burrowTimer: number;
   isBurrowed: boolean;
+  // Freeze state
+  frozenTimer: number;  // > 0 = frozen/slowed; standard/mole = fully frozen, elite/boss = slowed
 }
 
 export interface BossWeb {
@@ -36,7 +38,7 @@ export interface BossWeb {
   age: number;
 }
 
-export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode" | "berserker" | "battery" | "lightningStrike";
+export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode" | "berserker" | "battery" | "lightningStrike" | "freezeWave";
 
 export interface LightningArc {
   id: string;
@@ -46,6 +48,27 @@ export interface LightningArc {
   toY: number;
   life: number;
   maxLife: number;
+}
+
+export interface IceWave {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  maxRadius: number;
+  age: number;
+  maxAge: number;
+}
+
+export interface FloatingText {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  age: number;
+  maxAge: number;
+  color: string;
+  vy: number;
 }
 
 export interface BuffDrop {
@@ -145,6 +168,10 @@ export interface GameState {
   lightningStrike: boolean;
   lightningArcs: LightningArc[];
   bossWebs: BossWeb[];
+  // Freeze wave
+  iceWaves: IceWave[];
+  // Floating texts (IMMUNE!, etc.)
+  floatingTexts: FloatingText[];
   // Cooldowns / timers
   shootCooldown: number;
   dashCooldown: number;

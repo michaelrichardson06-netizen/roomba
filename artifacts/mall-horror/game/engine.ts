@@ -1,5 +1,5 @@
 import { GAME_CONFIG as C } from "./constants";
-import type { GameState, Enemy, LampLight, LightningArc } from "./types";
+import type { GameState, Enemy, LampLight, LightningArc, IceWave, FloatingText } from "./types";
 
 let nextId = 0;
 function uid() { return (++nextId).toString(); }
@@ -22,6 +22,7 @@ function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number): Ene
     webCooldown: type === "boss" ? C.BOSS_WEB_COOLDOWN : 0,
     burrowTimer: type === "mole" ? C.MOLE_BURROW_AFTER : 0,
     isBurrowed: false,
+    frozenTimer: 0,
   };
 }
 
@@ -48,6 +49,7 @@ export function createInitialState(): GameState {
     screenShake: { x: 0, y: 0, magnitude: 0 },
     whiteFlash: 0,
     bossWebs: [],
+    iceWaves: [], floatingTexts: [],
     tripleShot: false, quadShot: false, rapidFireStacks: 0, bazookaMode: false, lightningStrike: false, lightningArcs: [],
     shootCooldown: 0, dashCooldown: 0, isDashing: false,
     dashDx: 0, dashDy: 0, dashTime: 0,
@@ -70,6 +72,8 @@ export function updateGame(
   s.particles = [...s.particles];
   s.buffDrops = [...s.buffDrops];
   s.lightningArcs = [...s.lightningArcs];
+  s.iceWaves = [...s.iceWaves];
+  s.floatingTexts = [...s.floatingTexts];
   s.screenShake = { ...s.screenShake };
 
   // ── Cooldown timers ────────────────────────────────────────────────────────
@@ -323,7 +327,13 @@ export function updateGame(
     }
 
     const baseSpeed = e.type === "mole" ? C.ENEMY_SPEED_MOLE : e.type === "boss" ? C.ENEMY_SPEED_BOSS : e.type === "elite" ? C.ENEMY_SPEED_ELITE : C.ENEMY_SPEED_STANDARD;
-    const speed = baseSpeed * (1 + (s.wave - 1) * C.WAVE_SPEED_SCALE) * (dt / 16);
+    let speed = baseSpeed * (1 + (s.wave - 1) * C.WAVE_SPEED_SCALE) * (dt / 16);
+    // ── Freeze wave effect ──────────────────────────────────────────────────
+    if (e.frozenTimer > 0) {
+      if (e.type === "standard" || e.type === "mole") speed = 0;       // fully frozen
+      else if (e.type === "elite") speed *= C.FREEZE_SLOW_ELITE;
+      else if (e.type === "boss")  speed *= C.FREEZE_SLOW_BOSS;
+    }
     const dx = s.playerX - e.x, dy = s.playerY - e.y;
     const d = Math.sqrt(dx * dx + dy * dy);
     const nx = d > 0 ? (dx / d) * speed : 0;
@@ -358,6 +368,7 @@ export function updateGame(
       damageCooldown: Math.max(0, e.damageCooldown - dt),
       webCooldown: newWebCooldown,
       burrowTimer: e.type === "mole" ? e.burrowTimer - dt : e.burrowTimer,
+      frozenTimer: Math.max(0, e.frozenTimer - dt),
     };
   });
 
@@ -405,12 +416,17 @@ export function updateGame(
         if (enemiesToRemove.has(enemy.id) || enemy.isBurrowed) continue;
         const d = dist(bullet.x, bullet.y, enemy.x, enemy.y);
         if (d < enemy.radius + bullet.radius) {
-          // Immune boss deflects bullets with sparks
+          // Immune boss deflects bullets with sparks + IMMUNE! text
           if (enemy.isImmune) {
             bulletsToRemove.add(bullet.id);
             for (let i = 0; i < 6; i++) {
               const a = Math.random() * Math.PI * 2;
               s.particles.push({ id: uid(), x: bullet.x, y: bullet.y, vx: Math.cos(a) * rand(3, 8), vy: Math.sin(a) * rand(3, 8), life: rand(80, 200), maxLife: 200, color: Math.random() > 0.5 ? "#ff8800" : "#ffee00", size: rand(2, 5) });
+            }
+            // Floating "IMMUNE!" text — only if not already showing one near boss
+            const alreadyShowing = s.floatingTexts.some((ft) => ft.text === "IMMUNE!" && dist(ft.x, ft.y, enemy.x, enemy.y) < 60);
+            if (!alreadyShowing) {
+              s.floatingTexts.push({ id: uid(), x: enemy.x, y: enemy.y - enemy.radius - 10, text: "IMMUNE!", age: 0, maxAge: 1200, color: "#ff6600", vy: -0.7 });
             }
             break;
           }
@@ -545,6 +561,12 @@ export function updateGame(
   const ptStep = dt / 16;
   s.particles = s.particles.map((p) => ({ ...p, x: p.x + p.vx * ptStep, y: p.y + p.vy * ptStep, vx: p.vx * 0.93, vy: p.vy * 0.93, life: p.life - dt })).filter((p) => p.life > 0);
 
+  // ── Ice waves (expanding freeze ring) ─────────────────────────────────────
+  s.iceWaves = s.iceWaves.map((w) => ({ ...w, age: w.age + dt, radius: w.maxRadius * Math.min(1, (w.age + dt) / w.maxAge) })).filter((w) => w.age < w.maxAge);
+
+  // ── Floating texts (IMMUNE! etc.) ─────────────────────────────────────────
+  s.floatingTexts = s.floatingTexts.map((ft) => ({ ...ft, age: ft.age + dt, y: ft.y + ft.vy * (dt / 16) })).filter((ft) => ft.age < ft.maxAge);
+
   return s;
 }
 
@@ -642,11 +664,12 @@ function spawnBuff(state: GameState, x: number, y: number, wave: number) {
   }
 
   const types: string[] = [];
-  if (wave >= 1) types.push("rapidFire");       // wave 1: Rapid Fire only
-  if (wave >= 2) types.push("tripleShot");      // wave 2: bigger guns unlock
-  if (wave >= 3) types.push("quadShot");
-  if (wave >= 4) types.push("bazookaMode");
-  if (wave >= 5) types.push("lightningStrike");
+  if (wave >= 1) types.push("rapidFire");       // wave 1 basics
+  if (wave >= 1) types.push("freezeWave");      // freeze AoE all waves
+  if (wave >= 1) types.push("quadShot");        // quad shot from wave 1
+  if (wave >= 2) types.push("tripleShot");
+  if (wave >= 3) types.push("bazookaMode");
+  if (wave >= 4) types.push("lightningStrike");
   if (types.length === 0) return;
   state.buffDrops.push({ id: uid(), x, y, type: types[Math.floor(Math.random() * types.length)], pulse: 0 });
 }
@@ -677,6 +700,26 @@ function applyBuff(state: GameState, type: string) {
     for (let i = 0; i < 12; i++) {
       const a = Math.random() * Math.PI * 2;
       state.particles.push({ id: uid(), x: state.playerX, y: state.playerY, vx: Math.cos(a) * rand(2, 8), vy: Math.sin(a) * rand(2, 8), life: rand(150, 350), maxLife: 350, color: Math.random() > 0.4 ? "#88eeff" : "#ffffff", size: rand(2, 6) });
+    }
+  } else if (type === "freezeWave") {
+    // Launch expanding ice ring + freeze/slow all visible enemies
+    state.iceWaves.push({ id: uid(), x: state.playerX, y: state.playerY, radius: 0, maxRadius: C.FREEZE_AOE_RADIUS, age: 0, maxAge: C.FREEZE_RING_DURATION });
+    state.screenShake.magnitude = 6;
+    for (const e of state.enemies) {
+      if (e.isBurrowed) continue;
+      if (e.type === "standard" || e.type === "mole") {
+        e.frozenTimer = C.FREEZE_STANDARD_DURATION;
+      } else if (e.type === "elite") {
+        e.frozenTimer = C.FREEZE_ELITE_DURATION;
+      } else if (e.type === "boss") {
+        e.frozenTimer = C.FREEZE_BOSS_DURATION;
+      }
+    }
+    // Ice burst particles
+    for (let i = 0; i < 20; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = rand(3, 10);
+      state.particles.push({ id: uid(), x: state.playerX, y: state.playerY, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: rand(250, 600), maxLife: 600, color: Math.random() > 0.4 ? "#88eeff" : "#ffffff", size: rand(3, 8) });
     }
   }
 }
