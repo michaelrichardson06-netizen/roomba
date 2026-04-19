@@ -821,23 +821,25 @@ function drawEscalator(
   }
   ctx.restore();
 
-  // Electric arcs (sparking)
+  // Electric sparks (broken escalator — yellow/white, clearly not water)
   const arcCount = 3;
   for (let i = 0; i < arcCount; i++) {
     const t = (now + i * 1.3) % 2;
-    if (t > 1.2) continue; // not always visible
+    if (t > 1.0) continue; // intermittent sparks
     const ax = x + 10 + (i / arcCount) * (w - 20);
     const ay = y + 10 + (Math.sin(now * 3 + i) * 0.5 + 0.5) * (h - 20);
     ctx.save();
-    ctx.strokeStyle = `rgba(${100 + Math.floor(Math.sin(now * 5 + i) * 50)},150,255,${0.5 + Math.sin(now * 7 + i) * 0.3})`;
+    // Bright yellow-white sparks — clearly electric, never mistaken for water
+    const bright = 200 + Math.floor(Math.sin(now * 9 + i) * 55);
+    ctx.strokeStyle = `rgba(255,${bright},80,${0.7 + Math.sin(now * 7 + i) * 0.25})`;
     ctx.lineWidth = 1.5;
-    ctx.shadowColor = "#6688ff";
-    ctx.shadowBlur = 8;
+    ctx.shadowColor = "#ffdd44";
+    ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.moveTo(ax, ay);
     for (let j = 0; j < 5; j++) {
-      const jx = ax + (Math.random() - 0.5) * 30;
-      const jy = ay + (Math.random() - 0.5) * 30;
+      const jx = ax + (Math.random() - 0.5) * 28;
+      const jy = ay + (Math.random() - 0.5) * 28;
       ctx.lineTo(jx, jy);
     }
     ctx.stroke();

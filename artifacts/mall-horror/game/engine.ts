@@ -618,10 +618,10 @@ function spawnDeathParticles(state: GameState, enemy: Enemy) {
 
 // Drop chance ramps from 0% on wave 1 up to ~45% by wave 5+
 function eliteDropChance(wave: number): number {
-  if (wave === 1) return 0;     // no combat buffs on wave 1
-  if (wave === 2) return 0.15;
-  if (wave === 3) return 0.25;
-  if (wave === 4) return 0.35;
+  if (wave === 1) return 0.10;  // rare first taste on wave 1
+  if (wave === 2) return 0.18;
+  if (wave === 3) return 0.28;
+  if (wave === 4) return 0.38;
   return 0.45;                  // wave 5+ cap
 }
 
@@ -642,7 +642,7 @@ function spawnBuff(state: GameState, x: number, y: number, wave: number) {
   }
 
   const types: string[] = [];
-  if (wave >= 2) types.push("rapidFire");
+  if (wave >= 1) types.push("rapidFire");     // available from wave 1 (rare)
   if (wave >= 3) types.push("tripleShot");
   if (wave >= 4) types.push("quadShot");
   if (wave >= 5) types.push("bazookaMode");
