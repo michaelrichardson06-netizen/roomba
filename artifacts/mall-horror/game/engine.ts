@@ -632,11 +632,12 @@ const MIN_BUFF_SPREAD = 220;
 
 // Which buffs are unlocked per wave (progressive unlock)
 function spawnBuff(state: GameState, x: number, y: number, wave: number) {
-  // Hard cap: never more than MAX_FLOOR_BUFFS on the ground at once
-  if (state.buffDrops.length >= MAX_FLOOR_BUFFS) return;
+  // Hard cap: count only combat buffs (batteries are separate pickups)
+  const combatDrops = state.buffDrops.filter((b) => b.type !== "battery");
+  if (combatDrops.length >= MAX_FLOOR_BUFFS) return;
 
-  // Enforce spacing — don't drop too close to an existing buff
-  for (const existing of state.buffDrops) {
+  // Enforce spacing — don't drop too close to another combat buff
+  for (const existing of combatDrops) {
     if (dist(x, y, existing.x, existing.y) < MIN_BUFF_SPREAD) return;
   }
 
