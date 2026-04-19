@@ -533,8 +533,10 @@ export function updateGame(
       if (enemy.damageCooldown <= 0 && s.playerDamageCooldown <= 0) {
         const dmg = enemy.type === "boss" ? 10 : enemy.type === "elite" ? 7 : enemy.type === "mole" ? 8 : 4;
         s.hp = Math.max(0, s.hp - dmg);
-        enemy.damageCooldown = 800;
-        s.playerDamageCooldown = 500; // 500ms window where no other enemy can land a hit
+        enemy.damageCooldown = 900;
+        // 750ms invincibility window so a cluster of enemies can't stack-kill
+        // in rapid succession (was 500ms — now extends to 750ms)
+        s.playerDamageCooldown = 750;
         s.screenShake.magnitude = C.SHAKE_DAMAGE;
         s.redFlash = 1.0; // full red flash on every hit — unmissable
       }
@@ -562,7 +564,7 @@ export function updateGame(
       if (!s.isDashing && s.playerDamageCooldown <= 0) {
         // Player takes web damage; dash avoids it
         s.hp = Math.max(0, s.hp - C.BOSS_WEB_DAMAGE);
-        s.playerDamageCooldown = 400;
+        s.playerDamageCooldown = 600;
         s.screenShake.magnitude = C.SHAKE_DAMAGE + 4;
         s.redFlash = 1.0; // boss web hit = full red flash
         // Green poison splatter

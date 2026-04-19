@@ -402,16 +402,31 @@ export function stopBgMusic() {
 export function unlockAudio() {
   const ac = getCtx();
   if (!ac) return;
+
+  const doUnlock = () => {
+    // Play a short silent buffer — must use currentTime + offset, NOT an
+    // absolute time of 0.001 which is in the past once the context has been
+    // running for more than 1ms (so the source would stop before producing
+    // any samples and iOS wouldn't count it as "audio played during gesture").
+    try {
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.05, ac.sampleRate); // 50ms silence
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      src.connect(ac.destination);
+      src.start(ac.currentTime);
+      src.stop(ac.currentTime + 0.05);
+    } catch { /* ignore */ }
+
+    // Start music now that the context is unlocked. startBgMusic() is a
+    // no-op if already playing, so it is safe to call on every gesture.
+    // This also handles the "no music after death" case: stopBgMusic() sets
+    // bgPlaying=false; the next touch then restarts via this path.
+    startBgMusic();
+  };
+
   if (ac.state === "suspended") {
-    ac.resume().catch(() => {});
+    ac.resume().then(doUnlock).catch(() => {});
+  } else {
+    doUnlock();
   }
-  // Play a 1-frame silent buffer to satisfy iOS's "must produce sound during gesture" requirement
-  try {
-    const buf = ac.createBuffer(1, 1, ac.sampleRate);
-    const src = ac.createBufferSource();
-    src.buffer = buf;
-    src.connect(ac.destination);
-    src.start(0);
-    src.stop(0.001);
-  } catch { /* ignore */ }
 }

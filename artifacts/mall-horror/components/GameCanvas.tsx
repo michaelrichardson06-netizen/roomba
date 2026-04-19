@@ -70,7 +70,6 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const prevBatteryEmpty   = useRef(false);
   const prevLightningCount = useRef(0);
   const prevRedFlash       = useRef(0);
-  const bgStarted          = useRef(false);
 
   // ── Game loop ────────────────────────────────────────────────────────────
   const gameLoop = useCallback((timestamp: number) => {
@@ -90,12 +89,6 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     const newState = updateGame(stateRef.current, dt, inputRef.current);
     stateRef.current = newState;
     inputRef.current.dashing = false;
-
-    // ── Start background music on first update (audio unlocked by user gesture) ─
-    if (!bgStarted.current) {
-      bgStarted.current = true;
-      startBgMusic();
-    }
 
     // ── Audio triggers (detect state changes) ─────────────────────────────────
     if (Platform.OS === "web") {
