@@ -290,6 +290,58 @@ function drawFloor(
       if (hw > 0.92) {
         drawFloorWire(ctx, wx, wy, TILE, hw);
       }
+
+      // ── Water puddles (deterministic, ~6% of tiles) ─────────────────────
+      const hp = tileHash(tx + 4321, ty + 8765);
+      if (hp > 0.94) {
+        const px = wx + TILE * 0.2 + hp * TILE * 0.3;
+        const py = wy + TILE * 0.2 + tileHash(tx, ty + 500) * TILE * 0.4;
+        const rw = 18 + hp * 28;
+        const rh = 10 + tileHash(tx + 111, ty) * 16;
+        ctx.save();
+        const pGrd = ctx.createRadialGradient(px, py, 0, px, py, rw);
+        pGrd.addColorStop(0, "rgba(160,185,210,0.55)");
+        pGrd.addColorStop(0.5, "rgba(130,165,200,0.38)");
+        pGrd.addColorStop(1, "rgba(100,140,180,0)");
+        ctx.fillStyle = pGrd;
+        ctx.beginPath();
+        ctx.ellipse(px, py, rw, rh, hp * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Highlight shimmer
+        ctx.fillStyle = "rgba(220,240,255,0.25)";
+        ctx.beginPath();
+        ctx.ellipse(px - rw * 0.2, py - rh * 0.15, rw * 0.35, rh * 0.3, hp, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // ── Green insect goo stains (~4% of tiles) ──────────────────────────
+      const hg = tileHash(tx + 7777, ty + 2468);
+      if (hg > 0.96) {
+        const gx = wx + TILE * 0.3 + hg * TILE * 0.3;
+        const gy = wy + TILE * 0.3 + tileHash(tx + 300, ty + 300) * TILE * 0.3;
+        const gr = 12 + hg * 20;
+        ctx.save();
+        ctx.globalAlpha = 0.55;
+        const gGrd = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+        gGrd.addColorStop(0, "#88ff44");
+        gGrd.addColorStop(0.4, "#44aa00");
+        gGrd.addColorStop(1, "rgba(20,60,0,0)");
+        ctx.fillStyle = gGrd;
+        // Blob: 3 overlapping ellipses
+        const ang = hg * Math.PI;
+        ctx.beginPath();
+        ctx.ellipse(gx, gy, gr, gr * 0.6, ang, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(gx + gr * 0.3, gy + gr * 0.2, gr * 0.7, gr * 0.45, ang + 1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(gx - gr * 0.25, gy + gr * 0.35, gr * 0.5, gr * 0.35, ang + 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
     }
   }
 
@@ -305,76 +357,305 @@ function drawFloor(
   ctx.fillRect(mw, -10, 10, mh + 20);
 }
 
+const STORE_DATA = [
+  { name: "GLAMOUR",    color: "#2a0a2e", neon: "#ff44ee", off: false },
+  { name: "TECH DEPOT", color: "#0a1a2e", neon: "#00aaff", off: false },
+  { name: "SPORT ZONE", color: "#0a200a", neon: "#44ff88", off: true  },
+  { name: "ARCADE+",    color: "#1a100a", neon: "#ffaa00", off: false },
+  { name: "HOT TOPIC",  color: "#200a0a", neon: "#ff2222", off: true  },
+  { name: "CINNABON",   color: "#1e1000", neon: "#ffcc44", off: false },
+  { name: "GAME WORLD", color: "#0a0a22", neon: "#8844ff", off: true  },
+  { name: "BATH+BODY",  color: "#0a1e1a", neon: "#44ffee", off: false },
+  { name: "PRETZEL+",   color: "#1e1408", neon: "#ff8822", off: false },
+  { name: "EYEZONE",    color: "#0e0e2a", neon: "#aaaaff", off: true  },
+];
+
 function drawMallFeatures(ctx: CanvasRenderingContext2D, mw: number, mh: number) {
-  // ── Store fronts along top wall ──
-  const storeW = 280;
-  const storeH = 140;
-  const storeColors = ["#1e3a5f", "#3a1e1e", "#1e3a1e", "#3a2a0e", "#2a1e3a"];
+  const now = Date.now();
+  const storeW = 270;
+  const storeH = 145;
   const storeCount = Math.floor(mw / (storeW + 30));
   const gapX = (mw - storeCount * storeW) / (storeCount + 1);
+
   for (let i = 0; i < storeCount; i++) {
     const sx = gapX + i * (storeW + gapX);
-    const col = storeColors[i % storeColors.length];
-    // Top store
-    ctx.fillStyle = col;
-    ctx.fillRect(sx, 10, storeW, storeH);
-    ctx.fillStyle = "rgba(120,200,255,0.18)";
-    ctx.fillRect(sx + 10, 10 + storeH - 30, storeW - 20, 25);
-    ctx.fillStyle = "rgba(180,230,255,0.35)";
-    ctx.fillRect(sx + storeW / 2 - 18, 10 + storeH - 30, 36, 25);
-    ctx.fillStyle = "#ffffff";
-    ctx.globalAlpha = 0.7;
-    ctx.fillRect(sx + 20, 25, storeW - 40, 22);
-    ctx.globalAlpha = 1;
-    // Bottom store
-    const col2 = storeColors[(i + 2) % storeColors.length];
-    ctx.fillStyle = col2;
-    ctx.fillRect(sx, mh - storeH - 10, storeW, storeH);
-    ctx.fillStyle = "rgba(120,200,255,0.18)";
-    ctx.fillRect(sx + 10, mh - storeH - 10, storeW - 20, 25);
-    ctx.fillStyle = "rgba(180,230,255,0.35)";
-    ctx.fillRect(sx + storeW / 2 - 18, mh - storeH - 10, 36, 25);
-    ctx.fillStyle = "#ffffff";
-    ctx.globalAlpha = 0.7;
-    ctx.fillRect(sx + 20, mh - storeH + 10, storeW - 40, 22);
-    ctx.globalAlpha = 1;
+    const topData  = STORE_DATA[i % STORE_DATA.length];
+    const botData  = STORE_DATA[(i + 4) % STORE_DATA.length];
+    // Top wall stores
+    drawStorefront(ctx, sx, 10, storeW, storeH, topData, now, false);
+    // Bottom wall stores (flipped)
+    drawStorefront(ctx, sx, mh - storeH - 10, storeW, storeH, botData, now, true);
   }
+
+  // ── Kiosks in mall interior ────────────────────────────────────────────────
+  const kiosks = [
+    { x: mw * 0.25, y: mh * 0.3,  label: "PHONE CASE", neon: "#00eeff" },
+    { x: mw * 0.75, y: mh * 0.3,  label: "SUNGLASSES", neon: "#ffcc00" },
+    { x: mw * 0.25, y: mh * 0.7,  label: "JEWELLERY",  neon: "#ff66aa" },
+    { x: mw * 0.75, y: mh * 0.7,  label: "SNEAKERS",   neon: "#44ff88" },
+    { x: mw * 0.5,  y: mh * 0.22, label: "PRETZELS",   neon: "#ffaa44" },
+    { x: mw * 0.5,  y: mh * 0.78, label: "HAIR SALON", neon: "#ff44cc" },
+  ];
+  for (const k of kiosks) drawKiosk(ctx, k.x, k.y, k.label, k.neon, now);
 
   // ── Pillars ──
   const pillarR = 18;
   for (let px = 350; px < mw; px += 350) {
     for (let py = 300; py < mh; py += 300) {
-      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.beginPath();
-      ctx.ellipse(px + 6, py + 6, pillarR, pillarR, 0, 0, Math.PI * 2);
+      ctx.ellipse(px + 6, py + 6, pillarR + 2, pillarR + 2, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "#a09080";
+      // Pillar body (marble look)
+      const pGrd = ctx.createRadialGradient(px - 6, py - 6, 2, px, py, pillarR);
+      pGrd.addColorStop(0, "#d0c0b0");
+      pGrd.addColorStop(0.5, "#a09080");
+      pGrd.addColorStop(1, "#786858");
+      ctx.fillStyle = pGrd;
       ctx.fillRect(px - pillarR, py - pillarR, pillarR * 2, pillarR * 2);
-      ctx.fillStyle = "#c8b8a8";
-      ctx.fillRect(px - pillarR + 3, py - pillarR + 3, pillarR - 3, pillarR - 3);
-      ctx.strokeStyle = "#706050";
+      // Highlight stripe
+      ctx.fillStyle = "rgba(255,255,255,0.12)";
+      ctx.fillRect(px - pillarR + 3, py - pillarR + 3, pillarR * 0.45, pillarR * 2 - 6);
+      ctx.strokeStyle = "#605040";
       ctx.lineWidth = 2;
       ctx.strokeRect(px - pillarR, py - pillarR, pillarR * 2, pillarR * 2);
+      // Damage/crack line
+      ctx.strokeStyle = "rgba(40,20,0,0.5)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px - 5, py - pillarR);
+      ctx.lineTo(px + 2, py);
+      ctx.lineTo(px - 3, py + pillarR);
+      ctx.stroke();
     }
   }
 
-  // ── Benches ──
-  ctx.fillStyle = "#5a4030";
-  [[0.25, 0.5], [0.75, 0.5], [0.5, 0.3], [0.5, 0.7]].forEach(([fx, fy]) => {
-    ctx.fillRect(mw * fx - 40, mh * fy - 8, 80, 16);
-    ctx.fillStyle = "#3a2820";
-    ctx.fillRect(mw * fx - 38, mh * fy - 6, 76, 6);
-    ctx.fillStyle = "#5a4030";
+  // ── Benches (overturned) ──────────────────────────────────────────────────
+  [[0.25, 0.5], [0.75, 0.5], [0.5, 0.28], [0.5, 0.72]].forEach(([fx, fy], idx) => {
+    const bx = mw * fx - 45, by = mh * fy - 9;
+    ctx.fillStyle = "#3a2818";
+    ctx.fillRect(bx, by, 90, 18);
+    ctx.fillStyle = "#4a3828";
+    ctx.fillRect(bx + 2, by + 2, 86, 8);
+    // Legs
+    ctx.fillStyle = "#2a1808";
+    ctx.fillRect(bx + 4, by + 14, 8, 10);
+    ctx.fillRect(bx + 78, by + 14, 8, 10);
+    if (idx % 2 === 1) {
+      // One bench knocked over
+      ctx.save();
+      ctx.translate(bx + 45, by + 9);
+      ctx.rotate(0.4);
+      ctx.fillStyle = "#3a2818";
+      ctx.fillRect(-45, -9, 90, 18);
+      ctx.restore();
+    }
   });
 
-  // ── DRY FOUNTAIN (center of mall) ──────────────────────────────────────────
+  // ── DRY FOUNTAIN (center) ─────────────────────────────────────────────────
   drawDryFountain(ctx, mw / 2, mh / 2);
 
-  // ── ELECTRIC ESCALATORS ────────────────────────────────────────────────────
-  // Left side escalator
+  // ── ESCALATORS ───────────────────────────────────────────────────────────
   drawEscalator(ctx, 80, mh / 2 - 180, 100, 360, false);
-  // Right side escalator
   drawEscalator(ctx, mw - 180, mh / 2 - 180, 100, 360, true);
+}
+
+function drawStorefront(
+  ctx: CanvasRenderingContext2D,
+  sx: number, sy: number, sw: number, sh: number,
+  data: { name: string; color: string; neon: string; off: boolean },
+  now: number,
+  flipped: boolean
+) {
+  // ── Store body ──────────────────────────────────────────────────────────
+  ctx.fillStyle = data.color;
+  ctx.fillRect(sx, sy, sw, sh);
+
+  // Subtle wall texture (vertical strips)
+  for (let i = 0; i < 5; i++) {
+    ctx.fillStyle = "rgba(255,255,255,0.025)";
+    ctx.fillRect(sx + i * (sw / 5), sy, sw / 5 - 1, sh);
+  }
+
+  // ── Security gate (partially closed metal slats) ──────────────────────
+  const gateY = flipped ? sy : sy + sh * 0.3;
+  const gateH = flipped ? sh * 0.7 : sh * 0.7;
+  ctx.fillStyle = "rgba(20,20,25,0.75)";
+  ctx.fillRect(sx, gateY, sw, gateH);
+  // Horizontal slats
+  const slats = 6;
+  for (let s = 0; s < slats; s++) {
+    const ly = gateY + (s / slats) * gateH;
+    ctx.fillStyle = s % 2 === 0 ? "rgba(60,60,70,0.9)" : "rgba(45,45,55,0.9)";
+    ctx.fillRect(sx + 2, ly, sw - 4, gateH / slats - 1);
+    // Slat highlight
+    ctx.fillStyle = "rgba(100,100,120,0.3)";
+    ctx.fillRect(sx + 2, ly, sw - 4, 2);
+    // Horizontal brace marks
+    ctx.strokeStyle = "rgba(80,80,100,0.5)";
+    ctx.lineWidth = 1;
+    for (let seg = 0; seg < 4; seg++) {
+      ctx.beginPath();
+      ctx.moveTo(sx + 2 + seg * (sw / 4), ly);
+      ctx.lineTo(sx + 2 + seg * (sw / 4), ly + gateH / slats - 1);
+      ctx.stroke();
+    }
+  }
+  // Gate handle/lock box
+  ctx.fillStyle = "#333340";
+  ctx.fillRect(sx + sw / 2 - 12, gateY + gateH * 0.5 - 8, 24, 16);
+  ctx.fillStyle = "#888899";
+  ctx.beginPath();
+  ctx.arc(sx + sw / 2, gateY + gateH * 0.5, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── Display window (above gate) ───────────────────────────────────────
+  const winY = flipped ? sy + sh * 0.7 : sy;
+  const winH = sh * 0.32;
+  ctx.fillStyle = "rgba(30,50,70,0.6)";
+  ctx.fillRect(sx + 8, winY + 4, sw - 16, winH - 8);
+  // Window glass reflection
+  const wGrd = ctx.createLinearGradient(sx + 8, winY + 4, sx + sw - 8, winY + winH - 8);
+  wGrd.addColorStop(0, "rgba(140,180,220,0.08)");
+  wGrd.addColorStop(0.4, "rgba(180,220,255,0.14)");
+  wGrd.addColorStop(1, "rgba(100,140,180,0.04)");
+  ctx.fillStyle = wGrd;
+  ctx.fillRect(sx + 8, winY + 4, sw - 16, winH - 8);
+  // Cracked glass line
+  ctx.strokeStyle = "rgba(180,220,255,0.45)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(sx + sw * 0.3, winY + 4);
+  ctx.lineTo(sx + sw * 0.15, winY + winH * 0.6);
+  ctx.lineTo(sx + sw * 0.25, winY + winH - 8);
+  ctx.stroke();
+  // Window border
+  ctx.strokeStyle = "rgba(80,100,130,0.7)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(sx + 8, winY + 4, sw - 16, winH - 8);
+
+  // ── Neon sign ───────────────────────────────────────────────────────────
+  const signCY = flipped
+    ? sy + sh * 0.82
+    : sy + sh * 0.15;
+  drawNeonSign(ctx, sx + sw / 2, signCY, data.name, data.neon, data.off, now);
+}
+
+function drawNeonSign(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number,
+  text: string, color: string,
+  isOff: boolean, now: number
+) {
+  ctx.save();
+
+  // Flicker logic: off signs occasionally pulse on briefly
+  let alpha = 1.0;
+  if (isOff) {
+    const t = (now * 0.001 + cx * 0.003) % 4;
+    alpha = t < 0.15 ? 0.6 : t < 0.3 ? 0.0 : t < 0.32 ? 0.5 : 0.0;
+  } else {
+    // On signs: subtle slow flicker
+    alpha = 0.82 + Math.sin(now * 0.003 + cx * 0.01) * 0.18;
+  }
+
+  if (alpha < 0.01) { ctx.restore(); return; }
+
+  // Sign backing panel
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.beginPath();
+  ctx.roundRect(cx - 90, cy - 14, 180, 28, 4);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(80,80,80,0.5)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(cx - 90, cy - 14, 180, 28, 4);
+  ctx.stroke();
+
+  // Outer glow halo
+  ctx.globalAlpha = alpha * 0.35;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 28;
+  ctx.fillStyle = color;
+  ctx.font = "bold 13px monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, cx, cy);
+
+  // Main text
+  ctx.globalAlpha = alpha;
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(text, cx, cy);
+
+  // Inner color core
+  ctx.globalAlpha = alpha * 0.65;
+  ctx.fillStyle = color;
+  ctx.shadowBlur = 6;
+  ctx.fillText(text, cx, cy);
+
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function drawKiosk(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number,
+  label: string, neonColor: string, now: number
+) {
+  const kw = 70, kh = 44;
+  const sx = cx - kw / 2, sy = cy - kh / 2;
+
+  // Drop shadow
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.fillRect(sx + 5, sy + 5, kw, kh);
+
+  // Counter surface
+  const kGrd = ctx.createLinearGradient(sx, sy, sx, sy + kh);
+  kGrd.addColorStop(0, "#3a3028");
+  kGrd.addColorStop(1, "#252015");
+  ctx.fillStyle = kGrd;
+  ctx.fillRect(sx, sy, kw, kh);
+
+  // Counter top (slightly lighter)
+  ctx.fillStyle = "#4a4035";
+  ctx.fillRect(sx, sy, kw, 10);
+  // Glass display case front
+  ctx.fillStyle = "rgba(100,160,200,0.15)";
+  ctx.fillRect(sx + 2, sy + 10, kw - 4, kh - 14);
+  ctx.strokeStyle = "rgba(100,160,200,0.35)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(sx + 2, sy + 10, kw - 4, kh - 14);
+
+  // Items in case (simplified colored rectangles)
+  const itemColors = [neonColor, "#ffffff", "#ffaa44"];
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = itemColors[i % itemColors.length] + "55";
+    ctx.fillRect(sx + 6 + i * 18, sy + 14, 12, 8);
+  }
+
+  // Knocked-over sign
+  ctx.save();
+  ctx.translate(sx + kw * 0.5, sy - 5);
+  ctx.rotate(-0.2);
+  ctx.fillStyle = "#1a1510";
+  ctx.fillRect(-25, -6, 50, 12);
+  ctx.restore();
+
+  // Neon label above kiosk
+  drawNeonSign(ctx, cx, sy - 22, label, neonColor, false, now);
+
+  // Outline
+  ctx.strokeStyle = "#302820";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(sx, sy, kw, kh);
+
+  // Scattered kiosk debris
+  ctx.fillStyle = "rgba(80,60,40,0.4)";
+  ctx.beginPath();
+  ctx.ellipse(cx + 35, cy + 15, 14, 6, 0.5, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawDryFountain(ctx: CanvasRenderingContext2D, cx: number, cy: number) {

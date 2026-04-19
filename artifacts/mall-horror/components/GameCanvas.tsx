@@ -197,8 +197,9 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     // ── Touch ──────────────────────────────────────────────────────────────
     // Map from touchId → "left" | "right" — prevents identity confusion on quick swipes
     const touchRole = new Map<number, "left" | "right">();
-    // Mutable floating base for left joystick (avoids React re-render lag)
+    // Mutable floating bases for both joysticks (avoids React re-render lag)
     const leftBase = { x: 0, y: 0 };
+    const rightBase = { x: 0, y: 0 };
     const JOY_CLAMP = 55;
 
     const resetLeft = () => {
@@ -228,8 +229,10 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           setLeftJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
         } else if (!isLeft && !hasRole("right")) {
           touchRole.set(t.identifier, "right");
+          rightBase.x = t.clientX;
+          rightBase.y = t.clientY;
           inputRef.current.shooting = true;
-          inputRef.current.autoAim = true;
+          inputRef.current.autoAim = true; // brief tap = auto-aim nearest
           setRightJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
         }
       });
@@ -261,9 +264,29 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
         }
 
         if (role === "right") {
+          // ── Twin-stick aim: drag direction = aim direction ────────────────
+          const rdx = t.clientX - rightBase.x;
+          const rdy = t.clientY - rightBase.y;
+          const rlen = Math.hypot(rdx, rdy);
+          // Float the base when thumb drifts past clamp
+          if (rlen > JOY_CLAMP) {
+            rightBase.x = t.clientX - (rdx / rlen) * JOY_CLAMP;
+            rightBase.y = t.clientY - (rdy / rlen) * JOY_CLAMP;
+          }
+          const nrdx = t.clientX - rightBase.x;
+          const nrdy = t.clientY - rightBase.y;
+          const nrlen = Math.hypot(nrdx, nrdy);
+          if (nrlen > 8) {
+            // Manual aim from stick direction
+            inputRef.current.aimAngle = Math.atan2(nrdy, nrdx) - Math.PI / 2;
+            inputRef.current.autoAim = false;
+          } else {
+            inputRef.current.autoAim = true; // small nudge = snap to nearest
+          }
           inputRef.current.shooting = true;
-          inputRef.current.autoAim = true;
-          setRightJoy(j => ({ ...j, stickX: t.clientX, stickY: t.clientY }));
+          const rcx = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, nrdx));
+          const rcy = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, nrdy));
+          setRightJoy({ active: true, baseX: rightBase.x, baseY: rightBase.y, stickX: rightBase.x + rcx, stickY: rightBase.y + rcy });
         }
       });
     };
@@ -343,7 +366,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
             <View style={[styles.joyIdle, { right: 44, bottom: 110 }]}>
               <View style={[styles.joyIdleRing, { borderColor: "rgba(255,100,0,0.45)" }]} />
               <View style={[styles.joyIdleDot, { backgroundColor: "rgba(255,100,0,0.35)" }]} />
-              <Text style={[styles.joyIdleLabel, { color: "rgba(255,140,0,0.6)" }]}>SHOOT</Text>
+              <Text style={[styles.joyIdleLabel, { color: "rgba(100,200,255,0.6)" }]}>AIM</Text>
             </View>
           )}
           {/* Active left joystick */}
