@@ -585,16 +585,36 @@ function drawFloor(
     }
   }
 
-  // Map boundary walls
-  ctx.strokeStyle = "#4a3020";
-  ctx.lineWidth = 8;
-  ctx.strokeRect(0, 0, mw, mh);
-  // Wall fill
-  ctx.fillStyle = "#2a1a0e";
-  ctx.fillRect(-10, -10, mw + 20, 10);
-  ctx.fillRect(-10, mh, mw + 20, 10);
-  ctx.fillRect(-10, -10, 10, mh + 20);
-  ctx.fillRect(mw, -10, 10, mh + 20);
+  // ── Boundary walls — worn mall drywall look ──────────────────────────────
+  const WALL = 28; // wall thickness in world-px
+
+  // Main wall fill (off-white scuffed paint)
+  ctx.fillStyle = "#c8bfb0";
+  ctx.fillRect(-WALL, -WALL, mw + WALL * 2, WALL);     // top
+  ctx.fillRect(-WALL,   mh,  mw + WALL * 2, WALL);     // bottom
+  ctx.fillRect(-WALL, -WALL, WALL, mh + WALL * 2);     // left
+  ctx.fillRect(  mw,  -WALL, WALL, mh + WALL * 2);     // right
+
+  // Grunge / dirt layer on wall
+  ctx.fillStyle = "rgba(80,60,40,0.18)";
+  ctx.fillRect(-WALL, -WALL, mw + WALL * 2, WALL);
+  ctx.fillRect(-WALL,   mh,  mw + WALL * 2, WALL);
+  ctx.fillRect(-WALL, -WALL, WALL, mh + WALL * 2);
+  ctx.fillRect(  mw,  -WALL, WALL, mh + WALL * 2);
+
+  // Baseboard strip (dark, at floor line)
+  ctx.fillStyle = "#5a4a38";
+  ctx.fillRect(-WALL, -WALL, mw + WALL * 2, 4); // top baseboard (outer edge)
+  ctx.fillRect(-WALL, mh - 4, mw + WALL * 2, 4);
+  ctx.fillRect(-WALL, -WALL, 4, mh + WALL * 2);
+  ctx.fillRect(mw - 4, -WALL, 4, mh + WALL * 2);
+
+  // Inner wall edge shadow line (gives depth between floor and wall)
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.fillRect(0, 0, mw, 4);     // top inner
+  ctx.fillRect(0, mh - 4, mw, 4); // bottom inner
+  ctx.fillRect(0, 0, 4, mh);     // left inner
+  ctx.fillRect(mw - 4, 0, 4, mh); // right inner
 }
 
 const STORE_DATA = [
@@ -611,93 +631,48 @@ const STORE_DATA = [
 ];
 
 function drawMallFeatures(ctx: CanvasRenderingContext2D, mw: number, mh: number) {
-  const now = Date.now();
-  const storeW = 270;
-  const storeH = 145;
-  const storeCount = Math.floor(mw / (storeW + 30));
-  const gapX = (mw - storeCount * storeW) / (storeCount + 1);
+  // Flat open mall — no interior obstacles.
+  // Just faint atmospheric floor wear marks scattered across the open space.
 
-  for (let i = 0; i < storeCount; i++) {
-    const sx = gapX + i * (storeW + gapX);
-    const topData  = STORE_DATA[i % STORE_DATA.length];
-    const botData  = STORE_DATA[(i + 4) % STORE_DATA.length];
-    // Top wall stores
-    drawStorefront(ctx, sx, 10, storeW, storeH, topData, now, false);
-    // Bottom wall stores (flipped)
-    drawStorefront(ctx, sx, mh - storeH - 10, storeW, storeH, botData, now, true);
-  }
-
-  // ── Kiosks in mall interior ────────────────────────────────────────────────
-  const kiosks = [
-    { x: mw * 0.25, y: mh * 0.3,  label: "PHONE CASE", neon: "#00eeff" },
-    { x: mw * 0.75, y: mh * 0.3,  label: "SUNGLASSES", neon: "#ffcc00" },
-    { x: mw * 0.25, y: mh * 0.7,  label: "JEWELLERY",  neon: "#ff66aa" },
-    { x: mw * 0.75, y: mh * 0.7,  label: "SNEAKERS",   neon: "#44ff88" },
-    { x: mw * 0.5,  y: mh * 0.22, label: "PRETZELS",   neon: "#ffaa44" },
-    { x: mw * 0.5,  y: mh * 0.78, label: "HAIR SALON", neon: "#ff44cc" },
+  // Worn scuff patches (large faint ellipses at deterministic spots)
+  const patches = [
+    [0.22, 0.25], [0.72, 0.18], [0.5, 0.5],
+    [0.3, 0.68], [0.8, 0.72], [0.55, 0.35],
+    [0.15, 0.5], [0.85, 0.45], [0.4, 0.82],
   ];
-  for (const k of kiosks) drawKiosk(ctx, k.x, k.y, k.label, k.neon, now);
-
-  // ── Pillars ──
-  const pillarR = 18;
-  for (let px = 350; px < mw; px += 350) {
-    for (let py = 300; py < mh; py += 300) {
-      ctx.fillStyle = "rgba(0,0,0,0.3)";
-      ctx.beginPath();
-      ctx.ellipse(px + 6, py + 6, pillarR + 2, pillarR + 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Pillar body (marble look)
-      const pGrd = ctx.createRadialGradient(px - 6, py - 6, 2, px, py, pillarR);
-      pGrd.addColorStop(0, "#d0c0b0");
-      pGrd.addColorStop(0.5, "#a09080");
-      pGrd.addColorStop(1, "#786858");
-      ctx.fillStyle = pGrd;
-      ctx.fillRect(px - pillarR, py - pillarR, pillarR * 2, pillarR * 2);
-      // Highlight stripe
-      ctx.fillStyle = "rgba(255,255,255,0.12)";
-      ctx.fillRect(px - pillarR + 3, py - pillarR + 3, pillarR * 0.45, pillarR * 2 - 6);
-      ctx.strokeStyle = "#605040";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(px - pillarR, py - pillarR, pillarR * 2, pillarR * 2);
-      // Damage/crack line
-      ctx.strokeStyle = "rgba(40,20,0,0.5)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(px - 5, py - pillarR);
-      ctx.lineTo(px + 2, py);
-      ctx.lineTo(px - 3, py + pillarR);
-      ctx.stroke();
-    }
+  for (const [fx, fy] of patches) {
+    const px = mw * fx, py = mh * fy;
+    const rx = 60 + tileHash(Math.floor(fx * 100), Math.floor(fy * 100)) * 80;
+    const ry = 30 + tileHash(Math.floor(fx * 100) + 7, Math.floor(fy * 100)) * 50;
+    ctx.save();
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = "#6a5a40";
+    ctx.beginPath();
+    ctx.ellipse(px, py, rx, ry, tileHash(Math.floor(fx * 100), Math.floor(fy * 100)) * 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
-  // ── Benches (overturned) ──────────────────────────────────────────────────
-  [[0.25, 0.5], [0.75, 0.5], [0.5, 0.28], [0.5, 0.72]].forEach(([fx, fy], idx) => {
-    const bx = mw * fx - 45, by = mh * fy - 9;
-    ctx.fillStyle = "#3a2818";
-    ctx.fillRect(bx, by, 90, 18);
-    ctx.fillStyle = "#4a3828";
-    ctx.fillRect(bx + 2, by + 2, 86, 8);
-    // Legs
-    ctx.fillStyle = "#2a1808";
-    ctx.fillRect(bx + 4, by + 14, 8, 10);
-    ctx.fillRect(bx + 78, by + 14, 8, 10);
-    if (idx % 2 === 1) {
-      // One bench knocked over
-      ctx.save();
-      ctx.translate(bx + 45, by + 9);
-      ctx.rotate(0.4);
-      ctx.fillStyle = "#3a2818";
-      ctx.fillRect(-45, -9, 90, 18);
-      ctx.restore();
-    }
-  });
-
-  // ── DRY FOUNTAIN (center) ─────────────────────────────────────────────────
-  drawDryFountain(ctx, mw / 2, mh / 2);
-
-  // ── ESCALATORS ───────────────────────────────────────────────────────────
-  drawEscalator(ctx, 80, mh / 2 - 180, 100, 360, false);
-  drawEscalator(ctx, mw - 180, mh / 2 - 180, 100, 360, true);
+  // Faint dashed centerline markings (old directional floor tape, mostly worn off)
+  ctx.save();
+  ctx.globalAlpha = 0.07;
+  ctx.strokeStyle = "#888070";
+  ctx.lineWidth = 6;
+  ctx.setLineDash([40, 60]);
+  // Horizontal center corridor
+  ctx.beginPath();
+  ctx.moveTo(60, mh / 2);
+  ctx.lineTo(mw - 60, mh / 2);
+  ctx.stroke();
+  // Vertical center corridor
+  ctx.beginPath();
+  ctx.moveTo(mw / 2, 60);
+  ctx.lineTo(mw / 2, mh - 60);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 function drawStorefront(
