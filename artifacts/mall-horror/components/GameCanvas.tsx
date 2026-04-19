@@ -1,10 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Platform,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Constants from "expo-constants";
 import { WebView } from "react-native-webview";
 import { createInitialState, updateGame } from "@/game/engine";
@@ -31,7 +26,7 @@ interface HUDState {
   spawnGrace: number;
 }
 
-interface JoystickState {
+interface JoyState {
   active: boolean;
   baseX: number;
   baseY: number;
@@ -47,25 +42,22 @@ const DEFAULT_HUD: HUDState = {
   dashCooldown: 0, spawnGrace: 3000,
 };
 
+const IDLE_JOY: JoyState = { active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 };
+
 export function GameCanvas({ onDeath }: GameCanvasProps) {
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState>(createInitialState());
-  const inputRef = useRef({
-    dx: 0, dy: 0,
-    aimAngle: 0,
-    shooting: false,
-    dashing: false,
-  });
+  const inputRef = useRef({ dx: 0, dy: 0, aimAngle: 0, shooting: false, dashing: false });
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const hudTickRef = useRef<number>(0);
   const [hudState, setHudState] = useState<HUDState>(DEFAULT_HUD);
+  const [leftJoy, setLeftJoy] = useState<JoyState>(IDLE_JOY);
+  const [rightJoy, setRightJoy] = useState<JoyState>(IDLE_JOY);
+  const isMobileRef = useRef(false);
 
-  // Joystick visual state (web mobile)
-  const [leftJoy, setLeftJoy] = useState<JoystickState>({ active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 });
-  const [rightJoy, setRightJoy] = useState<JoystickState>({ active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 });
-
+  // ── Game loop ────────────────────────────────────────────────────────────
   const gameLoop = useCallback((timestamp: number) => {
     const dt = Math.min(timestamp - (lastTimeRef.current || timestamp), 50);
     lastTimeRef.current = timestamp;
@@ -86,7 +78,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     }
 
     hudTickRef.current += dt;
-    if (hudTickRef.current > 80) {
+    if (hudTickRef.current > 100) {
       hudTickRef.current = 0;
       setHudState({
         hp: newState.hp,
@@ -112,108 +104,38 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     return () => cancelAnimationFrame(rafRef.current);
   }, [gameLoop]);
 
-  // Touch controls for web canvas
-  const leftTouchRef = useRef<{ id: number; sx: number; sy: number } | null>(null);
-  const rightTouchRef = useRef<{ id: number; sx: number; sy: number } | null>(null);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    const touches = Array.from(e.changedTouches);
-    for (const touch of touches) {
-      const isLeft = touch.clientX < SCREEN_W / 2;
-      if (isLeft && !leftTouchRef.current) {
-        leftTouchRef.current = { id: touch.identifier, sx: touch.clientX, sy: touch.clientY };
-        setLeftJoy({ active: true, baseX: touch.clientX, baseY: touch.clientY, stickX: touch.clientX, stickY: touch.clientY });
-      } else if (!isLeft && !rightTouchRef.current) {
-        rightTouchRef.current = { id: touch.identifier, sx: touch.clientX, sy: touch.clientY };
-        inputRef.current.shooting = true;
-        setRightJoy({ active: true, baseX: touch.clientX, baseY: touch.clientY, stickX: touch.clientX, stickY: touch.clientY });
-      }
-    }
-  }, [SCREEN_W]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    const touches = Array.from(e.changedTouches);
-    for (const touch of touches) {
-      if (leftTouchRef.current && touch.identifier === leftTouchRef.current.id) {
-        const dx = touch.clientX - leftTouchRef.current.sx;
-        const dy = touch.clientY - leftTouchRef.current.sy;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len > 5) {
-          inputRef.current.dx = dx / len;
-          inputRef.current.dy = dy / len;
-        } else {
-          inputRef.current.dx = 0;
-          inputRef.current.dy = 0;
-        }
-        const clamp = 50;
-        const cx = Math.max(-clamp, Math.min(clamp, dx));
-        const cy = Math.max(-clamp, Math.min(clamp, dy));
-        setLeftJoy(j => ({ ...j, stickX: j.baseX + cx, stickY: j.baseY + cy }));
-      }
-      if (rightTouchRef.current && touch.identifier === rightTouchRef.current.id) {
-        const dx = touch.clientX - rightTouchRef.current.sx;
-        const dy = touch.clientY - rightTouchRef.current.sy;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len > 10) {
-          inputRef.current.aimAngle = Math.atan2(dy, dx) - Math.PI / 2;
-          inputRef.current.shooting = true;
-        }
-        const clamp = 50;
-        const cx = Math.max(-clamp, Math.min(clamp, dx));
-        const cy = Math.max(-clamp, Math.min(clamp, dy));
-        setRightJoy(j => ({ ...j, stickX: j.baseX + cx, stickY: j.baseY + cy }));
-      }
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    const touches = Array.from(e.changedTouches);
-    for (const touch of touches) {
-      if (leftTouchRef.current && touch.identifier === leftTouchRef.current.id) {
-        leftTouchRef.current = null;
-        inputRef.current.dx = 0;
-        inputRef.current.dy = 0;
-        setLeftJoy({ active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 });
-      }
-      if (rightTouchRef.current && touch.identifier === rightTouchRef.current.id) {
-        rightTouchRef.current = null;
-        inputRef.current.shooting = false;
-        setRightJoy({ active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 });
-      }
-    }
-  }, []);
-
-  // Keyboard + mouse + global anti-zoom (web)
+  // ── Input: keyboard + mouse + touch (all wired directly, no synthetic events) ──
   useEffect(() => {
     if (Platform.OS !== "web") return;
 
-    // Prevent text selection, zoom, scroll
-    document.documentElement.style.userSelect = "none";
-    (document.documentElement.style as any).webkitUserSelect = "none";
-    document.documentElement.style.touchAction = "none";
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
+    // Detect touch-capable device
+    isMobileRef.current = "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
-    // Viewport meta: disable zoom
-    let meta = document.querySelector("meta[name=viewport]") as HTMLMetaElement;
+    // Disable browser default gestures on the document
+    const noDefault = (e: Event) => e.preventDefault();
+    document.addEventListener("gesturestart", noDefault, { passive: false });
+    document.addEventListener("gesturechange", noDefault, { passive: false });
+    document.addEventListener("contextmenu", noDefault);
+
+    // Lock viewport zoom
+    let meta = document.querySelector("meta[name=viewport]") as HTMLMetaElement | null;
     if (!meta) {
       meta = document.createElement("meta");
       meta.name = "viewport";
       document.head.appendChild(meta);
     }
-    meta.content = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
+    meta.content = "width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no";
 
-    const preventZoom = (e: Event) => e.preventDefault();
-    const preventContext = (e: MouseEvent) => e.preventDefault();
+    // Global CSS: no text selection, no overflow
+    const style = document.createElement("style");
+    style.textContent = `
+      * { -webkit-user-select: none !important; user-select: none !important; }
+      html, body { overflow: hidden; touch-action: none; }
+      canvas { touch-action: none; }
+    `;
+    document.head.appendChild(style);
 
-    document.addEventListener("gesturestart", preventZoom, { passive: false });
-    document.addEventListener("gesturechange", preventZoom, { passive: false });
-    document.addEventListener("gestureend", preventZoom, { passive: false });
-    document.addEventListener("contextmenu", preventContext);
-
+    // ── Keyboard ──────────────────────────────────────────────────────────
     const keys = new Set<string>();
     const onKeyDown = (e: KeyboardEvent) => {
       keys.add(e.key.toLowerCase());
@@ -221,13 +143,10 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
         inputRef.current.dashing = true;
         e.preventDefault();
       }
-      updateMovement();
+      syncKeys();
     };
-    const onKeyUp = (e: KeyboardEvent) => {
-      keys.delete(e.key.toLowerCase());
-      updateMovement();
-    };
-    const updateMovement = () => {
+    const onKeyUp = (e: KeyboardEvent) => { keys.delete(e.key.toLowerCase()); syncKeys(); };
+    const syncKeys = () => {
       let dx = 0, dy = 0;
       if (keys.has("w") || keys.has("arrowup")) dy -= 1;
       if (keys.has("s") || keys.has("arrowdown")) dy += 1;
@@ -236,6 +155,10 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       inputRef.current.dx = dx;
       inputRef.current.dy = dy;
     };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+
+    // ── Mouse ─────────────────────────────────────────────────────────────
     const onMouseMove = (e: MouseEvent) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -246,99 +169,162 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     };
     const onMouseDown = () => { inputRef.current.shooting = true; };
     const onMouseUp = () => { inputRef.current.shooting = false; };
-
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
 
+    // ── Touch (attached directly to canvas for reliability) ────────────────
+    const SCREEN_W_getter = () => window.innerWidth;
+    const leftTouch: { id: number; sx: number; sy: number } | null[] = [null];
+    const rightTouch: { id: number; sx: number; sy: number } | null[] = [null];
+    const JOY_CLAMP = 55;
+
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      Array.from(e.changedTouches).forEach((t) => {
+        const isLeft = t.clientX < SCREEN_W_getter() / 2;
+        if (isLeft && !leftTouch[0]) {
+          leftTouch[0] = { id: t.identifier, sx: t.clientX, sy: t.clientY };
+          setLeftJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
+        } else if (!isLeft && !rightTouch[0]) {
+          rightTouch[0] = { id: t.identifier, sx: t.clientX, sy: t.clientY };
+          inputRef.current.shooting = true;
+          setRightJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
+        }
+      });
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      Array.from(e.changedTouches).forEach((t) => {
+        if (leftTouch[0] && t.identifier === leftTouch[0].id) {
+          const dx = t.clientX - leftTouch[0].sx;
+          const dy = t.clientY - leftTouch[0].sy;
+          const len = Math.hypot(dx, dy);
+          inputRef.current.dx = len > 5 ? dx / len : 0;
+          inputRef.current.dy = len > 5 ? dy / len : 0;
+          const cx = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, dx));
+          const cy = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, dy));
+          setLeftJoy(j => ({ ...j, stickX: j.baseX + cx, stickY: j.baseY + cy }));
+        }
+        if (rightTouch[0] && t.identifier === rightTouch[0].id) {
+          const dx = t.clientX - rightTouch[0].sx;
+          const dy = t.clientY - rightTouch[0].sy;
+          const len = Math.hypot(dx, dy);
+          if (len > 8) inputRef.current.aimAngle = Math.atan2(dy, dx) - Math.PI / 2;
+          inputRef.current.shooting = true;
+          const cx = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, dx));
+          const cy = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, dy));
+          setRightJoy(j => ({ ...j, stickX: j.baseX + cx, stickY: j.baseY + cy }));
+        }
+      });
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      Array.from(e.changedTouches).forEach((t) => {
+        if (leftTouch[0] && t.identifier === leftTouch[0].id) {
+          leftTouch[0] = null;
+          inputRef.current.dx = 0;
+          inputRef.current.dy = 0;
+          setLeftJoy(IDLE_JOY);
+        }
+        if (rightTouch[0] && t.identifier === rightTouch[0].id) {
+          rightTouch[0] = null;
+          inputRef.current.shooting = false;
+          setRightJoy(IDLE_JOY);
+        }
+      });
+    };
+
+    // Attach to document (not canvas) to catch all touches regardless of overlay
+    document.addEventListener("touchstart", onTouchStart, { passive: false });
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    document.addEventListener("touchend", onTouchEnd, { passive: false });
+    document.addEventListener("touchcancel", onTouchEnd, { passive: false });
+
     return () => {
-      document.removeEventListener("gesturestart", preventZoom);
-      document.removeEventListener("gesturechange", preventZoom);
-      document.removeEventListener("gestureend", preventZoom);
-      document.removeEventListener("contextmenu", preventContext);
+      document.removeEventListener("gesturestart", noDefault);
+      document.removeEventListener("gesturechange", noDefault);
+      document.removeEventListener("contextmenu", noDefault);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("touchend", onTouchEnd);
+      document.removeEventListener("touchcancel", onTouchEnd);
+      if (style.parentNode) style.parentNode.removeChild(style);
     };
   }, []);
 
+  // ── Web render ────────────────────────────────────────────────────────────
   if (Platform.OS === "web") {
-    const isTouchDevice = typeof window !== "undefined" && "ontouchstart" in window;
     return (
       <View style={styles.container}>
+        {/* Game canvas — covers full screen */}
         <canvas
           ref={canvasRef}
           width={SCREEN_W}
           height={SCREEN_H}
-          style={{
-            display: "block",
-            cursor: "crosshair",
-            touchAction: "none",
-            userSelect: "none",
-            WebkitUserSelect: "none",
-          } as React.CSSProperties}
-          onTouchStart={handleTouchStart as unknown as React.TouchEventHandler<HTMLCanvasElement>}
-          onTouchMove={handleTouchMove as unknown as React.TouchEventHandler<HTMLCanvasElement>}
-          onTouchEnd={handleTouchEnd as unknown as React.TouchEventHandler<HTMLCanvasElement>}
-          onTouchCancel={handleTouchEnd as unknown as React.TouchEventHandler<HTMLCanvasElement>}
+          style={{ display: "block", cursor: "crosshair" } as React.CSSProperties}
         />
+
+        {/* HUD overlay — pointer-events none so it never blocks input */}
         <View style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}>
-          <GameHUD {...hudState} onDash={() => { inputRef.current.dashing = true; }} />
+          <GameHUD
+            {...hudState}
+            onDash={() => { inputRef.current.dashing = true; }}
+          />
         </View>
 
-        {/* Touch joystick overlay — visible on mobile web */}
-        {isTouchDevice && (
-          <>
-            {/* Left: move joystick hint (when not active) */}
-            {!leftJoy.active && (
-              <View style={[styles.joyHint, { left: 40, bottom: 100 }]}>
-                <View style={styles.joyRing}>
-                  <View style={styles.joyCenterDot} />
-                </View>
-                <View style={styles.joyLabel}><View style={styles.joyLabelBg}><RNText style={styles.joyLabelText}>MOVE</RNText></View></View>
-              </View>
-            )}
-            {/* Right: fire zone hint (when not active) */}
-            {!rightJoy.active && (
-              <View style={[styles.joyHint, { right: 40, bottom: 100 }]}>
-                <View style={[styles.joyRing, { borderColor: "rgba(255,80,0,0.5)" }]}>
-                  <View style={[styles.joyCenterDot, { backgroundColor: "rgba(255,80,0,0.4)" }]} />
-                </View>
-                <View style={styles.joyLabel}><View style={styles.joyLabelBg}><RNText style={styles.joyLabelText}>AIM + FIRE</RNText></View></View>
-              </View>
-            )}
-            {/* Active left joystick */}
-            {leftJoy.active && (
-              <View style={[styles.joyActive, { left: leftJoy.baseX - 55, top: leftJoy.baseY - 55 }]}>
-                <View style={styles.joyActiveRing} />
-                <View style={[styles.joyActiveStick, {
-                  left: (leftJoy.stickX - leftJoy.baseX) + 55 - 18,
-                  top: (leftJoy.stickY - leftJoy.baseY) + 55 - 18,
-                }]} />
-              </View>
-            )}
-            {/* Active right joystick */}
-            {rightJoy.active && (
-              <View style={[styles.joyActive, { left: rightJoy.baseX - 55, top: rightJoy.baseY - 55 }]}>
-                <View style={[styles.joyActiveRing, { borderColor: "rgba(255,100,0,0.7)" }]} />
-                <View style={[styles.joyActiveStick, {
-                  backgroundColor: "rgba(255,100,0,0.7)",
-                  left: (rightJoy.stickX - rightJoy.baseX) + 55 - 18,
-                  top: (rightJoy.stickY - rightJoy.baseY) + 55 - 18,
-                }]} />
-              </View>
-            )}
-          </>
-        )}
+        {/* Joystick overlay — pointer-events none; pure visual feedback */}
+        <View style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}>
+          {/* Left idle hint */}
+          {!leftJoy.active && (
+            <View style={[styles.joyIdle, { left: 44, bottom: 110 }]}>
+              <View style={styles.joyIdleRing} />
+              <View style={[styles.joyIdleDot]} />
+              <Text style={styles.joyIdleLabel}>MOVE</Text>
+            </View>
+          )}
+          {/* Right idle hint */}
+          {!rightJoy.active && (
+            <View style={[styles.joyIdle, { right: 44, bottom: 110 }]}>
+              <View style={[styles.joyIdleRing, { borderColor: "rgba(255,100,0,0.45)" }]} />
+              <View style={[styles.joyIdleDot, { backgroundColor: "rgba(255,100,0,0.35)" }]} />
+              <Text style={[styles.joyIdleLabel, { color: "rgba(255,140,0,0.6)" }]}>SHOOT</Text>
+            </View>
+          )}
+          {/* Active left joystick */}
+          {leftJoy.active && (
+            <View style={[styles.joyBase, { left: leftJoy.baseX - 55, top: leftJoy.baseY - 55 }]}>
+              <View style={styles.joyBaseRing} />
+              <View style={[styles.joyStick, {
+                left: (leftJoy.stickX - leftJoy.baseX) + 55 - 20,
+                top: (leftJoy.stickY - leftJoy.baseY) + 55 - 20,
+              }]} />
+            </View>
+          )}
+          {/* Active right joystick */}
+          {rightJoy.active && (
+            <View style={[styles.joyBase, { left: rightJoy.baseX - 55, top: rightJoy.baseY - 55 }]}>
+              <View style={[styles.joyBaseRing, { borderColor: "rgba(255,120,0,0.7)" }]} />
+              <View style={[styles.joyStick, {
+                backgroundColor: "rgba(255,120,0,0.75)",
+                left: (rightJoy.stickX - rightJoy.baseX) + 55 - 20,
+                top: (rightJoy.stickY - rightJoy.baseY) + 55 - 20,
+              }]} />
+            </View>
+          )}
+        </View>
       </View>
     );
   }
 
-  // Native: Load web version in WebView so canvas renders properly on iOS/Android
+  // ── Native: WebView loads the web game ────────────────────────────────────
   const webUrl = (Constants.expoConfig?.extra as any)?.webUrl;
   const gameUrl = webUrl ? `${webUrl}/game` : null;
 
@@ -367,74 +353,62 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   );
 }
 
-// Text component alias to avoid import collision
-import { Text as RNText } from "react-native";
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0a0806",
-  },
-  // Joystick idle hint
-  joyHint: {
+  container: { flex: 1, backgroundColor: "#08060a" },
+
+  // Idle joystick hint
+  joyIdle: {
     position: "absolute",
+    width: 80,
+    height: 80,
     alignItems: "center",
-    pointerEvents: "none",
+    justifyContent: "center",
   },
-  joyRing: {
+  joyIdleRing: {
+    position: "absolute",
     width: 80,
     height: 80,
     borderRadius: 40,
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.3)",
-    backgroundColor: "rgba(255,255,255,0.06)",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
-  joyCenterDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "rgba(255,255,255,0.2)",
+  joyIdleDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.18)",
   },
-  joyLabel: {
-    marginTop: 8,
-    alignItems: "center",
-  },
-  joyLabelBg: {
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  joyLabelText: {
-    color: "rgba(255,255,255,0.5)",
+  joyIdleLabel: {
+    position: "absolute",
+    bottom: -20,
+    color: "rgba(255,255,255,0.45)",
     fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
+
   // Active joystick
-  joyActive: {
+  joyBase: {
     position: "absolute",
     width: 110,
     height: 110,
-    pointerEvents: "none",
   },
-  joyActiveRing: {
+  joyBaseRing: {
     position: "absolute",
     top: 0, left: 0,
     width: 110,
     height: 110,
     borderRadius: 55,
     borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.5)",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(255,255,255,0.55)",
+    backgroundColor: "rgba(255,255,255,0.07)",
   },
-  joyActiveStick: {
+  joyStick: {
     position: "absolute",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.55)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.65)",
   },
 });
