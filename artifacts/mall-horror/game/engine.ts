@@ -208,6 +208,20 @@ export function updateGame(
       }
     }
 
+    // ── Clamp shoot angle to the flashlight cone ───────────────────────────────
+    // Cone center matches the renderer: playerAngle + π/2, half-width = π/4 (90° total)
+    {
+      const coneCenter = s.playerAngle + Math.PI / 2;
+      const coneHalf = Math.PI * 0.25; // half of flashWidth (Math.PI * 0.5)
+      let diff = shootAngle - coneCenter;
+      // Normalise to [-π, π]
+      while (diff > Math.PI)  diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      if (diff > coneHalf)       shootAngle = coneCenter + coneHalf;
+      else if (diff < -coneHalf) shootAngle = coneCenter - coneHalf;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const spawnBullet = (angle: number) => {
       const isBaz = s.bazookaMode && !isBerserking; // berserker overrides bazooka
       const speed = isBaz ? C.BAZOOKA_SPEED : C.BULLET_SPEED;
