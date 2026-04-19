@@ -30,7 +30,12 @@ export function GameHUD({
 }: GameHUDProps) {
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
-  const topPad    = isWeb ? 10 : insets.top;
+  // Always use insets.top — with viewport-fit=cover set, useSafeAreaInsets()
+  // correctly reads env(safe-area-inset-top) on iOS Safari/WebView so the HUD
+  // clears the notch and status bar. Fall back to 10px on desktop web.
+  const topPad    = Math.max(insets.top, isWeb ? 10 : 0);
+  // Reserve space for the DOM sound button (38px) + its top offset
+  const hudTopPad = topPad + 44;
   const bottomPad = isWeb ? 34 : insets.bottom;
 
   const hpRatio      = hp / maxHp;
@@ -49,7 +54,7 @@ export function GameHUD({
       )}
 
       {/* Top bar — HP/battery left, wave+score center, kills right */}
-      <View style={[styles.topBar, { paddingTop: topPad + 8 }]}>
+      <View style={[styles.topBar, { paddingTop: hudTopPad }]}>
         {/* HP + Battery stacked */}
         <View style={styles.leftSection}>
           <Text style={styles.label}>HP</Text>

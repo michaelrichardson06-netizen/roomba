@@ -189,7 +189,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     };
     updateSoundBtnIcon();
     soundBtn.style.cssText = [
-      "position:fixed", "top:14px", "right:12px", "z-index:99999",
+      "position:fixed", "top:calc(env(safe-area-inset-top, 0px) + 10px)", "right:12px", "z-index:99999",
       "background:rgba(0,0,0,0.72)", "border:1px solid rgba(255,255,255,0.22)",
       "border-radius:8px", "width:38px", "height:38px", "font-size:18px",
       "cursor:pointer", "color:white", "touch-action:manipulation",
@@ -199,7 +199,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     const soundPanel = document.createElement("div");
     soundPanel.id = "mh-sound-panel";
     soundPanel.style.cssText = [
-      "position:fixed", "top:58px", "right:12px", "z-index:99999",
+      "position:fixed", "top:calc(env(safe-area-inset-top, 0px) + 54px)", "right:12px", "z-index:99999",
       "background:rgba(10,8,14,0.95)", "border:1px solid rgba(255,255,255,0.15)",
       "border-radius:10px", "padding:12px 14px", "display:none",
       "color:white", "font-family:monospace", "touch-action:manipulation",
@@ -291,7 +291,9 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       meta.name = "viewport";
       document.head.appendChild(meta);
     }
-    meta.content = "width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no";
+    // viewport-fit=cover is essential — without it env(safe-area-inset-top) is
+    // always 0px on iOS Safari, causing the HUD to sit behind the notch/status bar.
+    meta.content = "width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover";
 
     // Global CSS: no text selection, no overflow
     // NOTE: touch-action:none is applied to canvas only — NOT html/body.
@@ -481,7 +483,13 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     };
 
     const onTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
+      // ONLY call preventDefault for touches that belong to the game joystick system.
+      // Calling it unconditionally cancels the synthetic "click" event the browser
+      // generates from touchstart→touchend, which breaks every DOM button on the page
+      // (including the sound settings button). HUD-zone taps have no role assigned,
+      // so anyOwned will be false for them and the click fires normally.
+      const anyOwned = Array.from(e.changedTouches).some(t => touchRole.has(t.identifier));
+      if (anyOwned) e.preventDefault();
       Array.from(e.changedTouches).forEach((t) => {
         const role = touchRole.get(t.identifier);
         touchRole.delete(t.identifier);

@@ -319,15 +319,32 @@ export function updateGame(
         return { ...e, isBurrowed: true, burrowTimer: C.MOLE_EMERGE_AFTER, hitFlash: 0, damageCooldown: Math.max(0, e.damageCooldown - dt) };
       }
       if (e.isBurrowed && newBurrowTimer <= 0) {
-        const angle = Math.random() * Math.PI * 2;
-        const d = C.MOLE_EMERGE_DIST + Math.random() * 80;
-        const ex = Math.max(50, Math.min(s.mapWidth - 50, s.playerX + Math.cos(angle) * d));
-        const ey = Math.max(50, Math.min(s.mapHeight - 50, s.playerY + Math.sin(angle) * d));
+        // Try up to 8 angles to find a valid emergence position.
+        // Near walls the Math.max/min clamp can shrink the safe distance to
+        // near-zero, causing the mole to surface right on the player — the main
+        // source of "random death with full HP".  We require the actual clamped
+        // position to be at least MOLE_EMERGE_DIST*0.75 away from the player.
+        const MIN_SAFE = C.MOLE_EMERGE_DIST * 0.75;
+        let ex = s.playerX, ey = s.playerY, validPos = false;
+        for (let attempt = 0; attempt < 10; attempt++) {
+          const a = Math.random() * Math.PI * 2;
+          const d = C.MOLE_EMERGE_DIST + Math.random() * 80;
+          const tx = Math.max(50, Math.min(s.mapWidth  - 50, s.playerX + Math.cos(a) * d));
+          const ty = Math.max(50, Math.min(s.mapHeight - 50, s.playerY + Math.sin(a) * d));
+          if (dist(tx, ty, s.playerX, s.playerY) >= MIN_SAFE) {
+            ex = tx; ey = ty; validPos = true; break;
+          }
+        }
+        if (!validPos) {
+          // Player is cornered — stay burrowed a little longer and retry
+          return { ...e, burrowTimer: 600, damageCooldown: Math.max(0, e.damageCooldown - dt), hitFlash: Math.max(0, e.hitFlash - dt * 4) };
+        }
         for (let i = 0; i < 8; i++) {
           const pa = Math.random() * Math.PI * 2;
           s.particles.push({ id: uid(), x: ex, y: ey, vx: Math.cos(pa) * rand(2, 6), vy: Math.sin(pa) * rand(2, 6), life: rand(200, 500), maxLife: 500, color: Math.random() > 0.5 ? "#8b5e3c" : "#c4965a", size: rand(3, 7) });
         }
-        return { ...e, x: ex, y: ey, isBurrowed: false, burrowTimer: C.MOLE_BURROW_AFTER + Math.random() * 1500, damageCooldown: Math.max(0, e.damageCooldown - dt), hitFlash: Math.max(0, e.hitFlash - dt * 4), legPhase: e.legPhase + dt * 0.01 };
+        // Fresh damageCooldown on emergence so a wall-clamped mole can't instant-hit
+        return { ...e, x: ex, y: ey, isBurrowed: false, burrowTimer: C.MOLE_BURROW_AFTER + Math.random() * 1500, damageCooldown: 1200, hitFlash: 0, legPhase: e.legPhase + dt * 0.01 };
       }
       if (e.isBurrowed) return { ...e, burrowTimer: newBurrowTimer, damageCooldown: Math.max(0, e.damageCooldown - dt), hitFlash: Math.max(0, e.hitFlash - dt * 4) };
     }
