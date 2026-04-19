@@ -289,6 +289,55 @@ export function renderFrame(
     ctx.restore();
   }
 
+  // ── Enemy proximity danger arrows (screen-edge directional indicators) ────
+  // Shows where nearby enemies are even through fog of war.
+  // Urgent (≤120px): red solid. Warning (≤300px): orange semi-transparent.
+  {
+    const cx = canvasW / 2;
+    const cy = canvasH / 2;
+    const EDGE_PAD = 28; // px from screen edge where arrow tip sits
+    ctx.save();
+    for (const enemy of state.enemies) {
+      if (enemy.isBurrowed) continue;
+      const ex = enemy.x - state.playerX; // relative to player (world units ≈ screen px at 1:1)
+      const ey = enemy.y - state.playerY;
+      const worldDist = Math.hypot(ex, ey);
+      if (worldDist > 300) continue; // only show within 300px
+      const urgent = worldDist <= 120;
+      const angle = Math.atan2(ey, ex); // 0 = right, π/2 = down
+      // Project to actual screen-rectangle edge (not a circle) so arrows sit at the true border
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      const sX = Math.abs(cosA) > 0.001 ? (cx - EDGE_PAD) / Math.abs(cosA) : Infinity;
+      const sY = Math.abs(sinA) > 0.001 ? (cy - EDGE_PAD) / Math.abs(sinA) : Infinity;
+      const sEdge = Math.min(sX, sY);
+      const arrowX = cx + cosA * sEdge;
+      const arrowY = cy + sinA * sEdge;
+      const pulse = urgent ? 0.65 + Math.sin(Date.now() * 0.012) * 0.35 : 1;
+      const alpha = (urgent ? 0.85 : 0.45 + (1 - worldDist / 300) * 0.3) * pulse;
+      const color  = urgent ? "#ff2222" : enemy.type === "boss" ? "#ff44ff" : "#ff9900";
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.strokeStyle = "rgba(0,0,0,0.8)";
+      ctx.lineWidth = 1.5;
+      // Draw small filled triangle pointing toward the enemy
+      ctx.save();
+      ctx.translate(arrowX, arrowY);
+      ctx.rotate(angle + Math.PI / 2); // point toward enemy
+      const sz = urgent ? 10 : 7;
+      ctx.beginPath();
+      ctx.moveTo(0, -sz);
+      ctx.lineTo(sz * 0.6, sz * 0.5);
+      ctx.lineTo(-sz * 0.6, sz * 0.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
   if (state.muzzleFlash) {
     const flashAlpha = 1 - state.muzzleFlash.age / state.muzzleFlash.maxAge;
     const fx = state.muzzleFlash.x - cameraX;
