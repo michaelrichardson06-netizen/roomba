@@ -128,6 +128,51 @@ function drawBrokenGlass(ctx: CanvasRenderingContext2D, wx: number, wy: number, 
   ctx.restore();
 }
 
+function drawFloorWire(ctx: CanvasRenderingContext2D, wx: number, wy: number, tile: number, seed: number) {
+  ctx.save();
+  ctx.globalAlpha = 0.45;
+  // Wire runs across the tile in a snaking path
+  const startX = wx + (seed * 5.1) % 1 * tile;
+  const startY = wy + (seed * 3.3) % 1 * tile;
+  const endX = wx + ((seed * 7.7) % 1) * tile;
+  const endY = wy + ((seed * 2.9) % 1) * tile;
+  const midX = wx + ((seed * 11.3) % 1) * tile;
+  const midY = wy + ((seed * 4.7) % 1) * tile;
+
+  // Cable sheath (dark rubber)
+  ctx.strokeStyle = seed > 0.97 ? "#ffcc00" : seed > 0.94 ? "#ff4400" : "#222222";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.quadraticCurveTo(midX, midY, endX, endY);
+  ctx.stroke();
+
+  // Inner wire gleam
+  ctx.strokeStyle = seed > 0.97 ? "#ffee44" : seed > 0.94 ? "#ff6622" : "#444444";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(startX + 1, startY);
+  ctx.quadraticCurveTo(midX + 1, midY, endX + 1, endY);
+  ctx.stroke();
+
+  // Occasional spark at wire break
+  if (seed > 0.96) {
+    const sparks = (Date.now() * 0.003) % 1;
+    if (sparks > 0.5) {
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = "#88aaff";
+      ctx.shadowColor = "#4466ff";
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(midX, midY, 2 + sparks * 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+  ctx.restore();
+}
+
 // ─── MALL FLOOR ──────────────────────────────────────────────────────────────
 
 function drawFloor(
@@ -163,10 +208,15 @@ function drawFloor(
         ctx.fillRect(wx + 2, wy + 2, TILE * 0.4, TILE * 0.3);
       }
 
-      // Broken glass — deterministic per tile
+      // Broken glass — deterministic per tile (roughly 15% of tiles)
       const h = tileHash(tx, ty);
-      if (h > 0.91) {
+      if (h > 0.85) {
         drawBrokenGlass(ctx, wx, wy, TILE, h);
+      }
+      // Electrical wires/cables on floor (roughly 8% of tiles)
+      const hw = tileHash(tx + 999, ty + 333);
+      if (hw > 0.92) {
+        drawFloorWire(ctx, wx, wy, TILE, hw);
       }
     }
   }
@@ -975,37 +1025,166 @@ function drawBuffDrop(ctx: CanvasRenderingContext2D, bd: {
 }) {
   const color = BUFF_COLORS[bd.type] || "#ffffff";
   const scale = 1 + Math.sin(bd.pulse) * 0.18;
-  const r = 14 * scale;
 
   ctx.save();
   ctx.translate(bd.x, bd.y);
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 24;
+  ctx.scale(scale, scale);
 
-  const grd = ctx.createRadialGradient(0, 0, 2, 0, 0, r * 1.6);
-  grd.addColorStop(0, color + "cc");
+  // Glow halo
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 28;
+  const grd = ctx.createRadialGradient(0, 0, 4, 0, 0, 30);
+  grd.addColorStop(0, color + "55");
   grd.addColorStop(1, color + "00");
   ctx.fillStyle = grd;
   ctx.beginPath();
-  ctx.arc(0, 0, r * 1.6, 0, Math.PI * 2);
+  ctx.arc(0, 0, 30, 0, Math.PI * 2);
   ctx.fill();
+  ctx.shadowBlur = 16;
 
-  ctx.fillStyle = color;
+  if (bd.type === "rapidFire") {
+    // Single bullet — large, fast, glowing yellow
+    drawBulletIcon(ctx, 0, 0, 10, 24, "#ffea00", "#ffff88");
+  } else if (bd.type === "tripleShot") {
+    // Three bullets side by side
+    drawBulletIcon(ctx, -10, 0, 7, 18, "#00e5ff", "#88ffff");
+    drawBulletIcon(ctx,   0, 0, 7, 18, "#00e5ff", "#88ffff");
+    drawBulletIcon(ctx,  10, 0, 7, 18, "#00e5ff", "#88ffff");
+  } else if (bd.type === "quadShot") {
+    // Four bullets in a 2×2 grid
+    drawBulletIcon(ctx, -9, -6, 6, 14, "#7c4dff", "#cc88ff");
+    drawBulletIcon(ctx,  9, -6, 6, 14, "#7c4dff", "#cc88ff");
+    drawBulletIcon(ctx, -9,  6, 6, 14, "#7c4dff", "#cc88ff");
+    drawBulletIcon(ctx,  9,  6, 6, 14, "#7c4dff", "#cc88ff");
+  } else if (bd.type === "bazookaMode") {
+    // Rocket/bazooka shell
+    drawRocketIcon(ctx, 0, 0, "#ff6d00", "#ffcc00");
+  }
+
+  ctx.restore();
+}
+
+/** Small bullet capsule: oval body + pointed tip */
+function drawBulletIcon(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number,
+  w: number, h: number,
+  bodyColor: string,
+  tipColor: string
+) {
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Casing body
+  ctx.fillStyle = bodyColor;
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
+  ctx.roundRect(-w / 2, -h * 0.35, w, h * 0.75, w / 2);
   ctx.fill();
 
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `bold ${Math.ceil(r * 0.65)}px monospace`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const icons: Record<string, string> = {
-    tripleShot: "3x",
-    quadShot: "4x",
-    rapidFire: "RF",
-    bazookaMode: "BZ",
-  };
-  ctx.fillText(icons[bd.type] || "?", 0, 1);
+  // Pointed tip (triangle)
+  ctx.fillStyle = tipColor;
+  ctx.beginPath();
+  ctx.moveTo(-w / 2, -h * 0.35);
+  ctx.lineTo(w / 2, -h * 0.35);
+  ctx.lineTo(0, -h * 0.55);
+  ctx.closePath();
+  ctx.fill();
+
+  // Tip highlight
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.15, -h * 0.35);
+  ctx.lineTo(w * 0.15, -h * 0.35);
+  ctx.lineTo(0, -h * 0.52);
+  ctx.closePath();
+  ctx.fill();
+
+  // Case rim line
+  ctx.strokeStyle = "rgba(0,0,0,0.4)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-w / 2, -h * 0.1);
+  ctx.lineTo(w / 2, -h * 0.1);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/** Rocket/bazooka shell icon */
+function drawRocketIcon(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number,
+  bodyColor: string,
+  finColor: string
+) {
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Body tube
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.roundRect(-8, -18, 16, 28, 4);
+  ctx.fill();
+
+  // Nose cone
+  ctx.fillStyle = "#ff2200";
+  ctx.beginPath();
+  ctx.moveTo(-8, -18);
+  ctx.lineTo(8, -18);
+  ctx.lineTo(0, -32);
+  ctx.closePath();
+  ctx.fill();
+
+  // Nose highlight
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  ctx.beginPath();
+  ctx.moveTo(-3, -18);
+  ctx.lineTo(3, -18);
+  ctx.lineTo(0, -29);
+  ctx.closePath();
+  ctx.fill();
+
+  // Exhaust nozzle
+  ctx.fillStyle = "#333333";
+  ctx.beginPath();
+  ctx.roundRect(-6, 8, 12, 8, 2);
+  ctx.fill();
+
+  // Side fins
+  ctx.fillStyle = finColor;
+  // Left fin
+  ctx.beginPath();
+  ctx.moveTo(-8, 4);
+  ctx.lineTo(-16, 14);
+  ctx.lineTo(-8, 14);
+  ctx.closePath();
+  ctx.fill();
+  // Right fin
+  ctx.beginPath();
+  ctx.moveTo(8, 4);
+  ctx.lineTo(16, 14);
+  ctx.lineTo(8, 14);
+  ctx.closePath();
+  ctx.fill();
+
+  // Yellow band stripe
+  ctx.fillStyle = finColor;
+  ctx.beginPath();
+  ctx.roundRect(-8, -4, 16, 5, 1);
+  ctx.fill();
+
+  // Flame exhaust
+  const now = Date.now() * 0.01;
+  const fl = 6 + Math.sin(now) * 3;
+  ctx.fillStyle = `rgba(255,${Math.floor(100 + Math.sin(now * 1.3) * 80)},0,0.85)`;
+  ctx.beginPath();
+  ctx.ellipse(0, 18 + fl / 2, 5, fl, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,255,100,0.6)";
+  ctx.beginPath();
+  ctx.ellipse(0, 18, 2.5, fl * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.restore();
 }
 

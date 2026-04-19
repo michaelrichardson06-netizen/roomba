@@ -174,22 +174,40 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
 
-    // ── Touch (attached directly to canvas for reliability) ────────────────
-    const SCREEN_W_getter = () => window.innerWidth;
-    const leftTouch: { id: number; sx: number; sy: number } | null[] = [null];
-    const rightTouch: { id: number; sx: number; sy: number } | null[] = [null];
+    // ── Touch ──────────────────────────────────────────────────────────────
+    // Map from touchId → "left" | "right" — prevents identity confusion on quick swipes
+    const touchRole = new Map<number, "left" | "right">();
+    // Mutable floating base for left joystick (avoids React re-render lag)
+    const leftBase = { x: 0, y: 0 };
     const JOY_CLAMP = 55;
+
+    const resetLeft = () => {
+      inputRef.current.dx = 0;
+      inputRef.current.dy = 0;
+      setLeftJoy(IDLE_JOY);
+    };
+    const resetRight = () => {
+      inputRef.current.shooting = false;
+      inputRef.current.autoAim = false;
+      setRightJoy(IDLE_JOY);
+    };
+
+    const hasRole = (role: "left" | "right") => {
+      for (const r of touchRole.values()) if (r === role) return true;
+      return false;
+    };
 
     const onTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       Array.from(e.changedTouches).forEach((t) => {
-        const isLeft = t.clientX < SCREEN_W_getter() / 2;
-        if (isLeft && !leftTouch[0]) {
-          leftTouch[0] = { id: t.identifier, sx: t.clientX, sy: t.clientY };
+        const isLeft = t.clientX < window.innerWidth / 2;
+        if (isLeft && !hasRole("left")) {
+          touchRole.set(t.identifier, "left");
+          leftBase.x = t.clientX;
+          leftBase.y = t.clientY;
           setLeftJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
-        } else if (!isLeft && !rightTouch[0]) {
-          // Right side: shoot only — auto-aim finds nearest enemy
-          rightTouch[0] = { id: t.identifier, sx: t.clientX, sy: t.clientY };
+        } else if (!isLeft && !hasRole("right")) {
+          touchRole.set(t.identifier, "right");
           inputRef.current.shooting = true;
           inputRef.current.autoAim = true;
           setRightJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
@@ -200,25 +218,29 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     const onTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       Array.from(e.changedTouches).forEach((t) => {
-        if (leftTouch[0] && t.identifier === leftTouch[0].id) {
-          const dx = t.clientX - leftTouch[0].sx;
-          const dy = t.clientY - leftTouch[0].sy;
+        const role = touchRole.get(t.identifier);
+        if (!role) return;
+
+        if (role === "left") {
+          const dx = t.clientX - leftBase.x;
+          const dy = t.clientY - leftBase.y;
           const len = Math.hypot(dx, dy);
-          inputRef.current.dx = len > 5 ? dx / len : 0;
-          inputRef.current.dy = len > 5 ? dy / len : 0;
-          // Floating joystick: slide base when thumb goes beyond clamp
+          // Floating joystick: slide base when thumb drifts beyond clamp radius
           if (len > JOY_CLAMP) {
-            leftTouch[0].sx = t.clientX - (dx / len) * JOY_CLAMP;
-            leftTouch[0].sy = t.clientY - (dy / len) * JOY_CLAMP;
+            leftBase.x = t.clientX - (dx / len) * JOY_CLAMP;
+            leftBase.y = t.clientY - (dy / len) * JOY_CLAMP;
           }
-          const newBaseX = leftTouch[0].sx;
-          const newBaseY = leftTouch[0].sy;
-          const cx = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, t.clientX - newBaseX));
-          const cy = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, t.clientY - newBaseY));
-          setLeftJoy({ active: true, baseX: newBaseX, baseY: newBaseY, stickX: newBaseX + cx, stickY: newBaseY + cy });
+          const ndx = t.clientX - leftBase.x;
+          const ndy = t.clientY - leftBase.y;
+          const nlen = Math.hypot(ndx, ndy);
+          inputRef.current.dx = nlen > 5 ? ndx / nlen : 0;
+          inputRef.current.dy = nlen > 5 ? ndy / nlen : 0;
+          const cx = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, ndx));
+          const cy = Math.max(-JOY_CLAMP, Math.min(JOY_CLAMP, ndy));
+          setLeftJoy({ active: true, baseX: leftBase.x, baseY: leftBase.y, stickX: leftBase.x + cx, stickY: leftBase.y + cy });
         }
-        if (rightTouch[0] && t.identifier === rightTouch[0].id) {
-          // Right side just keeps shooting; auto-aim handles direction in engine
+
+        if (role === "right") {
           inputRef.current.shooting = true;
           inputRef.current.autoAim = true;
           setRightJoy(j => ({ ...j, stickX: t.clientX, stickY: t.clientY }));
@@ -229,19 +251,17 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     const onTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
       Array.from(e.changedTouches).forEach((t) => {
-        if (leftTouch[0] && t.identifier === leftTouch[0].id) {
-          leftTouch[0] = null;
-          inputRef.current.dx = 0;
-          inputRef.current.dy = 0;
-          setLeftJoy(IDLE_JOY);
-        }
-        if (rightTouch[0] && t.identifier === rightTouch[0].id) {
-          rightTouch[0] = null;
-          inputRef.current.shooting = false;
-          inputRef.current.autoAim = false;
-          setRightJoy(IDLE_JOY);
-        }
+        const role = touchRole.get(t.identifier);
+        touchRole.delete(t.identifier);
+        if (role === "left") resetLeft();
+        if (role === "right") resetRight();
       });
+      // Safety fallback: if no remaining touches at all, clear all input
+      if (e.touches.length === 0) {
+        touchRole.clear();
+        resetLeft();
+        resetRight();
+      }
     };
 
     // Attach to document (not canvas) to catch all touches regardless of overlay

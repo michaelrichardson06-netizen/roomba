@@ -595,9 +595,9 @@ function spawnBuff(state: GameState, x: number, y: number) {
 
 function applyBuff(state: GameState, type: "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode") {
   if (type === "bazookaMode") {
+    // Bazooka replaces spread, but keeps rapid fire stacks — can be devastating!
     state.tripleShot = false;
     state.quadShot = false;
-    state.rapidFireStacks = 0;
     state.bazookaMode = true;
   } else if (type === "tripleShot") {
     state.tripleShot = true;
@@ -608,6 +608,6 @@ function applyBuff(state: GameState, type: "tripleShot" | "quadShot" | "rapidFir
     state.bazookaMode = false;
   } else if (type === "rapidFire") {
     state.rapidFireStacks = Math.min(3, state.rapidFireStacks + 1); // max 3 stacks
-    state.bazookaMode = false;
+    // rapid fire stacks with everything — even bazooka!
   }
 }

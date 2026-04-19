@@ -73,7 +73,7 @@ export const GAME_CONFIG = {
 
   // Screen shake
   SHAKE_DAMAGE: 8,
-  SHAKE_BAZOOKA: 16,
+  SHAKE_BAZOOKA: 6,
 
   // Drop rates
   ELITE_DROP_CHANCE: 0.55,
