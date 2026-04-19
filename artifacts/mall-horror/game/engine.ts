@@ -331,7 +331,6 @@ export function updateGame(
         bulletsToRemove.add(bullet.id);
         s.explosions.push({ id: uid(), x: bullet.x, y: bullet.y, radius: 0, maxRadius: C.BAZOOKA_EXPLOSION_RADIUS, alpha: 1, age: 0 });
         s.screenShake.magnitude = C.SHAKE_BAZOOKA;
-        s.whiteFlash = 1.0;
         for (const enemy of s.enemies) {
           if (enemy.isBurrowed) continue;
           const d = dist(bullet.x, bullet.y, enemy.x, enemy.y);
