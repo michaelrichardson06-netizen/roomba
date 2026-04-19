@@ -60,6 +60,8 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const lastTimeRef = useRef<number>(0);
   const hudTickRef = useRef<number>(0);
   const lastHudHpRef = useRef<number>(200);
+  const hpBarFillRef = useRef<HTMLElement | null>(null);
+  const hpBarTextRef = useRef<HTMLElement | null>(null);
   const [hudState, setHudState] = useState<HUDState>(DEFAULT_HUD);
   const [leftJoy, setLeftJoy] = useState<JoyState>(IDLE_JOY);
   const [rightJoy, setRightJoy] = useState<JoyState>(IDLE_JOY);
@@ -270,6 +272,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     soundPanel.appendChild(makeVolRow("SFX", getSfxVolume, setSfxVolume));
 
     soundBtn.addEventListener("click", () => {
+      unlockAudio(); // tapping the sound button also unlocks audio on iOS
       soundPanel.style.display = soundPanel.style.display === "none" ? "block" : "none";
     });
 
@@ -503,9 +506,10 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       }
     };
 
-    // touchstart is PASSIVE so iOS Safari does not enter "slow path" for buttons.
-    // Scroll prevention is handled in touchmove (non-passive, only when we own a touch).
-    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    // touchstart is NON-PASSIVE so iOS Safari grants full gesture context for
+    // AudioContext.resume() + buffer.start() inside unlockAudio().
+    // Scroll prevention is handled in touchmove (also non-passive).
+    document.addEventListener("touchstart", onTouchStart, { passive: false });
     document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: false });
     document.addEventListener("touchcancel", onTouchEnd, { passive: false });

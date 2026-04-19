@@ -93,38 +93,6 @@ export function renderFrame(
 
   drawRoomba(ctx, state.playerX, state.playerY, state.playerAngle, state.isDashing);
 
-  // ── Player HP bar — drawn below the sprite so you never miss low health ────
-  if (state.hp < state.maxHp) {
-    const hpRatio = Math.max(0, state.hp / state.maxHp);
-    const barW = 48;
-    const barH = 6;
-    const bx = state.playerX - barW / 2;
-    const by = state.playerY + 26; // just below the Roomba body
-    ctx.save();
-    // Background track
-    ctx.fillStyle = "rgba(0,0,0,0.7)";
-    ctx.beginPath();
-    ctx.roundRect(bx - 1, by - 1, barW + 2, barH + 2, 3);
-    ctx.fill();
-    // Fill
-    const barColor = hpRatio > 0.5 ? "#22cc44" : hpRatio > 0.25 ? "#ffaa00" : "#ff2222";
-    ctx.shadowColor = barColor;
-    ctx.shadowBlur = hpRatio <= 0.25 ? 8 : 0;
-    ctx.fillStyle = barColor;
-    ctx.beginPath();
-    ctx.roundRect(bx, by, barW * hpRatio, barH, 2);
-    ctx.fill();
-    // HP number when critically low (below 25%)
-    if (hpRatio <= 0.25) {
-      ctx.shadowBlur = 0;
-      ctx.font = "bold 9px monospace";
-      ctx.textAlign = "center";
-      ctx.fillStyle = "#ff2222";
-      ctx.fillText(`${Math.ceil(state.hp)} HP`, state.playerX, by + barH + 10);
-    }
-    ctx.restore();
-  }
-
   // ── Lightning: ambient static arcs between nearby enemies ─────────────────
   if (state.lightningStrike && state.enemies.length > 1) {
     const now = Date.now();
@@ -237,6 +205,41 @@ export function renderFrame(
   ctx.restore();
 
   drawLightingOverlay(ctx, state, cameraX, cameraY, canvasW, canvasH);
+
+  // ── Player HP bar — screen space, drawn ON TOP of fog so it's always visible ─
+  // Positioned just below the player (screen center), so eyes never leave action.
+  if (state.hp < state.maxHp) {
+    const hpRatio = Math.max(0, state.hp / state.maxHp);
+    const barW = 56;
+    const barH = 7;
+    const sx = canvasW / 2 - barW / 2;
+    const sy = canvasH / 2 + 30; // 30px below screen center (below the Roomba)
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.beginPath();
+    ctx.roundRect(sx - 1, sy - 1, barW + 2, barH + 2, 4);
+    ctx.fill();
+    const barColor = hpRatio > 0.5 ? "#22cc44" : hpRatio > 0.25 ? "#ffaa00" : "#ff2222";
+    if (hpRatio <= 0.30) {
+      ctx.shadowColor = barColor;
+      ctx.shadowBlur = 10;
+    }
+    ctx.fillStyle = barColor;
+    ctx.beginPath();
+    ctx.roundRect(sx, sy, Math.max(1, barW * hpRatio), barH, 3);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    if (hpRatio <= 0.30) {
+      ctx.font = "bold 10px monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ff3333";
+      ctx.shadowColor = "#ff0000";
+      ctx.shadowBlur = 8;
+      ctx.fillText(`${Math.ceil(state.hp)} HP`, canvasW / 2, sy + barH + 12);
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+  }
 
   // ── Berserker screen vignette (screen space) ──────────────────────────────
   if (state.berserkerTimer > 0) {
@@ -1017,10 +1020,10 @@ function drawEscalator(
   ctx.lineWidth = 3;
   ctx.strokeRect(x, y, w, h);
 
-  // Escalator steps (animated diagonal treads)
+  // Escalator steps (static treads — escalator is broken/stopped)
   const stepH = 22;
   const stepCount = Math.ceil(h / stepH) + 1;
-  const offset = (now * 20) % stepH;
+  const offset = 0;
 
   ctx.save();
   ctx.beginPath();
