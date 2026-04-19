@@ -104,20 +104,12 @@ export function updateGame(
   s.redFlash   = Math.max(0, s.redFlash   - dt * 2.5); // slightly slower decay so it's readable
 
   // ── Battery drain ─────────────────────────────────────────────────────────
+  // When battery = 0 the flashlight cuts out (darkness is the penalty — no HP drain).
+  // Player can only die from enemies, not from a silent background timer.
   s.battery = Math.max(0, s.battery - C.BATTERY_DRAIN_RATE * dt / 1000);
   if (s.battery <= 0) {
-    const prevHp = s.hp;
-    s.hp = Math.max(0, s.hp - C.BATTERY_HEALTH_DRAIN * dt / 1000);
-    // Low-battery screen flicker — also set red flash so player notices HP drain
-    if (Math.random() < 0.04) s.whiteFlash = Math.max(s.whiteFlash, 0.08);
-    s.redFlash = Math.max(s.redFlash, 0.3); // persistent dim red while draining
-    // Show a battery-drain damage number every ~1.5s so the player knows what's killing them
-    if (Math.floor(prevHp) !== Math.floor(s.hp)) {
-      if (Math.random() < 0.45)
-        s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-16, 16), y: s.playerY - 34, text: "🔋-HP", age: 0, maxAge: 1200, color: "#ff8800", vy: -0.7 });
-      logDmg(s, "battery_drain", Math.round(prevHp - s.hp), prevHp, s.hp, `dt=${dt.toFixed(0)}`);
-    }
-    if (s.hp <= 0) { s.deathCause = "battery"; s.hpAtDeath = prevHp; s.phase = "dead"; return s; }
+    // Occasional white flicker so the player notices the lights are out
+    if (Math.random() < 0.025) s.whiteFlash = Math.max(s.whiteFlash, 0.06);
   }
 
   // ── Battery HP regen (very slow while battery charged) ───────────────────

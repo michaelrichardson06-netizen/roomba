@@ -277,9 +277,9 @@ export function renderFrame(
     ctx.shadowBlur = 16;
     ctx.strokeStyle = "rgba(0,0,0,0.95)";
     ctx.lineWidth = 4;
-    ctx.strokeText("⚡ BATTERY DEAD — HP DRAINING!", canvasW / 2, batY);
+    ctx.strokeText("⚡ FLASHLIGHT DEAD — FIND BATTERY!", canvasW / 2, batY);
     ctx.fillStyle = "#ffaa00";
-    ctx.fillText("⚡ BATTERY DEAD — HP DRAINING!", canvasW / 2, batY);
+    ctx.fillText("⚡ FLASHLIGHT DEAD — FIND BATTERY!", canvasW / 2, batY);
     ctx.shadowBlur = 0;
     ctx.restore();
   }
