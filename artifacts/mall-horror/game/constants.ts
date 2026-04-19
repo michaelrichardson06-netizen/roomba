@@ -6,7 +6,7 @@ export const GAME_CONFIG = {
 
   // Player
   PLAYER_RADIUS: 14,
-  PLAYER_SPEED: 4.5,
+  PLAYER_SPEED: 5.5,
   PLAYER_MAX_HP: 200,
 
   // Dash
@@ -46,11 +46,12 @@ export const GAME_CONFIG = {
   // Wave scaling
   WAVE_HP_SCALE: 0.12,
   WAVE_DENSITY_SCALE: 0.18,
-  WAVE_BASE_KILLS: 100,      // Wave 1 kill threshold (boss immune until met)
-  WAVE_KILL_INCREMENT: 120,  // Per wave: 100 → 220 → 340 → 460 …
+  WAVE_BASE_KILLS: 30,       // Wave 1 kill threshold (boss immune until met)
+  WAVE_KILL_INCREMENT: 20,   // Per wave: 30 → 50 → 70 → 90 …
   WAVE_SPEED_SCALE: 0.07,
-  SPAWN_COUNT_BASE: 2,       // Enemies per spawn batch (wave 1 = gentle)
-  SPAWN_COUNT_SCALE: 1.5,    // Grows per wave: w1=2, w3=5, w5=8, w8=13
+  MAX_ENEMY_COUNT: 8,        // Max non-boss enemies on screen at once — prevents inescapable walls
+  SPAWN_COUNT_BASE: 1,       // Enemies per spawn batch (wave 1 = one at a time)
+  SPAWN_COUNT_SCALE: 1.0,    // Grows per wave: w1=1, w3=3, w5=5, w8=8
 
   // Scoring
   SCORE_STANDARD: 3,
@@ -74,10 +75,10 @@ export const GAME_CONFIG = {
   LAMP_COUNT: 28,
 
   // Spawn
-  SPAWN_MIN_DIST: 500,
-  SPAWN_INTERVAL_BASE: 2800,   // Wave 1 = leisurely pace
-  MIN_SPAWN_INTERVAL: 500,     // Floor for late waves
-  WAVE_INTERVAL_REDUCTION: 180, // -180ms/wave: w1=2800, w4=1900, w8=1060
+  SPAWN_MIN_DIST: 700,
+  SPAWN_INTERVAL_BASE: 4500,   // Wave 1 = very leisurely — one enemy at a time
+  MIN_SPAWN_INTERVAL: 600,     // Floor for late waves
+  WAVE_INTERVAL_REDUCTION: 200, // -200ms/wave: w1=4500, w4=3900, w8=2900
 
   // ── Boss web attack ───────────────────────────────────────────────────────
   BOSS_WEB_COOLDOWN: 3500,   // ms between web throws

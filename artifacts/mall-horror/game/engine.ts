@@ -306,14 +306,20 @@ export function updateGame(
       const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
       s.enemies.push(makeEnemy("boss", pos.x, pos.y, s.wave));
     }
-    // Regular enemies always spawn throughout the wave
+    // Regular enemies spawn throughout the wave — capped so a wall of bodies never forms
     if (s.spawnTimer >= spawnInterval) {
       s.spawnTimer = 0;
-      const batchSize = Math.min(14, Math.ceil(C.SPAWN_COUNT_BASE + (s.wave - 1) * C.SPAWN_COUNT_SCALE));
-      for (let i = 0; i < batchSize; i++) {
-        const type: Enemy["type"] = Math.random() < 0.22 ? "elite" : "standard";
-        const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
-        s.enemies.push(makeEnemy(type, pos.x, pos.y, s.wave));
+      const nonBossCount = s.enemies.filter((e) => e.type !== "boss").length;
+      if (nonBossCount < C.MAX_ENEMY_COUNT) {
+        const batchSize = Math.min(
+          C.MAX_ENEMY_COUNT - nonBossCount, // never exceed the cap
+          Math.ceil(C.SPAWN_COUNT_BASE + (s.wave - 1) * C.SPAWN_COUNT_SCALE),
+        );
+        for (let i = 0; i < batchSize; i++) {
+          const type: Enemy["type"] = Math.random() < 0.22 ? "elite" : "standard";
+          const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
+          s.enemies.push(makeEnemy(type, pos.x, pos.y, s.wave));
+        }
       }
     }
   }
