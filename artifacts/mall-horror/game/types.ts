@@ -26,7 +26,17 @@ export interface Enemy {
   isBurrowed: boolean;
 }
 
-export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode" | "berserker" | "battery";
+export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode" | "berserker" | "battery" | "lightningStrike";
+
+export interface LightningArc {
+  id: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  life: number;
+  maxLife: number;
+}
 
 export interface BuffDrop {
   id: string;
@@ -122,6 +132,8 @@ export interface GameState {
   quadShot: boolean;
   rapidFireStacks: number;
   bazookaMode: boolean;
+  lightningStrike: boolean;
+  lightningArcs: LightningArc[];
   // Cooldowns / timers
   shootCooldown: number;
   dashCooldown: number;

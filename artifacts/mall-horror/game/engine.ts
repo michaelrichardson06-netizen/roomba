@@ -1,5 +1,5 @@
 import { GAME_CONFIG as C } from "./constants";
-import type { GameState, Enemy, LampLight } from "./types";
+import type { GameState, Enemy, LampLight, LightningArc } from "./types";
 
 let nextId = 0;
 function uid() { return (++nextId).toString(); }
@@ -45,7 +45,7 @@ export function createInitialState(): GameState {
     buffDrops: [], muzzleFlash: null, lamps,
     screenShake: { x: 0, y: 0, magnitude: 0 },
     whiteFlash: 0,
-    tripleShot: false, quadShot: false, rapidFireStacks: 0, bazookaMode: false,
+    tripleShot: false, quadShot: false, rapidFireStacks: 0, bazookaMode: false, lightningStrike: false, lightningArcs: [],
     shootCooldown: 0, dashCooldown: 0, isDashing: false,
     dashDx: 0, dashDy: 0, dashTime: 0,
     spawnTimer: 0, spawnGrace: 3000, bossSpawned: false,
@@ -65,6 +65,7 @@ export function updateGame(
   s.explosions = [...s.explosions];
   s.particles = [...s.particles];
   s.buffDrops = [...s.buffDrops];
+  s.lightningArcs = [...s.lightningArcs];
   s.screenShake = { ...s.screenShake };
 
   // ── Cooldown timers ────────────────────────────────────────────────────────
@@ -79,6 +80,14 @@ export function updateGame(
     // Low-battery screen flicker
     if (Math.random() < 0.04) s.whiteFlash = Math.max(s.whiteFlash, 0.08);
   }
+
+  // ── Battery HP regen (very slow while battery charged) ───────────────────
+  if (s.battery > 0 && s.hp > 0 && s.hp < s.maxHp) {
+    s.hp = Math.min(s.maxHp, s.hp + C.BATTERY_HP_REGEN * dt / 1000);
+  }
+
+  // ── Lightning arc decay ───────────────────────────────────────────────────
+  s.lightningArcs = s.lightningArcs.map((a) => ({ ...a, life: a.life - dt })).filter((a) => a.life > 0);
 
   // ── Battery pickup spawning ───────────────────────────────────────────────
   s.batterySpawnTimer = Math.max(0, s.batterySpawnTimer - dt);
@@ -377,6 +386,12 @@ export function updateGame(
           for (let i = 0; i < 5; i++) {
             s.particles.push({ id: uid(), x: bullet.x, y: bullet.y, vx: rand(-4, 4), vy: rand(-4, 4), life: rand(100, 250), maxLife: 250, color: "#ff4400", size: rand(2, 5) });
           }
+
+          // ── Lightning chain ──────────────────────────────────────────────
+          if (s.lightningStrike) {
+            chainLightning(s, enemy, enemiesToRemove, C.LIGHTNING_CHAIN_COUNT);
+          }
+
           break;
         }
       }
@@ -453,6 +468,44 @@ export function updateGame(
   return s;
 }
 
+// ─── Lightning chain helper ────────────────────────────────────────────────────
+
+function chainLightning(state: GameState, origin: Enemy, excluded: Set<string>, count: number) {
+  // Gather all enemies within chain radius sorted by distance
+  const candidates = state.enemies
+    .filter((e) => !excluded.has(e.id) && e.id !== origin.id && !e.isBurrowed)
+    .map((e) => ({ e, d: dist(origin.x, origin.y, e.x, e.y) }))
+    .filter(({ d }) => d < C.LIGHTNING_CHAIN_RADIUS)
+    .sort((a, b) => a.d - b.d)
+    .slice(0, count);
+
+  let prevX = origin.x, prevY = origin.y;
+  for (const { e } of candidates) {
+    // Visual arc from previous target to this one
+    state.lightningArcs.push({
+      id: uid(), fromX: prevX, fromY: prevY, toX: e.x, toY: e.y,
+      life: C.LIGHTNING_ARC_LIFE, maxLife: C.LIGHTNING_ARC_LIFE,
+    });
+    prevX = e.x; prevY = e.y;
+
+    e.hitFlash = 1.0;
+    e.hp -= C.LIGHTNING_CHAIN_DAMAGE;
+    if (e.hp <= 0 && !excluded.has(e.id)) {
+      excluded.add(e.id);
+      spawnDeathParticles(state, e);
+      state.score += scoreFor(e.type); state.killCount++; state.totalInsects++;
+      if (e.type === "elite" && Math.random() < C.ELITE_DROP_CHANCE) spawnBuff(state, e.x, e.y);
+      if (e.type === "boss") handleBossDeath(state, e);
+    }
+
+    // Spark particles at chain point
+    for (let i = 0; i < 4; i++) {
+      const a = Math.random() * Math.PI * 2;
+      state.particles.push({ id: uid(), x: e.x, y: e.y, vx: Math.cos(a) * rand(2, 6), vy: Math.sin(a) * rand(2, 6), life: rand(80, 200), maxLife: 200, color: Math.random() > 0.4 ? "#88eeff" : "#ffffff", size: rand(2, 5) });
+    }
+  }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function handleBossDeath(state: GameState, enemy: Enemy) {
@@ -484,7 +537,7 @@ function spawnDeathParticles(state: GameState, enemy: Enemy) {
 }
 
 function spawnBuff(state: GameState, x: number, y: number) {
-  const types = ["tripleShot", "quadShot", "rapidFire", "bazookaMode"] as const;
+  const types = ["tripleShot", "quadShot", "rapidFire", "bazookaMode", "lightningStrike"] as const;
   state.buffDrops.push({ id: uid(), x, y, type: types[Math.floor(Math.random() * types.length)], pulse: 0 });
 }
 
@@ -508,5 +561,12 @@ function applyBuff(state: GameState, type: string) {
     }
   } else if (type === "battery") {
     state.battery = Math.min(state.maxBattery, state.battery + C.BATTERY_CHARGE_AMOUNT);
+  } else if (type === "lightningStrike") {
+    state.lightningStrike = true;
+    // Brief electric burst on pickup
+    for (let i = 0; i < 12; i++) {
+      const a = Math.random() * Math.PI * 2;
+      state.particles.push({ id: uid(), x: state.playerX, y: state.playerY, vx: Math.cos(a) * rand(2, 8), vy: Math.sin(a) * rand(2, 8), life: rand(150, 350), maxLife: 350, color: Math.random() > 0.4 ? "#88eeff" : "#ffffff", size: rand(2, 6) });
+    }
   }
 }

@@ -95,6 +95,16 @@ export const GAME_CONFIG = {
   BATTERY_SPAWN_INTERVAL: 13500, // ms between spawn checks (18% more frequent)
   BATTERY_CHARGE_AMOUNT: 100,    // full recharge per pickup
 
+  // ── Lightning Strike ─────────────────────────────────────────────────────
+  LIGHTNING_CHAIN_RADIUS: 220,   // px — max distance to chain to nearby enemy
+  LIGHTNING_CHAIN_DAMAGE: 18,    // damage per chained enemy
+  LIGHTNING_CHAIN_COUNT: 4,      // max enemies chained per hit
+  LIGHTNING_ARC_LIFE: 280,       // ms arcs stay visible
+  LIGHTNING_AMBIENT_RADIUS: 180, // px — ambient static arc range between enemies
+
+  // ── Battery HP regen ──────────────────────────────────────────────────────
+  BATTERY_HP_REGEN: 0.3,         // HP/second while battery > 0
+
   // ── Berserker ────────────────────────────────────────────────────────────
   BERSERKER_HP_THRESHOLD: 0.3,   // auto-triggers at 30% HP
   BERSERKER_DURATION_AUTO: 30000, // 30 seconds (automatic)
@@ -111,6 +121,7 @@ export const BUFF_COLORS: Record<string, string> = {
   bazookaMode: "#ff6d00",
   berserker: "#ff0044",
   battery: "#44ff88",
+  lightningStrike: "#88eeff",
 };
 
 export const ENEMY_COLORS: Record<string, { body: string; glow: string }> = {

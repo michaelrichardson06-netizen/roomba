@@ -25,6 +25,7 @@ interface HUDState {
   quadShot: boolean;
   rapidFireStacks: number;
   bazookaMode: boolean;
+  lightningStrike: boolean;
   dashCooldown: number;
   spawnGrace: number;
 }
@@ -43,7 +44,7 @@ const DEFAULT_HUD: HUDState = {
   score: 0, wave: 1,
   killCount: 0, waveTotalKills: 12,
   tripleShot: false, quadShot: false,
-  rapidFireStacks: 0, bazookaMode: false,
+  rapidFireStacks: 0, bazookaMode: false, lightningStrike: false,
   dashCooldown: 0, spawnGrace: 3000,
 };
 
@@ -99,6 +100,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
         quadShot: newState.quadShot,
         rapidFireStacks: newState.rapidFireStacks,
         bazookaMode: newState.bazookaMode,
+        lightningStrike: newState.lightningStrike,
         dashCooldown: newState.dashCooldown,
         spawnGrace: newState.spawnGrace,
       });

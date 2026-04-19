@@ -61,6 +61,34 @@ export function renderFrame(
 
   drawRoomba(ctx, state.playerX, state.playerY, state.playerAngle, state.isDashing);
 
+  // ── Lightning: ambient static arcs between nearby enemies ─────────────────
+  if (state.lightningStrike && state.enemies.length > 1) {
+    const now = Date.now();
+    for (let i = 0; i < state.enemies.length; i++) {
+      const a = state.enemies[i];
+      if (a.isBurrowed) continue;
+      for (let j = i + 1; j < state.enemies.length; j++) {
+        const b = state.enemies[j];
+        if (b.isBurrowed) continue;
+        const d = Math.hypot(b.x - a.x, b.y - a.y);
+        if (d < 180) {
+          // Flicker: randomize based on time + pair index
+          const flicker = Math.sin(now * 0.01 + i * 7.3 + j * 3.7) > 0.1;
+          if (!flicker) continue;
+          const alpha = (0.15 + Math.random() * 0.25) * (1 - d / 180);
+          drawJaggedLine(ctx, a.x, a.y, b.x, b.y, alpha, 1.2, "#88eeff");
+        }
+      }
+    }
+  }
+
+  // ── Lightning: hit-chain arcs ─────────────────────────────────────────────
+  for (const arc of state.lightningArcs) {
+    const alpha = (arc.life / arc.maxLife) * 0.9;
+    drawJaggedLine(ctx, arc.fromX, arc.fromY, arc.toX, arc.toY, alpha, 2.5, "#ffffff");
+    drawJaggedLine(ctx, arc.fromX, arc.fromY, arc.toX, arc.toY, alpha * 0.5, 5, "#44ccff");
+  }
+
   // ── Berserker AoE ring (world space) ──────────────────────────────────────
   if (state.berserkerTimer > 0) {
     const pulse = (Date.now() * 0.004) % 1;
@@ -1062,6 +1090,36 @@ function drawBullet(ctx: CanvasRenderingContext2D, bullet: {
   ctx.restore();
 }
 
+/** Jagged lightning bolt arc between two world-space points */
+function drawJaggedLine(
+  ctx: CanvasRenderingContext2D,
+  x1: number, y1: number, x2: number, y2: number,
+  alpha: number, lineWidth: number, color: string, segments = 8
+) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+
+  const dx = x2 - x1, dy = y2 - y1;
+  const perpX = -dy / Math.sqrt(dx * dx + dy * dy);
+  const perpY = dx / Math.sqrt(dx * dx + dy * dy);
+
+  for (let i = 1; i < segments; i++) {
+    const t = i / segments;
+    const jitter = (Math.random() - 0.5) * Math.hypot(dx, dy) * 0.22;
+    ctx.lineTo(x1 + dx * t + perpX * jitter, y1 + dy * t + perpY * jitter);
+  }
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
 /** AA Battery icon */
 function drawBatteryIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: string) {
   ctx.save();
@@ -1167,6 +1225,55 @@ function drawBerserkerIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number
   ctx.restore();
 }
 
+/** Lightning bolt pickup icon */
+function drawLightningIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  const now = Date.now() * 0.004;
+  const pulse = 0.7 + Math.sin(now) * 0.3;
+
+  // Glow halo
+  const grd = ctx.createRadialGradient(0, 0, 4, 0, 0, 24);
+  grd.addColorStop(0, "rgba(100,220,255,0.5)");
+  grd.addColorStop(1, "rgba(30,100,200,0)");
+  ctx.fillStyle = grd;
+  ctx.globalAlpha = pulse;
+  ctx.beginPath();
+  ctx.arc(0, 0, 24, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Classic lightning bolt shape
+  ctx.shadowColor = "#88eeff";
+  ctx.shadowBlur = 14;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.moveTo(4, -18);
+  ctx.lineTo(-4, -2);
+  ctx.lineTo(3, -2);
+  ctx.lineTo(-5, 18);
+  ctx.lineTo(7, 2);
+  ctx.lineTo(-1, 2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#44ccff";
+  ctx.globalAlpha = 0.7 * pulse;
+  ctx.beginPath();
+  ctx.moveTo(4, -18);
+  ctx.lineTo(-4, -2);
+  ctx.lineTo(3, -2);
+  ctx.lineTo(-5, 18);
+  ctx.lineTo(7, 2);
+  ctx.lineTo(-1, 2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
 // ─── BUFF DROP ───────────────────────────────────────────────────────────────
 
 function drawBuffDrop(ctx: CanvasRenderingContext2D, bd: {
@@ -1208,6 +1315,8 @@ function drawBuffDrop(ctx: CanvasRenderingContext2D, bd: {
     drawBatteryIcon(ctx, 0, 0, "#44ff88");
   } else if (bd.type === "berserker") {
     drawBerserkerIcon(ctx, 0, 0);
+  } else if (bd.type === "lightningStrike") {
+    drawLightningIcon(ctx, 0, 0);
   }
 
   ctx.restore();
