@@ -54,7 +54,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState>(createInitialState());
-  const inputRef = useRef({ dx: 0, dy: 0, aimAngle: 0, shooting: false, dashing: false, autoAim: false, shootOverrideAngle: null as number | null });
+  const inputRef = useRef({ dx: 0, dy: 0, aimAngle: 0, targetAimAngle: 0, useSmoothedAim: false, rightJoyActive: false, shooting: false, dashing: false, autoAim: false, shootOverrideAngle: null as number | null });
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const hudTickRef = useRef<number>(0);
@@ -67,6 +67,16 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const gameLoop = useCallback((timestamp: number) => {
     const dt = Math.min(timestamp - (lastTimeRef.current || timestamp), 50);
     lastTimeRef.current = timestamp;
+
+    // ── Smooth aim angle toward target (touch only) ───────────────────────
+    if (inputRef.current.useSmoothedAim) {
+      const curr = inputRef.current.aimAngle;
+      const target = inputRef.current.targetAimAngle;
+      // Angular shortest-path lerp
+      let diff = ((target - curr + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      const maxStep = dt * 0.009; // ~9 rad/s — fast but not instant
+      inputRef.current.aimAngle = curr + (Math.abs(diff) < maxStep ? diff : Math.sign(diff) * maxStep);
+    }
 
     const newState = updateGame(stateRef.current, dt, inputRef.current);
     stateRef.current = newState;
@@ -185,8 +195,11 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left - canvas.width / 2;
       const my = e.clientY - rect.top - canvas.height / 2;
-      inputRef.current.aimAngle = Math.atan2(my, mx) - Math.PI / 2;
-      inputRef.current.autoAim = false; // mouse = manual aim
+      const angle = Math.atan2(my, mx) - Math.PI / 2;
+      inputRef.current.aimAngle = angle;        // instant for mouse
+      inputRef.current.targetAimAngle = angle;  // keep in sync
+      inputRef.current.useSmoothedAim = false;  // no lerp for mouse
+      inputRef.current.autoAim = false;
     };
     const onMouseDown = () => { inputRef.current.shooting = true; inputRef.current.autoAim = false; };
     const onMouseUp = () => { inputRef.current.shooting = false; };
@@ -195,15 +208,13 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     window.addEventListener("mouseup", onMouseUp);
 
     // ── Touch ──────────────────────────────────────────────────────────────
-    // Map from touchId → "left" | "right" — prevents identity confusion on quick swipes
+    // Map from touchId → "left" | "right"
     const touchRole = new Map<number, "left" | "right">();
-    // Mutable floating bases for both joysticks (avoids React re-render lag)
-    const leftBase = { x: 0, y: 0 };
-    // Right joystick is FIXED — always centred at the idle-hint position (bottom-right)
-    const RIGHT_JOY_CX = window.innerWidth  - 84;   // 44px margin + 40 (half of 80px hint ring)
-    const RIGHT_JOY_CY = window.innerHeight - 150;  // 110px margin + 40
-    const rightBase = { x: RIGHT_JOY_CX, y: RIGHT_JOY_CY };
-    const JOY_CLAMP = 55;
+    // Both joysticks are FLOATING — base appears where thumb lands
+    const leftBase  = { x: 0, y: 0 };
+    const rightBase = { x: 0, y: 0 };
+    const JOY_CLAMP    = 55;
+    const R_DEAD_ZONE  = 20; // larger dead zone for right stick — prevents tiny-drag snaps
 
     const resetLeft = () => {
       inputRef.current.dx = 0;
@@ -214,6 +225,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       inputRef.current.shooting = false;
       inputRef.current.autoAim = false;
       inputRef.current.shootOverrideAngle = null;
+      inputRef.current.rightJoyActive = false;
       setRightJoy(IDLE_JOY);
     };
 
@@ -224,6 +236,8 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
 
     const onTouchStart = (e: TouchEvent) => {
       e.preventDefault();
+      // Enable smooth aim once any touch is active
+      inputRef.current.useSmoothedAim = true;
       Array.from(e.changedTouches).forEach((t) => {
         const isLeft = t.clientX < window.innerWidth / 2;
         if (isLeft && !hasRole("left")) {
@@ -233,10 +247,13 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           setLeftJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
         } else if (!isLeft && !hasRole("right")) {
           touchRole.set(t.identifier, "right");
-          // Base stays at the pre-defined fixed centre — do NOT move it
+          // Floating right base: start wherever the thumb landed
+          rightBase.x = t.clientX;
+          rightBase.y = t.clientY;
           inputRef.current.shooting = true;
-          inputRef.current.autoAim = true; // brief tap = auto-aim nearest
-          setRightJoy({ active: true, baseX: rightBase.x, baseY: rightBase.y, stickX: rightBase.x, stickY: rightBase.y });
+          inputRef.current.autoAim = true;  // tap = auto-aim
+          inputRef.current.rightJoyActive = true;
+          setRightJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
         }
       });
     };
@@ -251,7 +268,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           const dx = t.clientX - leftBase.x;
           const dy = t.clientY - leftBase.y;
           const len = Math.hypot(dx, dy);
-          // Floating joystick: slide base when thumb drifts beyond clamp radius
+          // Floating base slides when thumb drifts beyond clamp
           if (len > JOY_CLAMP) {
             leftBase.x = t.clientX - (dx / len) * JOY_CLAMP;
             leftBase.y = t.clientY - (dy / len) * JOY_CLAMP;
@@ -259,11 +276,14 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           const ndx = t.clientX - leftBase.x;
           const ndy = t.clientY - leftBase.y;
           const nlen = Math.hypot(ndx, ndy);
-          if (nlen > 5) {
+          if (nlen > 6) {
             inputRef.current.dx = ndx / nlen;
             inputRef.current.dy = ndy / nlen;
-            // ── Flashlight tracks movement direction ──────────────────────
-            inputRef.current.aimAngle = Math.atan2(ndy, ndx) - Math.PI / 2;
+            // Flashlight tracks movement direction — but only when right stick is idle
+            // (right stick takes priority for aim)
+            if (!inputRef.current.rightJoyActive) {
+              inputRef.current.targetAimAngle = Math.atan2(ndy, ndx) - Math.PI / 2;
+            }
           } else {
             inputRef.current.dx = 0;
             inputRef.current.dy = 0;
@@ -274,18 +294,25 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
         }
 
         if (role === "right") {
-          // ── Right stick: AIM + SHOOT — controls flashlight AND bullet direction ──
+          // Right stick drifts base when thumb goes beyond clamp
+          const rdx = t.clientX - rightBase.x;
+          const rdy = t.clientY - rightBase.y;
+          const rlen = Math.hypot(rdx, rdy);
+          if (rlen > JOY_CLAMP) {
+            rightBase.x = t.clientX - (rdx / rlen) * JOY_CLAMP;
+            rightBase.y = t.clientY - (rdy / rlen) * JOY_CLAMP;
+          }
           const nrdx = t.clientX - rightBase.x;
           const nrdy = t.clientY - rightBase.y;
           const nrlen = Math.hypot(nrdx, nrdy);
-          if (nrlen > 10) {
-            // Drag right stick → rotate flashlight to face that direction AND shoot there
+          if (nrlen > R_DEAD_ZONE) {
+            // Drag → manual aim + shoot in stick direction
             const angle = Math.atan2(nrdy, nrdx);
-            inputRef.current.aimAngle = angle - Math.PI / 2; // flashlight follows right stick
-            inputRef.current.shootOverrideAngle = angle;     // bullets follow right stick
+            inputRef.current.targetAimAngle  = angle - Math.PI / 2;
+            inputRef.current.shootOverrideAngle = angle;
             inputRef.current.autoAim = false;
           } else {
-            // Tap (no drag) = auto-aim to nearest enemy
+            // Tiny drag or hold still → auto-aim nearest enemy
             inputRef.current.shootOverrideAngle = null;
             inputRef.current.autoAim = true;
           }
@@ -305,7 +332,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
         if (role === "left") resetLeft();
         if (role === "right") resetRight();
       });
-      // Safety fallback: if no remaining touches at all, clear all input
+      // Safety fallback: clear everything if no touches remain
       if (e.touches.length === 0) {
         touchRole.clear();
         resetLeft();
