@@ -96,7 +96,7 @@ export function GameHUD({
   }, []);
 
   return (
-    <View style={[styles.container, { pointerEvents: "box-none" }]}>
+    <View style={styles.container} pointerEvents="box-none">
       {/* Berserker screen pulse */}
       {isBerserking && (
         <View style={styles.berserkerOverlay} pointerEvents="none" />
@@ -159,7 +159,7 @@ export function GameHUD({
 
       {/* ── Sound settings panel ── */}
       {settingsOpen && (
-        <View style={sStyles.panel} pointerEvents="box-none">
+        <View style={sStyles.panel}>
           <View style={sStyles.panelInner}>
             <View style={sStyles.header}>
               <Text style={sStyles.title}>SOUND</Text>
@@ -243,6 +243,7 @@ const sStyles = StyleSheet.create({
     paddingTop: 80,
     paddingRight: 12,
     alignItems: "flex-end",
+    zIndex: 999,
   },
   panelInner: {
     backgroundColor: "rgba(10,8,14,0.92)",

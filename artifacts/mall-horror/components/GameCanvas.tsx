@@ -281,11 +281,17 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     };
 
     const onTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      unlockAudio(); // unblock AudioContext on first gesture
-      // Enable smooth aim once any touch is active
+      unlockAudio(); // always unblock AudioContext on any gesture
+
+      // ── Control zone: only the bottom 40% of the screen is the joystick area ──
+      // Touches above this line belong to the HUD (settings, etc.) — don't claim them.
+      const ZONE_TOP = window.innerHeight * 0.60;
+      const zoneChanges = Array.from(e.changedTouches).filter(t => t.clientY >= ZONE_TOP);
+      if (zoneChanges.length === 0) return; // all touches in HUD area — let browser handle
+      e.preventDefault(); // only suppress default for in-zone touches
+
       inputRef.current.useSmoothedAim = true;
-      Array.from(e.changedTouches).forEach((t) => {
+      zoneChanges.forEach((t) => {
         const isLeft = t.clientX < window.innerWidth / 2;
         if (isLeft && !hasRole("left")) {
           touchRole.set(t.identifier, "left");
@@ -294,11 +300,10 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           setLeftJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
         } else if (!isLeft && !hasRole("right")) {
           touchRole.set(t.identifier, "right");
-          // Floating right base: start wherever the thumb landed
           rightBase.x = t.clientX;
           rightBase.y = t.clientY;
           inputRef.current.shooting = true;
-          inputRef.current.autoAim = true;  // tap = auto-aim
+          inputRef.current.autoAim = true;
           inputRef.current.rightJoyActive = true;
           setRightJoy({ active: true, baseX: t.clientX, baseY: t.clientY, stickX: t.clientX, stickY: t.clientY });
         }
@@ -306,7 +311,9 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
+      // Only suppress default when we actually own at least one of these touches
+      const anyOwned = Array.from(e.changedTouches).some(t => touchRole.has(t.identifier));
+      if (anyOwned) e.preventDefault();
       Array.from(e.changedTouches).forEach((t) => {
         const role = touchRole.get(t.identifier);
         if (!role) return;
@@ -423,8 +430,8 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           style={{ display: "block", cursor: "crosshair" } as React.CSSProperties}
         />
 
-        {/* HUD overlay — pointer-events none so it never blocks input */}
-        <View style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}>
+        {/* HUD overlay — box-none: the wrapper passes touches through, but HUD children can intercept their own areas */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
           <GameHUD
             {...hudState}
             onDash={() => { inputRef.current.dashing = true; }}

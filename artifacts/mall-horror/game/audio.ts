@@ -54,7 +54,7 @@ export function getSfxVolume():   number { return _sfxVol; }
 
 export function setMusicVolume(vol: number) {
   _musicVol = Math.max(0, Math.min(1, vol));
-  if (bgGain && ctx) bgGain.gain.setValueAtTime(_musicVol * 0.55, ctx.currentTime);
+  if (bgGain && ctx) bgGain.gain.setValueAtTime(_musicVol * 0.18, ctx.currentTime);
   try { localStorage.setItem(STORAGE_KEY_MUSIC, String(_musicVol)); } catch {}
 }
 
@@ -313,7 +313,7 @@ function scheduleNote() {
 
   // ADSR envelope (per note)
   // Attack 100ms → Decay 2s → Sustain 50% → Release 1.5s
-  const peak    = 0.22;
+  const peak    = 0.08;
   const sustain = peak * 0.5;
   const env     = ac.createGain();
   env.gain.setValueAtTime(0, now);
@@ -344,7 +344,7 @@ export function startBgMusic() {
   if (!ac || !bgGain) return;
 
   bgPlaying = true;
-  bgGain.gain.setValueAtTime(_musicVol * 0.55, ac.currentTime);
+  bgGain.gain.setValueAtTime(_musicVol * 0.18, ac.currentTime);
 
   // ── Build shared effects chain (created once per session) ──────────────────
 
