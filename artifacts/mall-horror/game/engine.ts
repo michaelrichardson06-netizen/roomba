@@ -372,7 +372,7 @@ export function updateGame(
               enemiesToRemove.add(enemy.id);
               spawnDeathParticles(s, enemy);
               s.score += scoreFor(enemy.type); s.killCount++; s.totalInsects++;
-              if (enemy.type === "elite" && Math.random() < C.ELITE_DROP_CHANCE) spawnBuff(s, enemy.x, enemy.y);
+              if (enemy.type === "elite" && Math.random() < eliteDropChance(s.wave)) spawnBuff(s, enemy.x, enemy.y, s.wave);
               if (enemy.type === "boss") { handleBossDeath(s, enemy); }
             } else if (!enemiesToRemove.has(enemy.id)) {
               enemy.hp -= dmg;
@@ -407,7 +407,7 @@ export function updateGame(
             enemiesToRemove.add(enemy.id);
             spawnDeathParticles(s, enemy);
             s.score += scoreFor(enemy.type); s.killCount++; s.totalInsects++;
-            if (enemy.type === "elite" && Math.random() < C.ELITE_DROP_CHANCE) spawnBuff(s, enemy.x, enemy.y);
+            if (enemy.type === "elite" && Math.random() < eliteDropChance(s.wave)) spawnBuff(s, enemy.x, enemy.y, s.wave);
             if (enemy.type === "boss") { handleBossDeath(s, enemy); }
           } else {
             enemy.hp -= 25;
@@ -443,7 +443,7 @@ export function updateGame(
           enemiesToRemove.add(enemy.id);
           spawnDeathParticles(s, enemy);
           s.score += scoreFor(enemy.type); s.killCount++; s.totalInsects++;
-          if (enemy.type === "elite" && Math.random() < C.ELITE_DROP_CHANCE) spawnBuff(s, enemy.x, enemy.y);
+          if (enemy.type === "elite" && Math.random() < eliteDropChance(s.wave)) spawnBuff(s, enemy.x, enemy.y, s.wave);
           if (enemy.type === "boss") { handleBossDeath(s, enemy); }
         }
       }
@@ -560,7 +560,7 @@ function chainLightning(state: GameState, origin: Enemy, excluded: Set<string>, 
       excluded.add(e.id);
       spawnDeathParticles(state, e);
       state.score += scoreFor(e.type); state.killCount++; state.totalInsects++;
-      if (e.type === "elite" && Math.random() < C.ELITE_DROP_CHANCE) spawnBuff(state, e.x, e.y);
+      if (e.type === "elite" && Math.random() < eliteDropChance(state.wave)) spawnBuff(state, e.x, e.y, state.wave);
       if (e.type === "boss") handleBossDeath(state, e);
     }
 
@@ -602,8 +602,24 @@ function spawnDeathParticles(state: GameState, enemy: Enemy) {
   }
 }
 
-function spawnBuff(state: GameState, x: number, y: number) {
-  const types = ["tripleShot", "quadShot", "rapidFire", "bazookaMode", "lightningStrike"] as const;
+// Drop chance ramps from 0% on wave 1 up to ~45% by wave 5+
+function eliteDropChance(wave: number): number {
+  if (wave === 1) return 0;           // no combat buffs on wave 1
+  if (wave === 2) return 0.12;
+  if (wave === 3) return 0.22;
+  if (wave === 4) return 0.32;
+  return 0.42;                        // wave 5+ cap
+}
+
+// Which buffs are unlocked per wave (progressive unlock)
+function spawnBuff(state: GameState, x: number, y: number, wave: number) {
+  const types: string[] = [];
+  if (wave >= 2) types.push("rapidFire");
+  if (wave >= 3) types.push("tripleShot");
+  if (wave >= 4) types.push("quadShot");
+  if (wave >= 5) types.push("bazookaMode");
+  if (wave >= 6) types.push("lightningStrike");
+  if (types.length === 0) return;
   state.buffDrops.push({ id: uid(), x, y, type: types[Math.floor(Math.random() * types.length)], pulse: 0 });
 }
 
