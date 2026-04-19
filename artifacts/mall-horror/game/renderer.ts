@@ -207,67 +207,6 @@ export function renderFrame(
 
   drawLightingOverlay(ctx, state, cameraX, cameraY, canvasW, canvasH);
 
-  // ── LARGE HP bar — bottom-center of screen, always readable ─────────────────
-  {
-    const hpRatio = Math.max(0, state.hp / state.maxHp);
-    const barW = Math.min(canvasW * 0.55, 280);
-    const barH = 18;
-    const sx = canvasW / 2 - barW / 2;
-    const sy = canvasH - 80; // near the bottom where eyes are
-    const barColor = hpRatio > 0.5 ? "#22ee55" : hpRatio > 0.25 ? "#ffbb00" : "#ff2222";
-    const pulse = hpRatio < 0.3 ? (Math.sin(Date.now() * 0.008) * 0.5 + 0.5) : 0;
-
-    ctx.save();
-    // Dark backing panel
-    ctx.fillStyle = "rgba(0,0,0,0.75)";
-    ctx.fillRect(sx - 6, sy - 22, barW + 12, barH + 34);
-
-    // "HP" label
-    ctx.font = "bold 11px monospace";
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#666";
-    ctx.fillText("HP", sx, sy - 6);
-
-    // HP number right-aligned
-    ctx.textAlign = "right";
-    ctx.font = `bold ${hpRatio < 0.3 ? 14 : 12}px monospace`;
-    ctx.fillStyle = hpRatio < 0.3 ? "#ff4444" : "#cccccc";
-    if (hpRatio < 0.3) { ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 6 + pulse * 8; }
-    ctx.fillText(`${Math.ceil(state.hp)} / ${state.maxHp}`, sx + barW, sy - 6);
-    ctx.shadowBlur = 0;
-
-    // Empty track
-    ctx.fillStyle = "rgba(40,5,5,0.9)";
-    ctx.fillRect(sx, sy, barW, barH);
-
-    // Filled bar
-    if (hpRatio < 0.3) { ctx.shadowColor = barColor; ctx.shadowBlur = 10 + pulse * 14; }
-    ctx.fillStyle = barColor;
-    ctx.fillRect(sx, sy, Math.max(3, barW * hpRatio), barH);
-    ctx.shadowBlur = 0;
-
-    // White fill-line at top of bar for depth
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
-    ctx.fillRect(sx, sy, Math.max(3, barW * hpRatio), 3);
-
-    // Border
-    ctx.strokeStyle = hpRatio < 0.3 ? `rgba(255,50,50,${0.6 + pulse * 0.4})` : "rgba(80,80,80,0.5)";
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(sx, sy, barW, barH);
-
-    // Critical flash label
-    if (hpRatio < 0.3) {
-      ctx.globalAlpha = 0.5 + pulse * 0.5;
-      ctx.font = "bold 13px monospace";
-      ctx.textAlign = "center";
-      ctx.fillStyle = "#ff3333";
-      ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 10;
-      ctx.fillText("⚠ CRITICAL", canvasW / 2, sy + barH + 16);
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 1;
-    }
-    ctx.restore();
-  }
 
   // ── Berserker screen vignette (screen space) ──────────────────────────────
   if (state.berserkerTimer > 0) {
