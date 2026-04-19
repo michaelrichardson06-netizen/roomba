@@ -528,13 +528,14 @@ export function updateGame(
 
   // ── Enemy vs player collision ─────────────────────────────────────────────
   for (const enemy of s.enemies) {
+    if (s.phase === "dead") break; // stop the moment a previous iteration killed us
     if (enemy.isBurrowed) continue;
     const d = dist(s.playerX, s.playerY, enemy.x, enemy.y);
     const minD = enemy.radius + C.PLAYER_RADIUS;
     if (d < minD) {
       if (d > 0) { s.playerX += ((s.playerX - enemy.x) / d) * (minD - d); s.playerY += ((s.playerY - enemy.y) / d) * (minD - d); }
       // playerDamageCooldown gives brief invincibility frames so a cluster of enemies
-      // can't all land damage simultaneously (the main source of "random instant death")
+      // can't all land damage simultaneously
       if (enemy.damageCooldown <= 0 && s.playerDamageCooldown <= 0) {
         const dmg = enemy.type === "boss" ? 10 : enemy.type === "elite" ? 7 : enemy.type === "mole" ? 8 : 4;
         const hpBefore = s.hp;
@@ -545,9 +546,12 @@ export function updateGame(
         s.redFlash = 1.0;
         // Floating damage number above the player — makes every hit unmissable
         s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-12, 12), y: s.playerY - 28, text: `-${dmg}`, age: 0, maxAge: 900, color: "#ff2222", vy: -1.2 });
-        if (s.hp <= 0) { s.deathCause = `${enemy.type}: -${dmg} (was ${Math.round(hpBefore)} HP)`; s.hpAtDeath = hpBefore; s.phase = "dead"; }
-      } else if (s.hp <= 0) {
-        s.deathCause = "unknown (hp was 0 before hit check)"; s.hpAtDeath = s.hp; s.phase = "dead";
+        if (s.hp <= 0) {
+          s.deathCause = `${enemy.type}: -${dmg} (had ${Math.round(hpBefore)} HP)`;
+          s.hpAtDeath = hpBefore;
+          s.phase = "dead";
+          break; // stop loop immediately — don't let later enemies overwrite the cause
+        }
       }
     }
   }
@@ -559,6 +563,7 @@ export function updateGame(
   });
 
   // ── Boss web movement + player collision ──────────────────────────────────
+  if (s.phase === "dead") return s; // already dead — skip remaining damage checks
   const webStep = dt / 16;
   s.bossWebs = s.bossWebs.map((w) => ({
     ...w,
