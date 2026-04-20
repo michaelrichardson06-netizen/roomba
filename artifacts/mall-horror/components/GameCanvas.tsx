@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Constants from "expo-constants";
 import { WebView } from "react-native-webview";
+import type WebViewType from "react-native-webview";
+import { setAudioModeAsync } from "expo-audio";
 import { createInitialState, updateGame } from "@/game/engine";
 import { renderFrame } from "@/game/renderer";
 import type { GameState } from "@/game/types";
@@ -68,6 +70,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const [rightJoy, setRightJoy] = useState<JoyState>(IDLE_JOY);
   const isMobileRef = useRef(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const webviewRef = useRef<WebViewType>(null);
 
   // ── Audio state tracking ──────────────────────────────────────────────────
   const prevBulletCount    = useRef(0);
@@ -76,6 +79,17 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const prevBatteryLevel   = useRef(100);
   const prevLightningCount = useRef(0);
   const prevRedFlash       = useRef(0);
+
+  // ── iOS: configure AVAudioSession so Web Audio plays even in silent mode ──
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    setAudioModeAsync({
+      playsInSilentMode: true,    // ignore the hardware mute/ringer switch
+      interruptionMode: "mixWithOthers",
+      shouldPlayInBackground: false,
+      allowsRecording: false,
+    }).catch(() => {/* non-fatal */});
+  }, []);
 
   // ── Game loop ────────────────────────────────────────────────────────────
   const gameLoop = useCallback((timestamp: number) => {
@@ -721,8 +735,25 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     );
   }
 
+  // ── Injected before page scripts: patch AudioContext to auto-resume on first gesture ──
+  // iOS WKWebView requires AudioContext.resume() inside a real DOM gesture.
+  // This wrapper catches every AudioContext construction and registers low-priority
+  // touchstart/touchend/click listeners that call resume() on first interaction,
+  // as a belt-and-suspenders backup to the unlockAudio() call in the game code.
+  const AUDIO_UNLOCK_PATCH = `(function(){
+    function patch(Ctor){
+      if(!Ctor) return Ctor;
+      function P(opts){ var c=new Ctor(opts); var u=function(){ if(c.state!=='running') c.resume().catch(function(){}); }; ['touchstart','touchend','click'].forEach(function(ev){ document.addEventListener(ev,u,{once:true,passive:true}); }); return c; }
+      try{ P.prototype=Ctor.prototype; Object.defineProperty(P,'name',{value:Ctor.name}); }catch(e){}
+      return P;
+    }
+    window.AudioContext=patch(window.AudioContext);
+    window.webkitAudioContext=patch(window.webkitAudioContext);
+  })();true;`;
+
   return (
     <WebView
+      ref={webviewRef}
       source={{ uri: gameUrl }}
       style={styles.container}
       allowsInlineMediaPlayback
@@ -734,6 +765,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       overScrollMode="never"
       showsHorizontalScrollIndicator={false}
       showsVerticalScrollIndicator={false}
+      injectedJavaScriptBeforeContentLoaded={AUDIO_UNLOCK_PATCH}
     />
   );
 }
