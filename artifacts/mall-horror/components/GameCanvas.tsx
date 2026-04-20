@@ -685,15 +685,23 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
               }]} />
             </View>
           )}
-          {/* Active right joystick */}
+          {/* Active right joystick — crosshair style */}
           {rightJoy.active && (
             <View style={[styles.joyBase, { left: rightJoy.baseX - 55, top: rightJoy.baseY - 55 }]}>
-              <View style={[styles.joyBaseRing, { borderColor: "rgba(255,120,0,0.7)" }]} />
-              <View style={[styles.joyStick, {
-                backgroundColor: "rgba(255,120,0,0.75)",
-                left: (rightJoy.stickX - rightJoy.baseX) + 55 - 20,
-                top: (rightJoy.stickY - rightJoy.baseY) + 55 - 20,
-              }]} />
+              {/* Outer ring */}
+              <View style={[styles.joyBaseRing, { borderColor: "rgba(255,60,60,0.75)" }]} />
+              {/* Crosshair at stick position */}
+              <View style={[styles.crosshair, {
+                left: (rightJoy.stickX - rightJoy.baseX) + 55 - 18,
+                top:  (rightJoy.stickY - rightJoy.baseY) + 55 - 18,
+              }]}>
+                {/* Horizontal bar */}
+                <View style={styles.crosshairH} />
+                {/* Vertical bar */}
+                <View style={styles.crosshairV} />
+                {/* Center dot */}
+                <View style={styles.crosshairDot} />
+              </View>
             </View>
           )}
         </View>
@@ -787,5 +795,37 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.65)",
+  },
+
+  // Right joystick crosshair
+  crosshair: {
+    position: "absolute",
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  crosshairH: {
+    position: "absolute",
+    width: 36,
+    height: 2,
+    backgroundColor: "rgba(255,60,60,0.9)",
+    borderRadius: 1,
+  },
+  crosshairV: {
+    position: "absolute",
+    width: 2,
+    height: 36,
+    backgroundColor: "rgba(255,60,60,0.9)",
+    borderRadius: 1,
+  },
+  crosshairDot: {
+    position: "absolute",
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,60,60,1)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.8)",
   },
 });

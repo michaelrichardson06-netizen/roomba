@@ -36,6 +36,7 @@ function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number): Ene
     isImmune: type === "boss",
     webCooldown: type === "boss" ? C.BOSS_WEB_COOLDOWN : 0,
     frozenTimer: 0,
+    spawnImmune: 600, // 600ms — bullets pass through freshly spawned enemies
   };
 }
 
@@ -395,6 +396,7 @@ export function updateGame(
       damageCooldown: Math.max(0, e.damageCooldown - dt),
       webCooldown: newWebCooldown,
       frozenTimer: Math.max(0, e.frozenTimer - dt),
+      spawnImmune: Math.max(0, (e.spawnImmune ?? 0) - dt),
     };
   });
 
@@ -455,6 +457,7 @@ export function updateGame(
     } else {
       for (const enemy of s.enemies) {
         if (enemiesToRemove.has(enemy.id)) continue;
+        if ((enemy.spawnImmune ?? 0) > 0) continue; // freshly spawned — bullets pass through
         const d = dist(bullet.x, bullet.y, enemy.x, enemy.y);
         if (d < enemy.radius + bullet.radius) {
           // Immune boss deflects bullets with sparks + IMMUNE! text

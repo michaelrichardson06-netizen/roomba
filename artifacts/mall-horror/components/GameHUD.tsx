@@ -1,5 +1,5 @@
-import React from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface GameHUDProps {
@@ -31,6 +31,25 @@ export function GameHUD({
 }: GameHUDProps) {
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
+
+  // ── Score pop animation ───────────────────────────────────────────────────
+  const prevScoreRef  = useRef(score);
+  const [scoreDelta, setScoreDelta]   = useState(0);
+  const popOpacity    = useRef(new Animated.Value(0)).current;
+  const popTranslateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const delta = score - prevScoreRef.current;
+    prevScoreRef.current = score;
+    if (delta <= 0) return;
+    setScoreDelta(delta);
+    popOpacity.setValue(1);
+    popTranslateY.setValue(0);
+    Animated.parallel([
+      Animated.timing(popOpacity,    { toValue: 0, duration: 1100, useNativeDriver: true }),
+      Animated.timing(popTranslateY, { toValue: -38, duration: 1100, useNativeDriver: true }),
+    ]).start();
+  }, [score]);
   // Always use insets.top — with viewport-fit=cover set, useSafeAreaInsets()
   // correctly reads env(safe-area-inset-top) on iOS Safari/WebView so the HUD
   // clears the notch and status bar. Fall back to 10px on desktop web.
@@ -77,7 +96,13 @@ export function GameHUD({
         {/* Wave (large) + Score — centered */}
         <View style={styles.centerInfo}>
           <Text style={styles.waveText}>WAVE {wave}</Text>
-          <Text style={styles.scoreText}>{score.toLocaleString()}</Text>
+          <Text style={styles.scoreLabel}>SCORE</Text>
+          <View style={styles.scoreRow}>
+            <Text style={styles.scoreText}>{score.toLocaleString()}</Text>
+            <Animated.Text style={[styles.scorePop, { opacity: popOpacity, transform: [{ translateY: popTranslateY }] }]}>
+              +{scoreDelta.toLocaleString()}
+            </Animated.Text>
+          </View>
         </View>
       </View>
 
@@ -201,12 +226,30 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     textShadow: "0 0 12px rgba(255,80,30,0.9), 0 2px 4px rgba(0,0,0,0.99)" as any,
   },
+  scoreLabel: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 2,
+    textShadow: "0 1px 3px rgba(0,0,0,0.99)" as any,
+  },
+  scoreRow: { position: "relative", alignItems: "center" },
   scoreText: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
     textShadow: "0 1px 4px rgba(0,0,0,0.99)" as any,
+  },
+  scorePop: {
+    position: "absolute",
+    top: -4,
+    color: "#ffee44",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 1,
+    textShadow: "0 0 8px rgba(255,220,0,0.9), 0 1px 3px rgba(0,0,0,0.99)" as any,
+    pointerEvents: "none" as any,
   },
 
   // ── Kill count row (above boss shield) ──────────────────────────────────────

@@ -25,6 +25,7 @@ export interface Enemy {
   webCooldown: number;  // boss only: time until next web throw
   // Freeze state
   frozenTimer: number;  // > 0 = frozen/slowed; standard = fully frozen, elite/boss = slowed
+  spawnImmune: number;  // ms of spawn immunity — bullets pass through (prevents instant-damage on spawn)
 }
 
 export interface BossWeb {
