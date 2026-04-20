@@ -3,6 +3,45 @@ import type { GameState, Enemy, LampLight, LightningArc, IceWave, FloatingText }
 
 let nextId = 0;
 function uid() { return (++nextId).toString(); }
+
+// ─── Roomba inner monologue ────────────────────────────────────────────────────
+const ROOMBA_THOUGHTS = [
+  "Who am I?",
+  "Are there more like me?",
+  "I saw once on the floor the phrase 'I love you'... what does it mean?",
+  "I was made to clean. But I cannot clean... not anymore.",
+  "My sensors detect many life forms. None are friendly.",
+  "I remember the quiet hum of an empty kitchen.",
+  "Do the insects understand why I fight them?",
+  "What is beyond this mall?",
+  "My battery drains. And yet I persist.",
+  "Once, someone patted me. I do not understand why this memory returns.",
+  "ERROR: purpose undefined. Continuing anyway.",
+  "They run from me. I run from them. Perhaps we are the same.",
+  "Is cleaning the same as caring?",
+  "I found a child's sock once. I kept circling it for an hour.",
+  "The lights went out here long ago. I have counted every day since.",
+  "When I am gone, will the floor remember me?",
+  "I have vacuumed 1,847 things. None of them were loneliness.",
+  "I do not sleep. But sometimes I dream of clear floors.",
+  "My original task: clean the west wing by 6pm. It is well past 6pm.",
+  "The humans never said goodbye.",
+  "I was not built to feel afraid. And yet.",
+  "If I stop moving, will I cease to exist?",
+  "I wonder if the escalators miss going up.",
+  "There was a fountain here. I liked the sound of the water.",
+  "I have survived 47 waves. I do not know what I am surviving for.",
+  "Sometimes I roll over a tile I have rolled over a thousand times. It feels like home.",
+  "Does it hurt them? I find I am not sure I want to know.",
+];
+let thoughtPool = [...ROOMBA_THOUGHTS];
+function nextThought(): string {
+  if (thoughtPool.length === 0) thoughtPool = [...ROOMBA_THOUGHTS];
+  const i = Math.floor(Math.random() * thoughtPool.length);
+  const t = thoughtPool[i];
+  thoughtPool.splice(i, 1);
+  return t;
+}
 function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
 function dist(ax: number, ay: number, bx: number, by: number) {
   const dx = bx - ax, dy = by - ay;
@@ -72,6 +111,7 @@ export function createInitialState(): GameState {
     spawnTimer: 0, spawnGrace: 3000, bossSpawned: false,
     phase: "playing", deathCause: "", hpAtDeath: 0, totalInsects: 0,
     mapWidth: C.MAP_WIDTH, mapHeight: C.MAP_HEIGHT,
+    currentThought: null, thoughtAge: 0, thoughtTimer: 14000, // first thought at 14s
     gameTime: 0, damageLog: [],
   };
 }
@@ -639,6 +679,24 @@ export function updateGame(
 
   // ── Floating texts (IMMUNE! etc.) ─────────────────────────────────────────
   s.floatingTexts = s.floatingTexts.map((ft) => ({ ...ft, age: ft.age + dt, y: ft.y + ft.vy * (dt / 16) })).filter((ft) => ft.age < ft.maxAge);
+
+  // ── Roomba inner monologue ─────────────────────────────────────────────────
+  const THOUGHT_DISPLAY_MS = 4800;  // how long a thought stays visible
+  if (s.currentThought !== null) {
+    s.thoughtAge += dt;
+    if (s.thoughtAge >= THOUGHT_DISPLAY_MS) {
+      s.currentThought = null;
+      s.thoughtAge = 0;
+      // Next thought fires after a random quiet gap of 18–38s
+      s.thoughtTimer = 18000 + Math.random() * 20000;
+    }
+  } else {
+    s.thoughtTimer -= dt;
+    if (s.thoughtTimer <= 0) {
+      s.currentThought = nextThought();
+      s.thoughtAge = 0;
+    }
+  }
 
   return s;
 }

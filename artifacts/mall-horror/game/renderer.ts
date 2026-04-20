@@ -208,6 +208,51 @@ export function renderFrame(
   drawLightingOverlay(ctx, state, cameraX, cameraY, canvasW, canvasH);
 
 
+  // ── Roomba inner monologue — subtitle caption ─────────────────────────────
+  if (state.currentThought) {
+    const DISPLAY_MS = 4800;
+    const prog     = state.thoughtAge / DISPLAY_MS;
+    // Smooth fade in (first 12%) and fade out (last 18%)
+    const alpha    = prog < 0.12 ? prog / 0.12 : prog > 0.82 ? (1 - prog) / 0.18 : 1;
+    const capY     = canvasH - 52;
+    const maxW     = Math.min(canvasW - 48, 620);
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, alpha) * 0.96;
+
+    // Measure text to size the pill correctly
+    ctx.font = "italic 500 14px Georgia, serif";
+    const measured = ctx.measureText(`"${state.currentThought}"`);
+    const textW    = Math.min(measured.width + 36, maxW);
+
+    // Pill background
+    const pillX = (canvasW - textW) / 2;
+    const pillH = 34;
+    ctx.fillStyle = "rgba(4,2,2,0.82)";
+    ctx.beginPath();
+    ctx.roundRect(pillX, capY - pillH / 2, textW, pillH, 8);
+    ctx.fill();
+
+    // Subtle left accent line
+    ctx.strokeStyle = "rgba(180,120,60,0.6)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pillX + 1, capY - pillH / 2 + 5);
+    ctx.lineTo(pillX + 1, capY + pillH / 2 - 5);
+    ctx.stroke();
+
+    // Thought text
+    ctx.font = "italic 500 14px Georgia, serif";
+    ctx.fillStyle = "#d4b896";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgba(200,140,60,0.4)";
+    ctx.shadowBlur = 6;
+    ctx.fillText(`"${state.currentThought}"`, canvasW / 2, capY, maxW - 12);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
   // ── Berserker screen vignette (screen space) ──────────────────────────────
   if (state.berserkerTimer > 0) {
     const pulse = 0.12 + Math.sin(Date.now() * 0.008) * 0.06;
