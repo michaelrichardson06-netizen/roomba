@@ -92,6 +92,19 @@ export function GameHUD({
           {batteryRatio < 0.2 && (
             <Text style={styles.batteryWarn}>⚠ LOW BATTERY</Text>
           )}
+
+          <Text style={[styles.label, { marginTop: 4, color: waveProgress < 1 ? "#ff8844" : "#ff2222" }]}>
+            {waveProgress < 1 ? "🛡 BOSS SHIELD" : "⚠ BOSS EXPOSED"}
+          </Text>
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, {
+              width: `${(1 - Math.min(waveProgress, 1)) * 100}%` as any,
+              backgroundColor: waveProgress < 0.4 ? "#44aaff" : waveProgress < 0.8 ? "#ff9900" : "#ff4400",
+            }]} />
+          </View>
+          <Text style={[styles.smallText, { color: "#ff8844" }]}>
+            {killCount}/{waveTotalKills} · {Math.max(0, Math.round((1 - Math.min(waveProgress, 1)) * 100))}%
+          </Text>
         </View>
 
         {/* Wave (large) + Score — centered */}
@@ -106,8 +119,6 @@ export function GameHUD({
           </View>
         </View>
       </View>
-
-{/* Boss shield — moved to bottom so it doesn't block battery warning */}
 
       {/* Berserker timer bar */}
       {isBerserking && (
@@ -138,31 +149,6 @@ export function GameHUD({
         {bazookaMode && !isBerserking && <BuffBadge label="BAZOOKA" color="#ff6d00" />}
         {lightningStrike && <BuffBadge label="⚡ CHAIN" color="#88eeff" />}
         {speedBoost > 0 && <BuffBadge label={`SPD ${Math.ceil(speedBoost / 1000)}s`} color="#00ff88" />}
-      </View>
-
-      {/* Boss shield — bottom-left, out of the way of battery */}
-      <View style={[styles.bossShieldRow, { bottom: (Platform.OS !== "web" || showDash) ? bottomPad + 80 : bottomPad + 20 }]}>
-        <View style={styles.killRow}>
-          <Text style={styles.killLabel}>💀 KILLS TO EXPOSE BOSS</Text>
-          <Text style={styles.killCount}>{killCount} / {waveTotalKills}</Text>
-        </View>
-        <View style={styles.bossShieldLabelRow}>
-          {waveProgress < 1 ? (
-            <Text style={styles.bossShieldLabel}>🛡 BOSS SHIELD</Text>
-          ) : (
-            <Text style={[styles.bossShieldLabel, { color: "#ff2222" }]}>⚠ BOSS EXPOSED</Text>
-          )}
-          <Text style={styles.bossShieldPct}>{Math.max(0, Math.round((1 - Math.min(waveProgress, 1)) * 100))}%</Text>
-        </View>
-        <View style={styles.bossShieldTrack}>
-          <View style={[styles.bossShieldFill, {
-            width: `${(1 - Math.min(waveProgress, 1)) * 100}%` as any,
-            backgroundColor: waveProgress < 0.4 ? "#44aaff" : waveProgress < 0.8 ? "#ff9900" : "#ff4400",
-          }]} />
-          {waveProgress >= 1 && (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: "#ff0000", opacity: 0.18 }]} />
-          )}
-        </View>
       </View>
 
       {/* Bottom controls — native OR touch web (showDash=true on iOS WebView) */}
@@ -254,29 +240,6 @@ const styles = StyleSheet.create({
     pointerEvents: "none" as any,
   },
 
-  // ── Kill count row (above boss shield) ──────────────────────────────────────
-  killRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 3,
-  },
-  killLabel: {
-    color: "#ff9933",
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1,
-    textShadow: "0 1px 3px rgba(0,0,0,0.99)" as any,
-  },
-  killCount: {
-    color: "#ffffff",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 1,
-    fontVariant: ["tabular-nums"] as any,
-    textShadow: "0 1px 4px rgba(0,0,0,0.99)" as any,
-  },
-
   batteryWarn: {
     color: "#ff4400",
     fontSize: 9,
@@ -285,41 +248,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textShadow: "0 0 6px rgba(255,80,0,0.9)" as any,
   },
-
-  // ── Boss shield — absolute bottom-left, clear of battery ───────────────────
-  bossShieldRow: {
-    position: "absolute",
-    left: 12,
-    right: 12,
-  },
-  bossShieldLabelRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 3,
-  },
-  bossShieldLabel: {
-    color: "#ff8800",
-    fontSize: 13,
-    fontWeight: "900",
-    letterSpacing: 1.5,
-    textShadow: "0 0 8px rgba(255,120,0,0.6)" as any,
-  },
-  bossShieldPct: {
-    color: "#ff8800",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
-  bossShieldTrack: {
-    height: 10,
-    backgroundColor: "#1a1a1a",
-    borderRadius: 5,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,100,0,0.3)",
-  },
-  bossShieldFill: { height: "100%", borderRadius: 5 },
 
   berserkerBar: { alignItems: "center", paddingHorizontal: 20, paddingTop: 6, gap: 3 },
   berserkerBarTrack: { width: "100%", height: 8, backgroundColor: "#330011", borderRadius: 4, overflow: "hidden", borderWidth: 1, borderColor: "#ff0044" },
