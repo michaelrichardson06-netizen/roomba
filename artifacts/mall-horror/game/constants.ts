@@ -44,19 +44,20 @@ export const GAME_CONFIG = {
   ENEMY_RADIUS_BOSS: 36,
 
   // Wave scaling
-  WAVE_HP_SCALE: 0.12,
+  WAVE_HP_SCALE: 0.10,         // +10% HP per wave (linear baseline)
+  WAVE_3WAVE_HP_BOOST: 0.35,   // Additional +35% HP spike every 3 waves (wave 4, 7, 10…)
   WAVE_DENSITY_SCALE: 0.18,
-  WAVE_BASE_KILLS: 30,       // Wave 1 kill threshold (boss immune until met)
-  WAVE_KILL_INCREMENT: 20,   // Per wave: 30 → 50 → 70 → 90 …
+  WAVE_BASE_KILLS: 30,         // Wave 1 kill threshold (boss immune until met)
+  WAVE_KILL_INCREMENT: 20,     // Per wave: 30 → 50 → 70 → 90 …
   WAVE_SPEED_SCALE: 0.07,
-  MAX_ENEMY_COUNT: 8,        // Max non-boss enemies on screen at once — prevents inescapable walls
-  SPAWN_COUNT_BASE: 1,       // Enemies per spawn batch (wave 1 = one at a time)
-  SPAWN_COUNT_SCALE: 1.0,    // Grows per wave: w1=1, w3=3, w5=5, w8=8
+  MAX_ENEMY_COUNT: 12,         // Max non-boss enemies on screen (was 8)
+  SPAWN_COUNT_BASE: 1,         // Enemies per spawn batch (wave 1)
+  SPAWN_COUNT_SCALE: 1.45,     // Grows per wave: w1=1, w2=2, w3=4, w5=7 …
 
-  // Scoring
-  SCORE_STANDARD: 3,
-  SCORE_ELITE: 6,
-  SCORE_BOSS: 10,
+  // Scoring (higher values for competitive high-score feel)
+  SCORE_STANDARD: 5,
+  SCORE_ELITE: 12,
+  SCORE_BOSS: 25,
 
   // Knockback
   KNOCKBACK_STANDARD: 6,
@@ -76,9 +77,9 @@ export const GAME_CONFIG = {
 
   // Spawn
   SPAWN_MIN_DIST: 700,
-  SPAWN_INTERVAL_BASE: 4500,   // Wave 1 = very leisurely — one enemy at a time
-  MIN_SPAWN_INTERVAL: 600,     // Floor for late waves
-  WAVE_INTERVAL_REDUCTION: 200, // -200ms/wave: w1=4500, w4=3900, w8=2900
+  SPAWN_INTERVAL_BASE: 3100,   // ~45% faster than before (was 4500)
+  MIN_SPAWN_INTERVAL: 400,     // Floor for late waves (was 600)
+  WAVE_INTERVAL_REDUCTION: 250, // -250ms/wave: w1=3100, w4=2350, w8=1100
 
   // ── Boss web attack ───────────────────────────────────────────────────────
   BOSS_WEB_COOLDOWN: 3500,   // ms between web throws

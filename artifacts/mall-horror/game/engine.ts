@@ -64,7 +64,8 @@ function logDmg(
 }
 
 function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number): Enemy {
-  const hpScale = 1 + (wave - 1) * C.WAVE_HP_SCALE;
+  // Base HP ramp + extra spike every 3 waves (wave 4, 7, 10 …)
+  const hpScale = 1 + (wave - 1) * C.WAVE_HP_SCALE + Math.floor((wave - 1) / 3) * C.WAVE_3WAVE_HP_BOOST;
   const baseHp = type === "boss" ? C.ENEMY_HP_BOSS : type === "elite" ? C.ENEMY_HP_ELITE : C.ENEMY_HP_STANDARD;
   const radius = type === "boss" ? C.ENEMY_RADIUS_BOSS : type === "elite" ? C.ENEMY_RADIUS_ELITE : C.ENEMY_RADIUS_STANDARD;
   const hp = Math.ceil(baseHp * hpScale);
