@@ -33,9 +33,8 @@ export function GameHUD({
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
 
-  // ── Score pop animation ───────────────────────────────────────────────────
   const prevScoreRef  = useRef(score);
-  const [scoreDelta, setScoreDelta]   = useState(0);
+  const [scoreDelta, setScoreDelta] = useState(0);
   const popOpacity    = useRef(new Animated.Value(0)).current;
   const popTranslateY = useRef(new Animated.Value(0)).current;
 
@@ -48,88 +47,115 @@ export function GameHUD({
     popTranslateY.setValue(0);
     Animated.parallel([
       Animated.timing(popOpacity,    { toValue: 0, duration: 1100, useNativeDriver: true }),
-      Animated.timing(popTranslateY, { toValue: -38, duration: 1100, useNativeDriver: true }),
+      Animated.timing(popTranslateY, { toValue: -30, duration: 1100, useNativeDriver: true }),
     ]).start();
   }, [score]);
-  // Always use insets.top — with viewport-fit=cover set, useSafeAreaInsets()
-  // correctly reads env(safe-area-inset-top) on iOS Safari/WebView so the HUD
-  // clears the notch and status bar. Fall back to 10px on desktop web.
+
   const topPad    = Math.max(insets.top, isWeb ? 10 : 0);
-  // Reserve space for the DOM sound button (38px) + its top offset
   const hudTopPad = topPad + 68;
   const bottomPad = isWeb ? 34 : insets.bottom;
 
   const hpRatio      = hp / maxHp;
-  const hpColor      = hpRatio > 0.5 ? "#22cc44" : hpRatio > 0.25 ? "#ffaa00" : "#ff2222";
+  const hpColor      = hpRatio > 0.5 ? "#33dd55" : hpRatio > 0.25 ? "#ffaa00" : "#ff2222";
   const waveProgress = killCount / waveTotalKills;
   const batteryRatio = battery / maxBattery;
-  const batteryColor = batteryRatio > 0.5 ? "#44ff88" : batteryRatio > 0.2 ? "#ffcc00" : "#ff4400";
+  const batteryColor = batteryRatio > 0.5 ? "#44ffaa" : batteryRatio > 0.2 ? "#ffcc00" : "#ff4400";
+  const shieldColor  = waveProgress < 0.4 ? "#4499ff" : waveProgress < 0.8 ? "#ff9900" : "#ff3300";
   const isBerserking = berserkerTimer > 0;
   const berserkSecs  = Math.ceil(berserkerTimer / 1000);
+  const lowBattery   = batteryRatio < 0.2;
 
   return (
     <View style={styles.container} pointerEvents="box-none">
-      {/* Berserker screen pulse */}
+
+      {/* ── Berserker border flash ── */}
       {isBerserking && (
         <View style={styles.berserkerOverlay} pointerEvents="none" />
       )}
 
-      {/* Top bar — HP/battery left, wave+score right (kills moved below) */}
-      <View style={[styles.topBar, { paddingTop: hudTopPad }]}>
-        {/* HP + Battery stacked */}
-        <View style={styles.leftSection}>
-          <Text style={styles.label}>INTEGRITY</Text>
-          <View style={styles.barTrack}>
-            <View style={[styles.barFill, { width: `${hpRatio * 100}%` as any, backgroundColor: hpColor }]} />
-          </View>
-          <Text style={[styles.smallText, { color: hpColor }]}>{Math.ceil(hp)}</Text>
+      {/* ══ MAIN HUD PANEL ══════════════════════════════════════════════════ */}
+      <View style={[styles.hudPanel, { paddingTop: hudTopPad + 4 }]}>
 
-          <Text style={[styles.label, { marginTop: 4, color: batteryRatio < 0.2 ? "#ff4400" : "#ffffff" }]}>
-            {batteryRatio < 0.2 ? "⚡ BATTERY ⚠ LOW" : "⚡ BATTERY"}
-          </Text>
-          <View style={styles.barTrack}>
-            <View style={[styles.barFill, { width: `${batteryRatio * 100}%` as any, backgroundColor: batteryColor }]} />
-          </View>
-          <Text style={[styles.smallText, { color: batteryColor }]}>{Math.ceil(battery)}%</Text>
+        <View style={styles.panelInner}>
 
-          <Text style={[styles.label, { marginTop: 4, color: waveProgress < 1 ? "#ff8844" : "#ff2222" }]}>
-            {waveProgress < 1 ? "🛡 BOSS SHIELD" : "⚠ BOSS EXPOSED"}
-          </Text>
-          <View style={styles.barTrack}>
-            <View style={[styles.barFill, {
-              width: `${(1 - Math.min(waveProgress, 1)) * 100}%` as any,
-              backgroundColor: waveProgress < 0.4 ? "#44aaff" : waveProgress < 0.8 ? "#ff9900" : "#ff4400",
-            }]} />
+          {/* ── LEFT: stat bars ── */}
+          <View style={styles.statsCol}>
+
+            {/* HP */}
+            <View style={styles.statRow}>
+              <Text style={[styles.statIcon, { color: hpColor }]}>❤</Text>
+              <View style={styles.statTrack}>
+                <View style={[styles.statFill, { width: `${hpRatio * 100}%` as any, backgroundColor: hpColor }]} />
+              </View>
+              <Text style={[styles.statVal, { color: hpColor }]}>{Math.ceil(hp)}</Text>
+            </View>
+
+            {/* Battery */}
+            <View style={styles.statRow}>
+              <Text style={[styles.statIcon, { color: batteryColor }]}>
+                {lowBattery ? "⚠" : "⚡"}
+              </Text>
+              <View style={styles.statTrack}>
+                <View style={[styles.statFill, { width: `${batteryRatio * 100}%` as any, backgroundColor: batteryColor }]} />
+              </View>
+              <Text style={[styles.statVal, { color: batteryColor }]}>{Math.ceil(battery)}%</Text>
+            </View>
+
+            {/* Boss shield */}
+            <View style={styles.statRow}>
+              <Text style={[styles.statIcon, { color: waveProgress < 1 ? "#5599ff" : "#ff2222" }]}>
+                {waveProgress < 1 ? "🛡" : "💀"}
+              </Text>
+              <View style={styles.statTrack}>
+                <View style={[styles.statFill, {
+                  width: `${(1 - Math.min(waveProgress, 1)) * 100}%` as any,
+                  backgroundColor: shieldColor,
+                }]} />
+              </View>
+              <Text style={[styles.statVal, { color: shieldColor }]}>
+                {killCount}/{waveTotalKills}
+              </Text>
+            </View>
+
           </View>
-          <Text style={[styles.smallText, { color: "#ff8844" }]}>
-            {killCount}/{waveTotalKills} · {Math.max(0, Math.round((1 - Math.min(waveProgress, 1)) * 100))}%
-          </Text>
+
+          {/* ── DIVIDER ── */}
+          <View style={styles.divider} />
+
+          {/* ── RIGHT: Wave + Score ── */}
+          <View style={styles.waveCol}>
+            <Text style={styles.waveNum}>{wave}</Text>
+            <Text style={styles.waveLabel}>WAVE</Text>
+            <View style={styles.scoreDivider} />
+            <View style={styles.scoreRow}>
+              <Text style={styles.scoreNum}>{score.toLocaleString()}</Text>
+              <Animated.Text style={[styles.scorePop, {
+                opacity: popOpacity,
+                transform: [{ translateY: popTranslateY }],
+              }]}>
+                +{scoreDelta.toLocaleString()}
+              </Animated.Text>
+            </View>
+          </View>
+
         </View>
 
-        {/* Wave (large) + Score — centered */}
-        <View style={styles.centerInfo}>
-          <Text style={styles.waveText}>WAVE {wave}</Text>
-          <Text style={styles.scoreLabel}>SCORE</Text>
-          <View style={styles.scoreRow}>
-            <Text style={styles.scoreText}>{score.toLocaleString()}</Text>
-            <Animated.Text style={[styles.scorePop, { opacity: popOpacity, transform: [{ translateY: popTranslateY }] }]}>
-              +{scoreDelta.toLocaleString()}
-            </Animated.Text>
+        {/* ── Berserker timer strip ── */}
+        {isBerserking && (
+          <View style={styles.berserkStrip}>
+            <View style={styles.berserkTrack}>
+              <View style={[styles.berserkFill, {
+                width: `${(berserkerTimer / (berserkSecs <= 15 ? 15000 : 30000)) * 100}%` as any,
+              }]} />
+            </View>
+            <Text style={styles.berserkLabel}>🔥 BERSERK {berserkSecs}s 🔥</Text>
           </View>
-        </View>
+        )}
+
       </View>
+      {/* ══ END HUD PANEL ═══════════════════════════════════════════════════ */}
 
-      {/* Berserker timer bar */}
-      {isBerserking && (
-        <View style={styles.berserkerBar}>
-          <View style={styles.berserkerBarTrack}>
-            <View style={[styles.berserkerBarFill, { width: `${(berserkerTimer / (berserkSecs <= 15 ? 15000 : 30000)) * 100}%` as any }]} />
-          </View>
-          <Text style={styles.berserkerText}>🔥 BERSERKER {berserkSecs}s 🔥</Text>
-        </View>
-      )}
-
-      {/* Spawn grace countdown + wave 1 objective hint */}
+      {/* ── Grace + objective ── */}
       {spawnGrace > 0 && (
         <View style={styles.graceRow}>
           {wave === 1 && (
@@ -139,18 +165,18 @@ export function GameHUD({
         </View>
       )}
 
-      {/* Active buffs */}
+      {/* ── Active buff badges ── */}
       <View style={styles.buffRow}>
         {isBerserking && <BuffBadge label={`BERSERK ${berserkSecs}s`} color="#ff0044" />}
-        {tripleShot && !quadShot && <BuffBadge label="3x" color="#00e5ff" />}
-        {quadShot && <BuffBadge label="4x" color="#7c4dff" />}
+        {tripleShot && !quadShot && <BuffBadge label="3×" color="#00e5ff" />}
+        {quadShot && <BuffBadge label="4×" color="#7c4dff" />}
         {rapidFireStacks > 0 && <BuffBadge label={`R×${rapidFireStacks}`} color="#ffea00" />}
         {bazookaMode && !isBerserking && <BuffBadge label="BAZOOKA" color="#ff6d00" />}
         {lightningStrike && <BuffBadge label="⚡ CHAIN" color="#88eeff" />}
         {speedBoost > 0 && <BuffBadge label={`SPD ${Math.ceil(speedBoost / 1000)}s`} color="#00ff88" />}
       </View>
 
-      {/* Bottom controls — native OR touch web (showDash=true on iOS WebView) */}
+      {/* ── Dash button ── */}
       {(Platform.OS !== "web" || showDash) && (
         <View style={[styles.bottomControls, { paddingBottom: bottomPad + 8 }]}>
           <TouchableOpacity
@@ -182,81 +208,142 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderWidth: 6,
     borderColor: "rgba(255,0,50,0.35)",
-    borderRadius: 0,
   },
 
-  topBar: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 12, gap: 8 },
+  // ── HUD panel ─────────────────────────────────────────────────────────────
+  hudPanel: {
+    backgroundColor: "rgba(4, 1, 1, 0.88)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(180, 25, 0, 0.55)",
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+  },
 
-  leftSection: { flex: 1, gap: 1 },
-  label: {
-    color: "#ffffff",
-    fontSize: 9,
+  panelInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  // ── Stat bars (left column) ───────────────────────────────────────────────
+  statsCol: { flex: 1, gap: 7 },
+
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  statIcon: {
+    fontSize: 12,
+    width: 16,
+    textAlign: "center",
+  },
+  statTrack: {
+    flex: 1,
+    height: 10,
+    backgroundColor: "#0e0808",
+    borderRadius: 2,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  statFill: { height: "100%", borderRadius: 1 },
+  statVal: {
+    fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 1,
-    textShadow: "0 1px 3px rgba(0,0,0,0.99), 0 0 6px rgba(0,0,0,0.99)" as any,
-  },
-  barTrack: { height: 6, backgroundColor: "#111", borderRadius: 3, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
-  barFill:  { height: "100%", borderRadius: 3 },
-  smallText: {
-    color: "#ffffff",
-    fontSize: 9,
-    fontWeight: "700",
-    textShadow: "0 1px 3px rgba(0,0,0,0.99), 0 0 6px rgba(0,0,0,0.99)" as any,
+    width: 40,
+    textAlign: "right",
+    letterSpacing: 0.5,
+    fontVariant: ["tabular-nums"] as any,
+    textShadow: "0 1px 4px rgba(0,0,0,0.99)" as any,
   },
 
-  // Wave is now much bigger — centered, very prominent
-  centerInfo: { alignItems: "center", minWidth: 90, flex: 1 },
-  waveText:  {
-    color: "#ff6644",
-    fontSize: 22,
+  // ── Divider ───────────────────────────────────────────────────────────────
+  divider: {
+    width: 1,
+    alignSelf: "stretch",
+    backgroundColor: "rgba(180, 25, 0, 0.35)",
+    marginVertical: 2,
+  },
+
+  // ── Wave + Score (right column) ───────────────────────────────────────────
+  waveCol: {
+    alignItems: "center",
+    minWidth: 72,
+  },
+  waveNum: {
+    color: "#ff5533",
+    fontSize: 48,
     fontWeight: "900",
-    letterSpacing: 3,
-    textShadow: "0 0 12px rgba(255,80,30,0.9), 0 2px 4px rgba(0,0,0,0.99)" as any,
+    lineHeight: 50,
+    letterSpacing: 1,
+    textShadow: "0 0 22px rgba(255,60,20,0.85), 0 0 8px rgba(255,60,20,0.5), 0 2px 4px rgba(0,0,0,0.99)" as any,
   },
-  scoreLabel: {
-    color: "rgba(255,255,255,0.5)",
+  waveLabel: {
+    color: "rgba(255,100,60,0.65)",
     fontSize: 8,
-    fontWeight: "700",
-    letterSpacing: 2,
-    textShadow: "0 1px 3px rgba(0,0,0,0.99)" as any,
+    fontWeight: "800",
+    letterSpacing: 5,
+    marginTop: -5,
+  },
+  scoreDivider: {
+    height: 1,
+    width: "75%",
+    backgroundColor: "rgba(255,60,20,0.2)",
+    marginVertical: 5,
   },
   scoreRow: { position: "relative", alignItems: "center" },
-  scoreText: {
-    color: "#fff",
-    fontSize: 18,
+  scoreNum: {
+    color: "#ffffffcc",
+    fontSize: 17,
     fontWeight: "700",
-    fontVariant: ["tabular-nums"],
+    letterSpacing: 1,
+    fontVariant: ["tabular-nums"] as any,
     textShadow: "0 1px 4px rgba(0,0,0,0.99)" as any,
   },
   scorePop: {
     position: "absolute",
-    top: -4,
+    top: -2,
     color: "#ffee44",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "900",
     letterSpacing: 1,
     textShadow: "0 0 8px rgba(255,220,0,0.9), 0 1px 3px rgba(0,0,0,0.99)" as any,
     pointerEvents: "none" as any,
   },
 
-  berserkerBar: { alignItems: "center", paddingHorizontal: 20, paddingTop: 6, gap: 3 },
-  berserkerBarTrack: { width: "100%", height: 8, backgroundColor: "#330011", borderRadius: 4, overflow: "hidden", borderWidth: 1, borderColor: "#ff0044" },
-  berserkerBarFill:  { height: "100%", backgroundColor: "#ff0044", borderRadius: 4 },
-  berserkerText:     { color: "#ff0044", fontSize: 14, fontWeight: "700", letterSpacing: 2 },
+  // ── Berserker strip inside panel ──────────────────────────────────────────
+  berserkStrip: { marginTop: 7, gap: 3 },
+  berserkTrack: {
+    height: 6,
+    backgroundColor: "#330011",
+    borderRadius: 2,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#ff0044",
+  },
+  berserkFill:  { height: "100%", backgroundColor: "#ff0044", borderRadius: 1 },
+  berserkLabel: {
+    color: "#ff0044",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 2,
+    textAlign: "center",
+    textShadow: "0 0 8px rgba(255,0,68,0.8)" as any,
+  },
 
-  graceRow:      { alignItems: "center", paddingTop: 6, gap: 4 },
+  // ── Below-panel elements ──────────────────────────────────────────────────
+  graceRow:      { alignItems: "center", paddingTop: 8, gap: 4 },
   objectiveText: { color: "#00cfff", fontSize: 11, fontWeight: "700", letterSpacing: 1.5, textAlign: "center", opacity: 0.9 },
   graceText:     { color: "#ff8800", fontSize: 13, fontWeight: "700", letterSpacing: 1 },
 
-  buffRow:       { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12, paddingTop: 4, gap: 6 },
-  buffBadge:     { borderWidth: 1, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: "rgba(0,0,0,0.6)" },
-  buffBadgeText: { fontSize: 10, fontWeight: "700", letterSpacing: 1 },
+  buffRow:       { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 14, paddingTop: 6, gap: 6 },
+  buffBadge:     { borderWidth: 1, borderRadius: 3, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: "rgba(0,0,0,0.7)" },
+  buffBadgeText: { fontSize: 10, fontWeight: "800", letterSpacing: 1 },
 
-  bottomControls:    { position: "absolute", bottom: 12, left: 0, right: 0, alignItems: "center" },
-  dashButton:        { backgroundColor: "rgba(0,80,200,0.45)", borderWidth: 1.5, borderColor: "#4488ff", borderRadius: 10, paddingHorizontal: 28, paddingVertical: 14 },
+  // ── Dash ─────────────────────────────────────────────────────────────────
+  bottomControls:     { position: "absolute", bottom: 12, left: 0, right: 0, alignItems: "center" },
+  dashButton:         { backgroundColor: "rgba(0,80,200,0.45)", borderWidth: 1.5, borderColor: "#4488ff", borderRadius: 10, paddingHorizontal: 28, paddingVertical: 14 },
   dashButtonCooldown: { opacity: 0.35 },
-  dashButtonText:    { color: "#88bbff", fontWeight: "900", fontSize: 15, letterSpacing: 3 },
-
-  webHint:     { position: "absolute", bottom: 12, left: 0, right: 0, alignItems: "center" },
-  webHintText: { color: "rgba(255,255,255,0.25)", fontSize: 10 },
+  dashButtonText:     { color: "#88bbff", fontWeight: "900", fontSize: 15, letterSpacing: 3 },
 });
