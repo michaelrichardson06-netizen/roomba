@@ -87,11 +87,11 @@ export function GameHUD({
           <Text style={[styles.label, { marginTop: 4 }]}>⚡ BATTERY</Text>
           <View style={styles.barTrack}>
             <View style={[styles.barFill, { width: `${batteryRatio * 100}%` as any, backgroundColor: batteryColor }]} />
-            {batteryRatio < 0.15 && (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: "#ff4400", opacity: 0.3 }]} />
-            )}
           </View>
           <Text style={[styles.smallText, { color: batteryColor }]}>{Math.ceil(battery)}%</Text>
+          {batteryRatio < 0.2 && (
+            <Text style={styles.batteryWarn}>⚠ LOW BATTERY</Text>
+          )}
         </View>
 
         {/* Wave (large) + Score — centered */}
@@ -107,32 +107,7 @@ export function GameHUD({
         </View>
       </View>
 
-      {/* Kill progress + Boss shield — stacked, full width */}
-      <View style={styles.bossShieldRow}>
-        {/* Kill count row above the shield bar */}
-        <View style={styles.killRow}>
-          <Text style={styles.killLabel}>💀 KILLS TO EXPOSE BOSS</Text>
-          <Text style={styles.killCount}>{killCount} / {waveTotalKills}</Text>
-        </View>
-
-        <View style={styles.bossShieldLabelRow}>
-          {waveProgress < 1 ? (
-            <Text style={styles.bossShieldLabel}>🛡 BOSS SHIELD</Text>
-          ) : (
-            <Text style={[styles.bossShieldLabel, { color: "#ff2222" }]}>⚠ BOSS EXPOSED</Text>
-          )}
-          <Text style={styles.bossShieldPct}>{Math.max(0, Math.round((1 - Math.min(waveProgress, 1)) * 100))}%</Text>
-        </View>
-        <View style={styles.bossShieldTrack}>
-          <View style={[styles.bossShieldFill, {
-            width: `${(1 - Math.min(waveProgress, 1)) * 100}%` as any,
-            backgroundColor: waveProgress < 0.4 ? "#44aaff" : waveProgress < 0.8 ? "#ff9900" : "#ff4400",
-          }]} />
-          {waveProgress >= 1 && (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: "#ff0000", opacity: 0.18 }]} />
-          )}
-        </View>
-      </View>
+{/* Boss shield — moved to bottom so it doesn't block battery warning */}
 
       {/* Berserker timer bar */}
       {isBerserking && (
@@ -163,6 +138,31 @@ export function GameHUD({
         {bazookaMode && !isBerserking && <BuffBadge label="BAZOOKA" color="#ff6d00" />}
         {lightningStrike && <BuffBadge label="⚡ CHAIN" color="#88eeff" />}
         {speedBoost > 0 && <BuffBadge label={`SPD ${Math.ceil(speedBoost / 1000)}s`} color="#00ff88" />}
+      </View>
+
+      {/* Boss shield — bottom-left, out of the way of battery */}
+      <View style={[styles.bossShieldRow, { bottom: (Platform.OS !== "web" || showDash) ? bottomPad + 80 : bottomPad + 20 }]}>
+        <View style={styles.killRow}>
+          <Text style={styles.killLabel}>💀 KILLS TO EXPOSE BOSS</Text>
+          <Text style={styles.killCount}>{killCount} / {waveTotalKills}</Text>
+        </View>
+        <View style={styles.bossShieldLabelRow}>
+          {waveProgress < 1 ? (
+            <Text style={styles.bossShieldLabel}>🛡 BOSS SHIELD</Text>
+          ) : (
+            <Text style={[styles.bossShieldLabel, { color: "#ff2222" }]}>⚠ BOSS EXPOSED</Text>
+          )}
+          <Text style={styles.bossShieldPct}>{Math.max(0, Math.round((1 - Math.min(waveProgress, 1)) * 100))}%</Text>
+        </View>
+        <View style={styles.bossShieldTrack}>
+          <View style={[styles.bossShieldFill, {
+            width: `${(1 - Math.min(waveProgress, 1)) * 100}%` as any,
+            backgroundColor: waveProgress < 0.4 ? "#44aaff" : waveProgress < 0.8 ? "#ff9900" : "#ff4400",
+          }]} />
+          {waveProgress >= 1 && (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: "#ff0000", opacity: 0.18 }]} />
+          )}
+        </View>
       </View>
 
       {/* Bottom controls — native OR touch web (showDash=true on iOS WebView) */}
@@ -277,10 +277,20 @@ const styles = StyleSheet.create({
     textShadow: "0 1px 4px rgba(0,0,0,0.99)" as any,
   },
 
-  // ── Boss shield — full-width, very prominent ────────────────────────────────
+  batteryWarn: {
+    color: "#ff4400",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1,
+    marginTop: 2,
+    textShadow: "0 0 6px rgba(255,80,0,0.9)" as any,
+  },
+
+  // ── Boss shield — absolute bottom-left, clear of battery ───────────────────
   bossShieldRow: {
-    marginHorizontal: 12,
-    marginTop: 6,
+    position: "absolute",
+    left: 12,
+    right: 12,
   },
   bossShieldLabelRow: {
     flexDirection: "row",
