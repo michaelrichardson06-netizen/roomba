@@ -1,8 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -109,17 +107,6 @@ export function DeathScreen({
         </View>
       </View>
 
-      {/* Damage log */}
-      {damageLog.length > 0 && (
-        <View style={styles.logCard}>
-          <Text style={styles.logTitle}>DAMAGE LOG — scroll to see all {damageLog.length} hits</Text>
-          <ScrollView style={styles.logScroll} nestedScrollEnabled>
-            {[...damageLog].reverse().map((entry, i) => (
-              <Text key={i} style={[styles.logEntry, i === 0 && styles.logEntryFirst]}>{entry}</Text>
-            ))}
-          </ScrollView>
-        </View>
-      )}
 
       {/* Actions */}
       <View style={styles.actions}>
@@ -321,39 +308,5 @@ const styles = StyleSheet.create({
     color: "#220808",
     fontSize: 10,
     fontStyle: "italic",
-  },
-  logCard: {
-    backgroundColor: "rgba(5,2,2,0.97)",
-    borderWidth: 1,
-    borderColor: "#661111",
-    borderRadius: 6,
-    padding: 12,
-    width: "100%",
-    maxWidth: 360,
-  },
-  logTitle: {
-    color: "#ff6644",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  logScroll: {
-    maxHeight: 180,
-  },
-  logEntry: {
-    color: "#ccaa88",
-    fontSize: 11,
-    fontFamily: Platform.OS === "web" ? "monospace" : "Courier",
-    lineHeight: 17,
-    marginBottom: 3,
-    paddingVertical: 2,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1a0505",
-  },
-  logEntryFirst: {
-    color: "#ff4444",
-    fontWeight: "700",
   },
 });

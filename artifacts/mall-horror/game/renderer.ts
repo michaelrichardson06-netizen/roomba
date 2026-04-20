@@ -1,6 +1,103 @@
 import type { GameState } from "./types";
 import { ENEMY_COLORS, BUFF_COLORS } from "./constants";
 
+// ─── Pixel-art thought bubble ─────────────────────────────────────────────────
+// Drawn in screen space so it always appears above the fog of war.
+// sx, sy = player's SCREEN position (world pos minus camera offset).
+function _drawThoughtBubble(
+  ctx: CanvasRenderingContext2D,
+  sx: number, sy: number,
+  text: string,
+  alpha: number,
+  canvasW: number, canvasH: number
+) {
+  const LINE_H  = 11;
+  const PAD_X   = 6;
+  const PAD_Y   = 5;
+  const MAX_CHR = 19;   // chars per line before wrapping
+  const CHAR_W  = 5.6;  // approx monospace glyph width at 8px
+
+  // Word-wrap the text into short lines
+  const lines: string[] = [];
+  let cur = "";
+  for (const word of text.split(" ")) {
+    if (cur.length + (cur ? 1 : 0) + word.length > MAX_CHR) {
+      if (cur) lines.push(cur);
+      cur = word;
+    } else {
+      cur = cur ? cur + " " + word : word;
+    }
+  }
+  if (cur) lines.push(cur);
+
+  const boxW = Math.round(Math.max(...lines.map(l => l.length * CHAR_W)) + PAD_X * 2);
+  const boxH = lines.length * LINE_H + PAD_Y * 2;
+
+  // Position: upper-right of Roomba, clamped to screen edges
+  let bx = sx + 26;
+  let by = sy - boxH - 70;
+  bx = Math.max(6, Math.min(canvasW - boxW - 6, bx));
+  by = Math.max(6, Math.min(canvasH - boxH - 6, by));
+  bx = Math.round(bx);
+  by = Math.round(by);
+
+  // Three ascending thought dots from player to bubble
+  // Line of dots: from (sx+6, sy-30) toward (bx+10, by+boxH+2)
+  const dotSizes   = [3, 4, 5];
+  const dotFracs   = [0.22, 0.50, 0.78];
+  const dotStartX  = sx + 6;
+  const dotStartY  = sy - 28;
+  const dotEndX    = bx + 10;
+  const dotEndY    = by + boxH + 4;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.imageSmoothingEnabled = false;
+
+  // Pixel drop-shadow under bubble
+  ctx.fillStyle = "rgba(0,0,0,0.38)";
+  ctx.fillRect(bx + 3, by + 3, boxW, boxH);
+
+  // Bubble background (cream parchment — feels like inner thought)
+  ctx.fillStyle = "#f4eed8";
+  ctx.fillRect(bx, by, boxW, boxH);
+
+  // 1px pixel border (top + left lighter, bottom + right darker — old-school bevel)
+  ctx.fillStyle = "#d4c89a";
+  ctx.fillRect(bx,          by,          boxW, 1);  // top
+  ctx.fillRect(bx,          by,          1,    boxH); // left
+  ctx.fillStyle = "#2a2010";
+  ctx.fillRect(bx,          by + boxH - 1, boxW, 1); // bottom
+  ctx.fillRect(bx + boxW - 1, by,          1,    boxH); // right
+
+  // Text in 8px pixel monospace
+  ctx.font = "700 8px monospace";
+  ctx.fillStyle = "#1a1208";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], bx + PAD_X, by + PAD_Y + i * LINE_H);
+  }
+
+  // Thought dots (outlined pixel circles)
+  for (let i = 0; i < 3; i++) {
+    const t  = dotFracs[i];
+    const dx = Math.round(dotStartX + (dotEndX - dotStartX) * t);
+    const dy = Math.round(dotStartY + (dotEndY - dotStartY) * t);
+    const r  = dotSizes[i];
+    ctx.fillStyle = "#f4eed8";
+    ctx.beginPath();
+    ctx.arc(dx, dy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#2a2010";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.restore();
+}
+
 export function renderFrame(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -208,49 +305,17 @@ export function renderFrame(
   drawLightingOverlay(ctx, state, cameraX, cameraY, canvasW, canvasH);
 
 
-  // ── Roomba inner monologue — subtitle caption ─────────────────────────────
+  // ── Roomba inner monologue — pixel-art thought bubble ────────────────────
   if (state.currentThought) {
     const DISPLAY_MS = 4800;
-    const prog     = state.thoughtAge / DISPLAY_MS;
-    // Smooth fade in (first 12%) and fade out (last 18%)
-    const alpha    = prog < 0.12 ? prog / 0.12 : prog > 0.82 ? (1 - prog) / 0.18 : 1;
-    const capY     = canvasH - 52;
-    const maxW     = Math.min(canvasW - 48, 620);
-
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, alpha) * 0.96;
-
-    // Measure text to size the pill correctly
-    ctx.font = "italic 500 14px Georgia, serif";
-    const measured = ctx.measureText(`"${state.currentThought}"`);
-    const textW    = Math.min(measured.width + 36, maxW);
-
-    // Pill background
-    const pillX = (canvasW - textW) / 2;
-    const pillH = 34;
-    ctx.fillStyle = "rgba(4,2,2,0.82)";
-    ctx.beginPath();
-    ctx.roundRect(pillX, capY - pillH / 2, textW, pillH, 8);
-    ctx.fill();
-
-    // Subtle left accent line
-    ctx.strokeStyle = "rgba(180,120,60,0.6)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(pillX + 1, capY - pillH / 2 + 5);
-    ctx.lineTo(pillX + 1, capY + pillH / 2 - 5);
-    ctx.stroke();
-
-    // Thought text
-    ctx.font = "italic 500 14px Georgia, serif";
-    ctx.fillStyle = "#d4b896";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgba(200,140,60,0.4)";
-    ctx.shadowBlur = 6;
-    ctx.fillText(`"${state.currentThought}"`, canvasW / 2, capY, maxW - 12);
-    ctx.shadowBlur = 0;
-    ctx.restore();
+    const prog  = state.thoughtAge / DISPLAY_MS;
+    const alpha = prog < 0.1 ? prog / 0.1 : prog > 0.85 ? (1 - prog) / 0.15 : 1;
+    if (alpha > 0.01) {
+      // Convert Roomba world position to screen coords
+      const sx = Math.round(state.playerX - cameraX);
+      const sy = Math.round(state.playerY - cameraY);
+      _drawThoughtBubble(ctx, sx, sy, state.currentThought, alpha, canvasW, canvasH);
+    }
   }
 
   // ── Berserker screen vignette (screen space) ──────────────────────────────

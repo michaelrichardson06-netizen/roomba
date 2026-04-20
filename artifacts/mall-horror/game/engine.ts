@@ -155,7 +155,6 @@ export function updateGame(
     // Log drain + floating text every ~2 seconds so damage log is readable
     const crossedBoundary = Math.floor(s.gameTime / 2000) > Math.floor((s.gameTime - dt) / 2000);
     if (crossedBoundary) {
-      s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-8, 8), y: s.playerY - 32, text: `-${(C.BATTERY_HEALTH_DRAIN * 2).toFixed(0)} STRUCTURE`, age: 0, maxAge: 900, color: "#ff8800", vy: -0.9 });
       logDmg(s, "battery_drain", Math.round(drainAmt * 2), hpBefore, s.hp, "backup battery");
     }
     if (s.hp <= 0) {
@@ -607,8 +606,6 @@ export function updateGame(
           enemy.x = Math.max(enemy.radius, Math.min(s.mapWidth - enemy.radius, enemy.x));
           enemy.y = Math.max(enemy.radius, Math.min(s.mapHeight - enemy.radius, enemy.y));
         }
-        // Floating damage number above the player — makes every hit unmissable
-        s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-12, 12), y: s.playerY - 28, text: `-${dmg}`, age: 0, maxAge: 900, color: "#ff2222", vy: -1.2 });
         const nearbyCount = s.enemies.filter((e) => dist(s.playerX, s.playerY, e.x, e.y) < 120).length;
         logDmg(s, enemy.type, dmg, hpBefore, s.hp, `eCd=${Math.round(enemy.damageCooldown)} dt=${dt.toFixed(0)} nearby=${nearbyCount}`);
         if (s.hp <= 0) {
@@ -646,7 +643,6 @@ export function updateGame(
         s.playerDamageCooldown = 600;
         s.screenShake.magnitude = C.SHAKE_DAMAGE + 4;
         s.redFlash = 1.0; // boss web hit = full red flash
-        s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-12, 12), y: s.playerY - 28, text: `-${C.BOSS_WEB_DAMAGE}`, age: 0, maxAge: 900, color: "#ff2222", vy: -1.2 });
         logDmg(s, "boss_web", C.BOSS_WEB_DAMAGE, webHpBefore, s.hp, `dt=${dt.toFixed(0)}`);
         if (s.hp <= 0) { s.deathCause = `boss_web: -${C.BOSS_WEB_DAMAGE} (was ${Math.round(webHpBefore)} HP)`; s.hpAtDeath = webHpBefore; s.phase = "dead"; }
         // Green poison splatter
