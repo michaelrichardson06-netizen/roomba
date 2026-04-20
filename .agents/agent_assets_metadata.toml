@@ -1,8 +1,13 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "z6Tj8rRNFPWHKthG1Sr8Y"
 uri = "file://artifacts/mall-horror/assets/images/icon.png"
 type = "image"
-title = "mall horror game icon"
+title = "roomba horror pixel art icon"
+
+[[outputs]]
+id = "bFWbPiXShQFZePS86UTGB"
+uri = "file://artifacts/mall-horror/assets/images/icon.png"
+type = "image"
+title = "I am Roomba — App Icon"
