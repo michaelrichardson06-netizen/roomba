@@ -101,12 +101,12 @@ export function GameHUD({
           ) : (
             <Text style={[styles.bossShieldLabel, { color: "#ff2222" }]}>⚠ BOSS EXPOSED</Text>
           )}
-          <Text style={styles.bossShieldPct}>{Math.min(100, Math.round(waveProgress * 100))}%</Text>
+          <Text style={styles.bossShieldPct}>{Math.max(0, Math.round((1 - Math.min(waveProgress, 1)) * 100))}%</Text>
         </View>
         <View style={styles.bossShieldTrack}>
           <View style={[styles.bossShieldFill, {
-            width: `${Math.min(waveProgress, 1) * 100}%` as any,
-            backgroundColor: waveProgress < 1 ? "#ff6600" : "#ff2222",
+            width: `${(1 - Math.min(waveProgress, 1)) * 100}%` as any,
+            backgroundColor: waveProgress < 0.4 ? "#44aaff" : waveProgress < 0.8 ? "#ff9900" : "#ff4400",
           }]} />
           {waveProgress >= 1 && (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: "#ff0000", opacity: 0.18 }]} />
