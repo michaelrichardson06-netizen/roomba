@@ -38,6 +38,16 @@ export interface BossWeb {
 
 export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode" | "berserker" | "battery" | "lightningStrike" | "freezeWave";
 
+export type WaveModifier = "none" | "darker" | "colorShift" | "megaBoss";
+
+export interface Poster {
+  id: string;
+  x: number;
+  y: number;
+  angle: number;   // radians, slight rotation for worn look
+  design: number;  // 0–4: different ad designs
+}
+
 export interface LightningArc {
   id: string;
   fromX: number;
@@ -189,8 +199,11 @@ export interface GameState {
   totalInsects: number;
   mapWidth: number;
   mapHeight: number;
-  gameTime: number;       // accumulated ms since game start (for damage log timestamps)
-  damageLog: string[];    // rolling last-20 damage events for post-mortem display
+  gameTime: number;
+  damageLog: string[];
+  // Wave modifiers + posters
+  waveModifier: WaveModifier;
+  posters: Poster[];
   // Roomba inner monologue
   currentThought: string | null;
   thoughtAge: number;     // ms since thought appeared

@@ -98,6 +98,90 @@ function _drawThoughtBubble(
   ctx.restore();
 }
 
+// ─── Wave-based insect color palettes ─────────────────────────────────────────
+const COLOR_SHIFT_ENEMIES: Record<string, { body: string; glow: string }> = {
+  standard: { body: "#e65100", glow: "#ff6d00" }, // eerie orange
+  elite:    { body: "#00838f", glow: "#00bcd4" }, // bioluminescent teal
+  boss:     { body: "#1b5e20", glow: "#4caf50" }, // plague green — unsettling
+};
+
+// ─── Advertisement poster designs ─────────────────────────────────────────────
+const POSTER_DESIGNS = [
+  { bg: "#f4c20d", text: "#7b1c1c", label: "MALLMART",  sub: "SALE 50% OFF"       },
+  { bg: "#f0efe0", text: "#c0392b", label: "FOOD COURT", sub: "LEVEL 2  →"        },
+  { bg: "#006064", text: "#e0f7fa", label: "NOW OPEN",   sub: "UNDER NEW MGMT"    },
+  { bg: "#b71c1c", text: "#fff9c4", label: "CLEARANCE",  sub: "ALL ITEMS $1"      },
+  { bg: "#1a1a2e", text: "#9c27b0", label: "COMING SOON", sub: "WE'LL BE BACK"   },
+];
+
+function drawPosters(
+  ctx: CanvasRenderingContext2D,
+  posters: Array<{ id: string; x: number; y: number; angle: number; design: number }>,
+  cameraX: number, cameraY: number, canvasW: number, canvasH: number
+) {
+  for (const p of posters) {
+    // Viewport cull
+    const sx = p.x - cameraX, sy = p.y - cameraY;
+    if (sx < -160 || sx > canvasW + 160 || sy < -120 || sy > canvasH + 120) continue;
+
+    const d = POSTER_DESIGNS[p.design % POSTER_DESIGNS.length];
+    const pw = 96, ph = 62;
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.angle);
+
+    // Drop shadow
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(-pw / 2 + 4, -ph / 2 + 4, pw, ph);
+
+    // Poster background
+    ctx.fillStyle = d.bg;
+    ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
+
+    // Worn grime overlay (fixed seed from design)
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = "#0a0604";
+    ctx.fillRect(-pw / 2 + 5, -ph / 2 + 38, pw - 8, ph - 42); // bottom grime
+    ctx.fillRect(-pw / 2, -ph / 2, 10, ph);                    // left edge grime
+    ctx.globalAlpha = 1;
+
+    // Torn top-right corner (pixel triangle)
+    ctx.fillStyle = "#cec1aa"; // floor color showing through
+    ctx.beginPath();
+    ctx.moveTo(pw / 2 - 18, -ph / 2);
+    ctx.lineTo(pw / 2,       -ph / 2);
+    ctx.lineTo(pw / 2,       -ph / 2 + 18);
+    ctx.closePath();
+    ctx.fill();
+
+    // Main label text
+    ctx.font = "bold 11px monospace";
+    ctx.fillStyle = d.text;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(d.label, 0, -8);
+
+    // Divider
+    ctx.fillStyle = d.text;
+    ctx.globalAlpha = 0.35;
+    ctx.fillRect(-pw / 2 + 8, 4, pw - 16, 1);
+    ctx.globalAlpha = 1;
+
+    // Sub-label
+    ctx.font = "bold 7px monospace";
+    ctx.fillStyle = d.text;
+    ctx.fillText(d.sub, 0, 15);
+
+    // Pixel border
+    ctx.strokeStyle = "rgba(0,0,0,0.45)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-pw / 2, -ph / 2, pw, ph);
+
+    ctx.restore();
+  }
+}
+
 export function renderFrame(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -113,6 +197,7 @@ export function renderFrame(
   ctx.translate(-cameraX, -cameraY);
 
   drawFloor(ctx, cameraX, cameraY, canvasW, canvasH, state.mapWidth, state.mapHeight);
+  if (state.posters.length > 0) drawPosters(ctx, state.posters, cameraX, cameraY, canvasW, canvasH);
   drawMallFeatures(ctx, state.mapWidth, state.mapHeight);
 
   for (const lamp of state.lamps) {
@@ -148,8 +233,9 @@ export function renderFrame(
     ctx.restore();
   }
 
+  const enemyColorOverride = state.waveModifier === "colorShift" ? COLOR_SHIFT_ENEMIES : null;
   for (const enemy of state.enemies) {
-    drawEnemy(ctx, enemy);
+    drawEnemy(ctx, enemy, enemyColorOverride);
     // Frozen/slowed ice overlay
     if (enemy.frozenTimer > 0) {
       const isFull = (enemy.type === "standard");
@@ -1410,8 +1496,9 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: {
   x: number; y: number; radius: number; type: string;
   hp: number; maxHp: number; hitFlash: number; angle: number; legPhase: number;
   isImmune?: boolean;
-}) {
-  const colors = ENEMY_COLORS[enemy.type as keyof typeof ENEMY_COLORS] || ENEMY_COLORS.standard;
+}, overrideColors?: Record<string, { body: string; glow: string }> | null) {
+  const palette = overrideColors ?? ENEMY_COLORS;
+  const colors = palette[enemy.type as keyof typeof palette] || ENEMY_COLORS.standard;
   ctx.save();
   ctx.translate(enemy.x, enemy.y);
   ctx.rotate(enemy.angle);
@@ -2032,8 +2119,10 @@ function drawLightingOverlay(
   const oc = offscreen.getContext("2d")!;
   if (!oc) return;
 
-  // Darkness — slightly lighter so mall tiles are more visible
-  oc.fillStyle = "rgba(0,0,0,0.88)";
+  const isDarker = state.waveModifier === "darker";
+
+  // Darkness layer — amplified on DARKER wave
+  oc.fillStyle = isDarker ? "rgba(0,0,0,0.97)" : "rgba(0,0,0,0.88)";
   oc.fillRect(0, 0, canvasW, canvasH);
 
   oc.globalCompositeOperation = "destination-out";
@@ -2042,8 +2131,8 @@ function drawLightingOverlay(
   const py = state.playerY - cameraY;
   // Flashlight points in the direction the player faces
   const flashAngle = state.playerAngle + Math.PI / 2;
-  const flashLen = 520;          // was 260 — now much longer
-  const flashWidth = Math.PI * 0.5; // 90° wide (was 60°)
+  const flashLen   = isDarker ? 260 : 520;       // DARKER wave = half-range flashlight
+  const flashWidth = isDarker ? Math.PI * 0.38 : Math.PI * 0.5; // narrower cone in dark
 
   const mfBonus = state.muzzleFlash
     ? (1 - state.muzzleFlash.age / state.muzzleFlash.maxAge) * 80
@@ -2063,8 +2152,8 @@ function drawLightingOverlay(
   oc.fill();
 
   // Wider softer secondary cone for peripheral vision
-  const softLen = 280;
-  const softWidth = Math.PI * 0.8;
+  const softLen = isDarker ? 110 : 280;
+  const softWidth = isDarker ? Math.PI * 0.5 : Math.PI * 0.8;
   const softGrd = oc.createRadialGradient(px, py, 0, px, py, softLen);
   softGrd.addColorStop(0, "rgba(255,220,160,0.5)");
   softGrd.addColorStop(1, "rgba(255,200,120,0)");
@@ -2075,14 +2164,14 @@ function drawLightingOverlay(
   oc.closePath();
   oc.fill();
 
-  // Ambient glow around player body
-  const ambGrd = oc.createRadialGradient(px, py, 0, px, py, 180);
+  // Ambient glow around player body (smaller in dark wave)
+  const ambGrd = oc.createRadialGradient(px, py, 0, px, py, isDarker ? 70 : 180);
   ambGrd.addColorStop(0, "rgba(220,180,120,0.7)");
   ambGrd.addColorStop(0.4, "rgba(200,160,100,0.3)");
   ambGrd.addColorStop(1, "rgba(200,150,80,0)");
   oc.fillStyle = ambGrd;
   oc.beginPath();
-  oc.arc(px, py, 180, 0, Math.PI * 2);
+  oc.arc(px, py, isDarker ? 70 : 180, 0, Math.PI * 2);
   oc.fill();
 
   // Lamps

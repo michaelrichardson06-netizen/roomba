@@ -1,5 +1,5 @@
 import { GAME_CONFIG as C } from "./constants";
-import type { GameState, Enemy, LampLight, LightningArc, IceWave, FloatingText } from "./types";
+import type { GameState, Enemy, LampLight, LightningArc, IceWave, FloatingText, WaveModifier, Poster } from "./types";
 
 let nextId = 0;
 function uid() { return (++nextId).toString(); }
@@ -63,12 +63,42 @@ function logDmg(
   if (s.damageLog.length > 30) s.damageLog.splice(0, s.damageLog.length - 30);
 }
 
-function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number): Enemy {
+// Deterministic wave modifier — picks a flavour for each wave number
+function waveModifierFor(wave: number): WaveModifier {
+  if (wave < 2) return "none";
+  // Simple hash so the sequence feels pseudo-random but is reproducible
+  const h = ((wave * 2654435761) >>> 0) % 100;
+  if (h < 28) return "darker";
+  if (h < 55) return "colorShift";
+  if (h < 72) return "megaBoss";
+  return "none";
+}
+
+// Drop 4-7 worn-out advertisement posters at random floor spots for a new wave
+function addWavePosters(s: GameState) {
+  const count = 4 + (s.wave % 4);
+  for (let i = 0; i < count; i++) {
+    const x = rand(120, s.mapWidth - 120);
+    const y = rand(120, s.mapHeight - 120);
+    if (dist(x, y, s.playerX, s.playerY) < 220) continue; // don't spawn on top of player
+    s.posters.push({
+      id: uid(), x, y,
+      angle: (Math.random() - 0.5) * 0.55,
+      design: Math.floor(Math.random() * 5),
+    } as Poster);
+  }
+}
+
+function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number, isMega = false): Enemy {
   // Base HP ramp + extra spike every 3 waves (wave 4, 7, 10 …)
   const hpScale = 1 + (wave - 1) * C.WAVE_HP_SCALE + Math.floor((wave - 1) / 3) * C.WAVE_3WAVE_HP_BOOST;
   const baseHp = type === "boss" ? C.ENEMY_HP_BOSS : type === "elite" ? C.ENEMY_HP_ELITE : C.ENEMY_HP_STANDARD;
-  const radius = type === "boss" ? C.ENEMY_RADIUS_BOSS : type === "elite" ? C.ENEMY_RADIUS_ELITE : C.ENEMY_RADIUS_STANDARD;
-  const hp = Math.ceil(baseHp * hpScale);
+  let radius = type === "boss" ? C.ENEMY_RADIUS_BOSS : type === "elite" ? C.ENEMY_RADIUS_ELITE : C.ENEMY_RADIUS_STANDARD;
+  let hp = Math.ceil(baseHp * hpScale);
+  if (isMega && type === "boss") {
+    hp     = Math.ceil(hp * C.MEGA_BOSS_HP_MULT);
+    radius = Math.ceil(radius * C.MEGA_BOSS_RADIUS_MULT);
+  }
   return {
     id: uid(), x, y, vx: 0, vy: 0, hp, maxHp: hp, type, radius,
     knockbackX: 0, knockbackY: 0, hitFlash: 0, angle: 0, legPhase: 0,
@@ -105,6 +135,8 @@ export function createInitialState(): GameState {
     redFlash: 0,
     bossWebs: [],
     iceWaves: [], floatingTexts: [],
+    waveModifier: "none" as WaveModifier,
+    posters: [],
     tripleShot: false, quadShot: false, rapidFireStacks: 0, bazookaMode: false, lightningStrike: false, lightningArcs: [],
     playerDamageCooldown: 0,
     shootCooldown: 0, dashCooldown: 0, isDashing: false,
@@ -370,7 +402,7 @@ export function updateGame(
     if (!s.bossSpawned) {
       s.bossSpawned = true;
       const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
-      s.enemies.push(makeEnemy("boss", pos.x, pos.y, s.wave));
+      s.enemies.push(makeEnemy("boss", pos.x, pos.y, s.wave, s.waveModifier === "megaBoss"));
     }
     // Regular enemies spawn throughout the wave — capped so a wall of bodies never forms
     if (s.spawnTimer >= spawnInterval) {
@@ -580,8 +612,11 @@ export function updateGame(
     s.killCount = 0;
     s.bossSpawned = false;
     s.spawnGrace = 2500;
-    s.waveTotalKills = C.WAVE_BASE_KILLS + (s.wave - 1) * C.WAVE_KILL_INCREMENT; // 100, 220, 340 …
+    s.waveTotalKills = C.WAVE_BASE_KILLS + (s.wave - 1) * C.WAVE_KILL_INCREMENT;
     s.bossWebs = [];
+    // Pick next wave's modifier + scatter worn advertisement posters on the floor
+    s.waveModifier = waveModifierFor(s.wave);
+    addWavePosters(s);
     for (let i = 0; i < 20; i++) {
       const a = Math.random() * Math.PI * 2;
       s.particles.push({ id: uid(), x: s.playerX, y: s.playerY, vx: Math.cos(a) * rand(3, 10), vy: Math.sin(a) * rand(3, 10), life: rand(400, 1000), maxLife: 1000, color: "#ffff44", size: rand(4, 9) });
@@ -797,13 +832,24 @@ function spawnBuff(state: GameState, x: number, y: number, wave: number) {
     if (dist(x, y, existing.x, existing.y) < MIN_BUFF_SPREAD) return;
   }
 
-  const types: string[] = [];
-  if (wave >= 1) types.push("rapidFire");       // wave 1 basics
-  if (wave >= 1) types.push("freezeWave");      // freeze AoE all waves
-  if (wave >= 1) types.push("quadShot");        // quad shot from wave 1
+  let types: string[] = [];
+  if (wave >= 1) types.push("rapidFire");
+  if (wave >= 1) types.push("freezeWave");
+  if (wave >= 1) types.push("quadShot");
   if (wave >= 2) types.push("tripleShot");
   if (wave >= 3) types.push("bazookaMode");
   if (wave >= 4) types.push("lightningStrike");
+
+  // Don't drop buffs the player already has (non-sticky: no benefit to re-picking)
+  types = types.filter((t) => {
+    if (t === "tripleShot" && (state.tripleShot || state.quadShot)) return false;
+    if (t === "quadShot"   && state.quadShot)                        return false;
+    if (t === "bazookaMode" && state.bazookaMode)                    return false;
+    if (t === "lightningStrike" && state.lightningStrike)            return false;
+    if (t === "rapidFire"  && state.rapidFireStacks >= 3)            return false;
+    return true;
+  });
+
   if (types.length === 0) return;
   state.buffDrops.push({ id: uid(), x, y, type: types[Math.floor(Math.random() * types.length)], pulse: 0 });
 }
