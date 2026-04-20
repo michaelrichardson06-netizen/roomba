@@ -29,7 +29,7 @@ function getCtx(): AudioContext | null {
       loadPrefs();
       ctx        = new (window.AudioContext || (window as any).webkitAudioContext)();
       masterGain = ctx.createGain();
-      masterGain.gain.setValueAtTime(0.7, ctx.currentTime); // fixed headroom
+      masterGain.gain.setValueAtTime(0.7, ctx.currentTime);
       masterGain.connect(ctx.destination);
 
       sfxGain = ctx.createGain();
@@ -41,7 +41,8 @@ function getCtx(): AudioContext | null {
       bgGain.connect(masterGain);
     } catch { return null; }
   }
-  if (ctx.state === "suspended") ctx.resume().catch(() => {});
+  // Do NOT call ctx.resume() here — iOS requires resume() inside a user gesture.
+  // Auto-resuming outside a gesture silently fails and taints the context.
   return ctx;
 }
 
@@ -432,41 +433,38 @@ export function stopBgMusic() {
 }
 
 // Call this on first user gesture to unlock AudioContext on iOS.
-// iOS requires a real audio buffer to be PLAYED (not just resumed) during
-// a user gesture — ctx.resume() alone is not sufficient on iOS Safari/WebView.
+// iOS WebView requires THREE things done SYNCHRONOUSLY in the gesture handler:
+//   1. A real audio buffer must be PLAYED (not just resume()-d)
+//   2. ctx.resume() must be called
+//   3. Any oscillator.start() calls must happen in the same call stack
+// Calling any of these from a .then() / microtask is too late — iOS rejects it.
 export function unlockAudio() {
   const ac = getCtx();
   if (!ac) return;
 
-  // ── iOS Safari hard rule ───────────────────────────────────────────────────
-  // Every audio operation that needs gesture-unlock permission MUST be called
-  // SYNCHRONOUSLY inside the event handler.  A .then() callback runs in the
-  // microtask queue — after the handler returns — which iOS no longer considers
-  // a "user gesture", so ctx.resume() and BufferSource.start() called there are
-  // silently rejected and the context stays suspended forever.
-  //
-  // Correct sequence (all synchronous):
-  //   1. createBuffer + start + stop   ← satisfies "must play audio in gesture"
-  //   2. ctx.resume()                  ← unsuspends the context
-  //   3. startBgMusic()                ← schedules oscillators (also sync)
-
-  // 1. Silent 50 ms buffer — gives iOS the "audio was played in gesture" proof
+  // 1. Silent 50ms buffer — iOS requires an actual playback inside the gesture.
+  //    Use timestamp 0 ("ASAP") rather than ac.currentTime for maximum compatibility
+  //    with WebKit's gesture detection heuristics.
   try {
     const buf = ac.createBuffer(1, Math.ceil(ac.sampleRate * 0.05), ac.sampleRate);
     const src = ac.createBufferSource();
     src.buffer = buf;
     src.connect(ac.destination);
-    src.start(ac.currentTime);        // "now" — synchronous schedule
-    src.stop(ac.currentTime + 0.05);  // 50 ms later — synchronous schedule
-  } catch { /* AudioContext not yet available — ignore */ }
+    src.start(0);
+    src.stop(0.05);
+  } catch { /* ignore — context may not be ready */ }
 
-  // 2. Resume synchronously (iOS reads the _call_ as gesture-context even though
-  //    the underlying state flip happens asynchronously)
-  if (ac.state === "suspended") {
-    ac.resume().catch(() => {});
+  // 2. Synchronous resume call (the call itself is gesture-gated on iOS, even
+  //    though the state transition completes asynchronously).
+  if (ac.state !== "running") {
+    ac.resume().then(() => {
+      // 3b. After resume resolves, try starting music again in case the
+      //     synchronous attempt below was too early (context still warming up).
+      startBgMusic();
+    }).catch(() => {});
   }
 
-  // 3. Start or restart music — bgPlaying guard makes this a no-op if already running.
-  //    Called synchronously so the oscillator.start() calls happen in gesture context.
+  // 3a. Synchronous music start — oscillator.start() calls land in gesture stack.
+  //     bgPlaying guard makes this a no-op if music is already going.
   startBgMusic();
 }

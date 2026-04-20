@@ -54,7 +54,7 @@ export function GameHUD({
         <View style={styles.berserkerOverlay} pointerEvents="none" />
       )}
 
-      {/* Top bar — HP/battery left, wave+score center, kills right */}
+      {/* Top bar — HP/battery left, wave+score right (kills moved below) */}
       <View style={[styles.topBar, { paddingTop: hudTopPad }]}>
         {/* HP + Battery stacked */}
         <View style={styles.leftSection}>
@@ -74,27 +74,21 @@ export function GameHUD({
           <Text style={[styles.smallText, { color: batteryColor }]}>{Math.ceil(battery)}%</Text>
         </View>
 
-        {/* Wave (large) + Score */}
+        {/* Wave (large) + Score — centered */}
         <View style={styles.centerInfo}>
           <Text style={styles.waveText}>WAVE {wave}</Text>
           <Text style={styles.scoreText}>{score.toLocaleString()}</Text>
         </View>
-
-        {/* Kill progress */}
-        <View style={styles.killSection}>
-          <Text style={styles.label}>KILLS</Text>
-          <View style={styles.barTrack}>
-            <View style={[styles.barFill, {
-              width: `${Math.min(waveProgress, 1) * 100}%` as any,
-              backgroundColor: waveProgress < 1 ? "#ff6600" : "#ff2222",
-            }]} />
-          </View>
-          <Text style={styles.smallText}>{killCount}/{waveTotalKills}</Text>
-        </View>
       </View>
 
-      {/* Boss shield bar — full-width, very prominent, separate from top bar */}
+      {/* Kill progress + Boss shield — stacked, full width */}
       <View style={styles.bossShieldRow}>
+        {/* Kill count row above the shield bar */}
+        <View style={styles.killRow}>
+          <Text style={styles.killLabel}>💀 KILLS TO EXPOSE BOSS</Text>
+          <Text style={styles.killCount}>{killCount} / {waveTotalKills}</Text>
+        </View>
+
         <View style={styles.bossShieldLabelRow}>
           {waveProgress < 1 ? (
             <Text style={styles.bossShieldLabel}>🛡 BOSS SHIELD</Text>
@@ -182,23 +176,61 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 12, gap: 8 },
 
   leftSection: { flex: 1, gap: 1 },
-  label: { color: "#888", fontSize: 9, fontWeight: "700", letterSpacing: 1 },
-  barTrack: { height: 6, backgroundColor: "#1a1a1a", borderRadius: 3, overflow: "hidden" },
+  label: {
+    color: "#ffffff",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textShadow: "0 1px 3px rgba(0,0,0,0.99), 0 0 6px rgba(0,0,0,0.99)" as any,
+  },
+  barTrack: { height: 6, backgroundColor: "#111", borderRadius: 3, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   barFill:  { height: "100%", borderRadius: 3 },
-  smallText: { color: "#aaa", fontSize: 9, fontWeight: "700" },
+  smallText: {
+    color: "#ffffff",
+    fontSize: 9,
+    fontWeight: "700",
+    textShadow: "0 1px 3px rgba(0,0,0,0.99), 0 0 6px rgba(0,0,0,0.99)" as any,
+  },
 
   // Wave is now much bigger — centered, very prominent
-  centerInfo: { alignItems: "center", minWidth: 90 },
+  centerInfo: { alignItems: "center", minWidth: 90, flex: 1 },
   waveText:  {
     color: "#ff6644",
     fontSize: 22,
     fontWeight: "900",
     letterSpacing: 3,
-    textShadow: "0 0 12px rgba(255,80,30,0.7)" as any,
+    textShadow: "0 0 12px rgba(255,80,30,0.9), 0 2px 4px rgba(0,0,0,0.99)" as any,
   },
-  scoreText: { color: "#fff", fontSize: 18, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  scoreText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+    textShadow: "0 1px 4px rgba(0,0,0,0.99)" as any,
+  },
 
-  killSection:   { flex: 1, gap: 1, alignItems: "flex-end" },
+  // ── Kill count row (above boss shield) ──────────────────────────────────────
+  killRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 3,
+  },
+  killLabel: {
+    color: "#ff9933",
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textShadow: "0 1px 3px rgba(0,0,0,0.99)" as any,
+  },
+  killCount: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1,
+    fontVariant: ["tabular-nums"] as any,
+    textShadow: "0 1px 4px rgba(0,0,0,0.99)" as any,
+  },
 
   // ── Boss shield — full-width, very prominent ────────────────────────────────
   bossShieldRow: {
