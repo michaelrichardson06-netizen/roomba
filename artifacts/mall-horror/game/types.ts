@@ -86,6 +86,7 @@ export interface Bullet {
   radius: number;
   isBazooka: boolean;
   trail: Array<{ x: number; y: number }>;
+  distTraveled: number;
 }
 
 export interface Explosion {

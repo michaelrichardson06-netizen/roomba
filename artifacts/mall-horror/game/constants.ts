@@ -19,6 +19,8 @@ export const GAME_CONFIG = {
   RAPID_FIRE_REDUCTION: 0.62,
   BULLET_SPEED: 14,
   BULLET_RADIUS: 9,
+  BULLET_MAX_DIST: 360,     // pixels before bullet fades out
+  BAZOOKA_MAX_DIST: 240,    // bazooka is close-range explosive
 
   // Bazooka
   BAZOOKA_SPEED: 5,

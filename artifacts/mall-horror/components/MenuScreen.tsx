@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ICON = require("../assets/images/icon.png");
@@ -188,8 +189,30 @@ export function MenuScreen({ onStart, highScore, bestWave }: MenuScreenProps) {
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" } as React.CSSProperties}
         />
       )}
-      {/* Native fallback — solid dark bg */}
-      {!isWeb && <View style={styles.nativeBg} />}
+      {/* Native background — dark base + neon glow layers */}
+      {!isWeb && (
+        <View style={styles.nativeBg}>
+          {/* Dark tile-floor base */}
+          <LinearGradient
+            colors={["#060404", "#0a0707", "#060404"]}
+            style={StyleSheet.absoluteFillObject}
+          />
+          {/* Magenta left wall glow */}
+          <View style={[styles.nativeGlow, { left: -60, top: "22%", width: 280, height: 280, borderRadius: 140, backgroundColor: "rgba(255,0,85,0.22)" }]} />
+          {/* Cyan right glow */}
+          <View style={[styles.nativeGlow, { right: -60, top: "32%", width: 240, height: 240, borderRadius: 120, backgroundColor: "rgba(0,195,255,0.16)" }]} />
+          {/* Warm amber center-bottom glow */}
+          <View style={[styles.nativeGlow, { alignSelf: "center", bottom: "10%", width: 320, height: 160, borderRadius: 100, backgroundColor: "rgba(255,90,0,0.13)" }]} />
+          {/* Top crimson glow */}
+          <View style={[styles.nativeGlow, { alignSelf: "center", top: "-5%", width: 260, height: 180, borderRadius: 100, backgroundColor: "rgba(180,0,30,0.18)" }]} />
+          {/* Vignette overlay */}
+          <LinearGradient
+            colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.5)", "rgba(0,0,0,0.92)"]}
+            locations={[0.3, 0.65, 1]}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </View>
+      )}
 
       {/* ── Scanline overlay ── */}
       <View style={styles.scanlines} pointerEvents="none" />
@@ -255,6 +278,10 @@ const styles = StyleSheet.create({
   nativeBg: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#050303",
+    overflow: "hidden",
+  },
+  nativeGlow: {
+    position: "absolute",
   },
   scanlines: {
     ...StyleSheet.absoluteFillObject,

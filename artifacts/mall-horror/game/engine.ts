@@ -291,7 +291,7 @@ export function updateGame(
         id: uid(), x: s.playerX + mx * 20, y: s.playerY + my * 20,
         vx: mx * speed, vy: my * speed,
         radius: isBaz ? C.BAZOOKA_RADIUS : C.BULLET_RADIUS,
-        isBazooka: isBaz, trail: [],
+        isBazooka: isBaz, trail: [], distTraveled: 0,
       });
     };
 
@@ -345,12 +345,18 @@ export function updateGame(
         vy = (vy / spd) * C.BULLET_SPEED;
       }
     }
+    const stepDist = Math.hypot(vx * bulletStep, vy * bulletStep);
+    const newDist = b.distTraveled + stepDist;
     return {
       ...b, vx, vy,
       x: b.x + vx * bulletStep, y: b.y + vy * bulletStep,
       trail: [...b.trail, { x: b.x, y: b.y }].slice(-6),
+      distTraveled: newDist,
     };
-  }).filter((b) => b.x > -100 && b.x < s.mapWidth + 100 && b.y > -100 && b.y < s.mapHeight + 100);
+  }).filter((b) => {
+    const maxDist = b.isBazooka ? C.BAZOOKA_MAX_DIST : C.BULLET_MAX_DIST;
+    return b.distTraveled < maxDist && b.x > -100 && b.x < s.mapWidth + 100 && b.y > -100 && b.y < s.mapHeight + 100;
+  });
 
   // ── Spawn grace countdown ─────────────────────────────────────────────────
   if (s.spawnGrace > 0) s.spawnGrace = Math.max(0, s.spawnGrace - dt);
