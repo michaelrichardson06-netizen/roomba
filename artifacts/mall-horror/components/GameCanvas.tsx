@@ -523,9 +523,11 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           if (nlen > 6) {
             inputRef.current.dx = ndx / nlen;
             inputRef.current.dy = ndy / nlen;
-            // Flashlight tracks movement direction — but only when right stick is idle
-            // (right stick takes priority for aim)
-            if (!inputRef.current.rightJoyActive) {
+            // Flashlight + Roomba rotation tracks left stick direction, UNLESS the
+            // right stick is being dragged to manually aim (shootOverrideAngle set).
+            // Holding right side still (auto-aim) does NOT block rotation — the
+            // Roomba should still spin to face its movement direction.
+            if (inputRef.current.shootOverrideAngle === null) {
               inputRef.current.targetAimAngle = Math.atan2(ndy, ndx) - Math.PI / 2;
             }
           } else {
