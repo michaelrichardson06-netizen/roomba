@@ -2,6 +2,20 @@ import React, { useEffect, useRef, useState } from "react";
 import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+const MALL_NAME = "WESTVIEW MALL";
+
+const ZONE_NAMES: string[][] = [
+  ["West Wing",      "North Entrance",   "Electronics Wing"],
+  ["Food Court",     "Central Atrium",   "East Corridor"   ],
+  ["South Arcade",   "South Promenade",  "Parking Access"  ],
+];
+
+function getMallZone(x: number, y: number): string {
+  const col = x < 1000 ? 0 : x < 2000 ? 1 : 2;
+  const row = y < 1000 ? 0 : y < 2000 ? 1 : 2;
+  return ZONE_NAMES[row][col];
+}
+
 interface GameHUDProps {
   hp: number;
   maxHp: number;
@@ -21,6 +35,8 @@ interface GameHUDProps {
   dashCooldown: number;
   spawnGrace: number;
   showDash?: boolean;
+  playerX: number;
+  playerY: number;
   onDash: () => void;
 }
 
@@ -28,7 +44,7 @@ export function GameHUD({
   hp, maxHp, battery, maxBattery, berserkerTimer,
   score, wave, killCount, waveTotalKills,
   tripleShot, quadShot, rapidFireStacks, bazookaMode, lightningStrike, speedBoost,
-  dashCooldown, spawnGrace, showDash, onDash,
+  dashCooldown, spawnGrace, showDash, playerX, playerY, onDash,
 }: GameHUDProps) {
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
@@ -64,6 +80,7 @@ export function GameHUD({
   const isBerserking = berserkerTimer > 0;
   const berserkSecs  = Math.ceil(berserkerTimer / 1000);
   const lowBattery   = batteryRatio < 0.2;
+  const mallZone     = getMallZone(playerX, playerY);
 
   return (
     <View style={styles.container} pointerEvents="box-none">
@@ -75,6 +92,13 @@ export function GameHUD({
 
       {/* ══ MAIN HUD PANEL ══════════════════════════════════════════════════ */}
       <View style={[styles.hudPanel, { paddingTop: hudTopPad + 4 }]}>
+
+        {/* ── Mall name + zone header ── */}
+        <View style={[styles.mallHeader, { top: topPad + 3 }]} pointerEvents="none">
+          <Text style={styles.mallName}>{MALL_NAME}</Text>
+          <View style={styles.mallDivider} />
+          <Text style={styles.mallZone} numberOfLines={1}>{mallZone}</Text>
+        </View>
 
         <View style={styles.panelInner}>
 
@@ -209,6 +233,40 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderWidth: 6,
     borderColor: "rgba(255,0,50,0.35)",
+  },
+
+  // ── Mall name + zone header ───────────────────────────────────────────────
+  mallHeader: {
+    position: "absolute",
+    left: 10,
+    right: 10,
+    height: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  mallName: {
+    fontFamily: "monospace",
+    fontSize: 9,
+    fontWeight: "bold",
+    letterSpacing: 2,
+    color: "#c8a84b",
+    opacity: 0.9,
+    textTransform: "uppercase",
+  },
+  mallDivider: {
+    width: 1,
+    height: 10,
+    backgroundColor: "rgba(180,120,40,0.45)",
+  },
+  mallZone: {
+    fontFamily: "monospace",
+    fontSize: 9,
+    letterSpacing: 0.8,
+    color: "#88aacc",
+    opacity: 0.85,
+    flex: 1,
+    textTransform: "uppercase",
   },
 
   // ── HUD panel ─────────────────────────────────────────────────────────────

@@ -32,6 +32,8 @@ interface HUDState {
   speedBoost: number;
   dashCooldown: number;
   spawnGrace: number;
+  playerX: number;
+  playerY: number;
 }
 
 interface JoyState {
@@ -51,6 +53,7 @@ const DEFAULT_HUD: HUDState = {
   rapidFireStacks: 0, bazookaMode: false, lightningStrike: false,
   speedBoost: 0,
   dashCooldown: 0, spawnGrace: 3000,
+  playerX: 1500, playerY: 1500,
 };
 
 const IDLE_JOY: JoyState = { active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 };
@@ -210,6 +213,8 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
         speedBoost: newState.speedBoost,
         dashCooldown: newState.dashCooldown,
         spawnGrace: newState.spawnGrace,
+        playerX: newState.playerX,
+        playerY: newState.playerY,
       });
     }
 
