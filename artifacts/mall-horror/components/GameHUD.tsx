@@ -157,12 +157,6 @@ export function GameHUD({
         </View>
       )}
 
-      {/* Web controls hint */}
-      {isWeb && (
-        <View style={styles.webHint}>
-          <Text style={styles.webHintText}>WASD / Left Stick: Move  |  Right Stick: Aim Override  |  Space: Dash  |  Auto-shoots nearest enemy</Text>
-        </View>
-      )}
     </View>
   );
 }

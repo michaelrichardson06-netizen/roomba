@@ -293,12 +293,16 @@ export function updateGame(
     if (nearestD < 320) {
       const dx = nearestEx - b.x, dy = nearestEy - b.y;
       const d = Math.hypot(dx, dy) || 1;
-      const pull = 0.055 * bulletStep;
-      vx += (dx / d) * C.BULLET_SPEED * pull;
-      vy += (dy / d) * C.BULLET_SPEED * pull;
-      const spd = Math.hypot(vx, vy) || 1;
-      vx = (vx / spd) * C.BULLET_SPEED;
-      vy = (vy / spd) * C.BULLET_SPEED;
+      // Only pull if bullet isn't already past the target (prevents orbiting)
+      const dot = (vx * dx + vy * dy) / (d * C.BULLET_SPEED);
+      if (dot > -0.1) {
+        const pull = 0.28 * bulletStep;
+        vx += (dx / d) * C.BULLET_SPEED * pull;
+        vy += (dy / d) * C.BULLET_SPEED * pull;
+        const spd = Math.hypot(vx, vy) || 1;
+        vx = (vx / spd) * C.BULLET_SPEED;
+        vy = (vy / spd) * C.BULLET_SPEED;
+      }
     }
     return {
       ...b, vx, vy,
@@ -706,11 +710,11 @@ function spawnDeathParticles(state: GameState, enemy: Enemy) {
 
 // Drop chance ramps from 0% on wave 1 up to ~45% by wave 5+
 function eliteDropChance(wave: number): number {
-  if (wave === 1) return 0.28;  // wave 1: ~1-in-4 elites drops rapidFire
-  if (wave === 2) return 0.34;
-  if (wave === 3) return 0.40;
-  if (wave === 4) return 0.44;
-  return 0.48;                  // wave 5+ cap
+  if (wave === 1) return 0.42;  // wave 1: ~2-in-5 elites drop a buff
+  if (wave === 2) return 0.48;
+  if (wave === 3) return 0.54;
+  if (wave === 4) return 0.58;
+  return 0.62;                  // wave 5+ cap
 }
 
 // Max combat buffs on the floor at any one time (batteries don't count)

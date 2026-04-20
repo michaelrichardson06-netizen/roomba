@@ -233,7 +233,7 @@ export function renderFrame(
     const batY = canvasH * 0.28;
     ctx.save();
     ctx.globalAlpha = batAlpha;
-    ctx.font = "bold 18px monospace";
+    ctx.font = "bold 12px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.shadowColor = "#ff6600";
