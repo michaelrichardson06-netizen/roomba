@@ -52,7 +52,7 @@ export function GameHUD({
   }, [score]);
 
   const topPad    = Math.max(insets.top, isWeb ? 10 : 0);
-  const hudTopPad = topPad + 68;
+  const hudTopPad = topPad + 38;
   const bottomPad = isWeb ? 34 : insets.bottom;
 
   const hpRatio      = hp / maxHp;
@@ -101,12 +101,13 @@ export function GameHUD({
               <Text style={[styles.statVal, { color: batteryColor }]}>{Math.ceil(battery)}%</Text>
             </View>
 
+            {/* ── separator before boss row ── */}
+            <View style={styles.bossRowSep} />
+
             {/* Boss shield */}
             <View style={styles.statRow}>
-              <Text style={[styles.statIcon, { color: waveProgress < 1 ? "#5599ff" : "#ff2222" }]}>
-                {waveProgress < 1 ? "🛡" : "💀"}
-              </Text>
-              <View style={styles.statTrack}>
+              <Text style={[styles.statIcon, { color: waveProgress < 1 ? "#bb88ff" : "#ff2222" }]}>💀</Text>
+              <View style={[styles.statTrack, { borderColor: "rgba(160,80,255,0.25)" }]}>
                 <View style={[styles.statFill, {
                   width: `${(1 - Math.min(waveProgress, 1)) * 100}%` as any,
                   backgroundColor: shieldColor,
@@ -215,8 +216,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(4, 1, 1, 0.88)",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(180, 25, 0, 0.55)",
-    paddingHorizontal: 14,
-    paddingBottom: 10,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
   },
 
   panelInner: {
@@ -226,7 +227,12 @@ const styles = StyleSheet.create({
   },
 
   // ── Stat bars (left column) ───────────────────────────────────────────────
-  statsCol: { flex: 1, gap: 7 },
+  statsCol: { flex: 1, gap: 6 },
+  bossRowSep: {
+    height: 1,
+    backgroundColor: "rgba(160,80,255,0.22)",
+    marginVertical: 1,
+  },
 
   statRow: {
     flexDirection: "row",
