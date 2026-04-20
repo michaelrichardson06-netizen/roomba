@@ -123,11 +123,12 @@ function drawBg(canvas: HTMLCanvasElement) {
 
 interface MenuScreenProps {
   onStart: () => void;
+  onLeaderboard: () => void;
   highScore: number;
   bestWave: number;
 }
 
-export function MenuScreen({ onStart, highScore, bestWave }: MenuScreenProps) {
+export function MenuScreen({ onStart, onLeaderboard, highScore, bestWave }: MenuScreenProps) {
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
   const topPad = isWeb ? 24 : Math.max(insets.top, 24);
@@ -255,9 +256,12 @@ export function MenuScreen({ onStart, highScore, bestWave }: MenuScreenProps) {
       )}
 
       {/* ── Start button ── */}
-      <Animated.View style={{ transform: [{ scale: pulseAnim }], width: "100%", maxWidth: 300, alignSelf: "center" }}>
+      <Animated.View style={{ transform: [{ scale: pulseAnim }], width: "100%", maxWidth: 300, alignSelf: "center", gap: 10 }}>
         <TouchableOpacity style={styles.startBtn} onPress={onStart} activeOpacity={0.75}>
           <Text style={styles.startText}>ENTER MALL</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.lbBtn} onPress={onLeaderboard} activeOpacity={0.8}>
+          <Text style={styles.lbText}>🏆 WORLD RANKINGS</Text>
         </TouchableOpacity>
       </Animated.View>
 
@@ -408,6 +412,21 @@ const styles = StyleSheet.create({
     textShadowColor: "#ff0000",
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,
+  },
+
+  lbBtn: {
+    borderWidth: 1,
+    borderColor: "#442200",
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: "center",
+    backgroundColor: "rgba(30,10,0,0.5)",
+  },
+  lbText: {
+    color: "#884422",
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 2,
   },
 
   footer: {

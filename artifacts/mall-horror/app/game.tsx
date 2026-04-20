@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GameCanvas } from "@/components/GameCanvas";
 import { DeathScreen } from "@/components/DeathScreen";
+import { LeaderboardScreen } from "@/components/LeaderboardScreen";
 import type { GameState } from "@/game/types";
 
-type Phase = "playing" | "dead";
+type Phase = "playing" | "dead" | "leaderboard";
 
 interface DeathResult {
   score: number;
@@ -14,7 +15,6 @@ interface DeathResult {
   totalInsects: number;
   deathCause: string;
   hpAtDeath: number;
-  damageLog: string[];
 }
 
 const HS_SCORE_KEY = "@mallhorror_highscore";
@@ -30,12 +30,8 @@ export default function GameScreen() {
   const [gameKey, setGameKey] = useState(0);
 
   useEffect(() => {
-    AsyncStorage.getItem(HS_SCORE_KEY).then((v) => {
-      if (v) setHighScore(parseInt(v, 10));
-    });
-    AsyncStorage.getItem(HS_WAVE_KEY).then((v) => {
-      if (v) setBestWave(parseInt(v, 10));
-    });
+    AsyncStorage.getItem(HS_SCORE_KEY).then((v) => { if (v) setHighScore(parseInt(v, 10)); });
+    AsyncStorage.getItem(HS_WAVE_KEY).then((v) => { if (v) setBestWave(parseInt(v, 10)); });
   }, []);
 
   const handleDeath = useCallback(
@@ -46,28 +42,21 @@ export default function GameScreen() {
         totalInsects: state.totalInsects,
         deathCause: state.deathCause || "unknown",
         hpAtDeath: state.hpAtDeath,
-        damageLog: state.damageLog ?? [],
       };
       setResult(r);
 
-      let newHS = highScore;
-      let newBW = bestWave;
       let newRecord = false;
-
       if (r.score > highScore) {
-        newHS = r.score;
-        setHighScore(newHS);
+        setHighScore(r.score);
         setIsNewHS(true);
         newRecord = true;
-        await AsyncStorage.setItem(HS_SCORE_KEY, String(newHS));
+        await AsyncStorage.setItem(HS_SCORE_KEY, String(r.score));
       }
       if (r.wave > bestWave) {
-        newBW = r.wave;
-        setBestWave(newBW);
-        await AsyncStorage.setItem(HS_WAVE_KEY, String(newBW));
+        setBestWave(r.wave);
+        await AsyncStorage.setItem(HS_WAVE_KEY, String(r.wave));
       }
       if (!newRecord) setIsNewHS(false);
-
       setPhase("dead");
     },
     [highScore, bestWave]
@@ -81,8 +70,26 @@ export default function GameScreen() {
   }, []);
 
   const handleMenu = useCallback(() => {
-    router.back();
+    if (Platform.OS === "web") {
+      router.replace("/");
+    } else {
+      router.back();
+    }
   }, [router]);
+
+  const handleLeaderboard = useCallback(() => setPhase("leaderboard"), []);
+  const handleBackFromLB = useCallback(() => setPhase("dead"), []);
+
+  if (phase === "leaderboard") {
+    return (
+      <View style={styles.container}>
+        <LeaderboardScreen
+          onBack={handleBackFromLB}
+          highlightScore={result?.score}
+        />
+      </View>
+    );
+  }
 
   if (phase === "dead" && result) {
     return (
@@ -96,9 +103,10 @@ export default function GameScreen() {
           isNewHighScore={isNewHS}
           deathCause={result.deathCause}
           hpAtDeath={result.hpAtDeath}
-          damageLog={result.damageLog}
+          damageLog={[]}
           onRetry={handleRetry}
           onMenu={handleMenu}
+          onLeaderboard={handleLeaderboard}
         />
       </View>
     );
@@ -112,8 +120,5 @@ export default function GameScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0a0806",
-  },
+  container: { flex: 1, backgroundColor: "#0a0806" },
 });

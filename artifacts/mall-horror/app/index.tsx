@@ -25,6 +25,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <MenuScreen
         onStart={() => router.push("/game")}
+        onLeaderboard={() => router.push("/leaderboard")}
         highScore={highScore}
         bestWave={bestWave}
       />
