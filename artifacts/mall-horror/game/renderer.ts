@@ -1089,151 +1089,162 @@ function drawRoomba(
 }
 
 function _drawRoombaBody(ctx: CanvasRenderingContext2D, dashing: boolean, spinPhase: number) {
-  const R = 16;
+  const R = 20;
   const PI = Math.PI;
 
-  // Drop shadow
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  // ── Dash energy ring (outer glow before body) ────────────────────────────────
+  if (dashing) {
+    ctx.strokeStyle = "rgba(0,200,255,0.35)";
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.arc(0, 0, R + 9, 0, PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(0,200,255,0.6)";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, R + 5, 0, PI * 2);
+    ctx.stroke();
+  }
+
+  // ── Drop shadow ──────────────────────────────────────────────────────────────
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
   ctx.beginPath();
-  ctx.ellipse(3, 5, R + 2, R * 0.55, 0, 0, PI * 2);
+  ctx.ellipse(2, 4, R + 3, R * 0.5, 0, 0, PI * 2);
   ctx.fill();
 
-  // Main body — metallic dark disc
-  const bodyGrd = ctx.createRadialGradient(-5, -5, 2, 0, 0, R);
-  bodyGrd.addColorStop(0, "#52525f");
-  bodyGrd.addColorStop(0.4, "#28282f");
-  bodyGrd.addColorStop(1, "#18181e");
+  // ── Outer chassis — dark metallic disc ──────────────────────────────────────
+  const bodyGrd = ctx.createRadialGradient(-6, -6, 1, 0, 0, R);
+  bodyGrd.addColorStop(0,   "#4e4e5e");
+  bodyGrd.addColorStop(0.35,"#2e2e3a");
+  bodyGrd.addColorStop(0.75,"#1c1c24");
+  bodyGrd.addColorStop(1,   "#111118");
   ctx.fillStyle = bodyGrd;
   ctx.beginPath();
   ctx.arc(0, 0, R, 0, PI * 2);
   ctx.fill();
 
-  // Outer ring (chrome edge)
-  ctx.strokeStyle = "#5a5a6e";
-  ctx.lineWidth = 2;
+  // ── Chrome outer rim ────────────────────────────────────────────────────────
+  ctx.strokeStyle = "#6a6a80";
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(0, 0, R, 0, PI * 2);
   ctx.stroke();
 
-  // Spinning brush disc (underneath, visible at edges)
-  if (dashing) {
-    ctx.strokeStyle = "rgba(80,170,255,0.5)";
-    ctx.lineWidth = 1.5;
-    for (let i = 0; i < 6; i++) {
-      const a = spinPhase + (i / 6) * PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * 4, Math.sin(a) * 4);
-      ctx.lineTo(Math.cos(a) * (R - 2), Math.sin(a) * (R - 2));
-      ctx.stroke();
-    }
-  } else {
-    // Subtle spin lines
-    ctx.strokeStyle = "rgba(255,255,255,0.06)";
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 4; i++) {
-      const a = spinPhase * 0.3 + (i / 4) * PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * 5, Math.sin(a) * 5);
-      ctx.lineTo(Math.cos(a) * (R - 3), Math.sin(a) * (R - 3));
-      ctx.stroke();
-    }
+  // ── Second inner ring ───────────────────────────────────────────────────────
+  ctx.strokeStyle = "#2e2e3e";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, 0, R - 4, 0, PI * 2);
+  ctx.stroke();
+
+  // ── Spinning brush lines (always visible, faster when dashing) ───────────────
+  const brushCount = dashing ? 8 : 6;
+  const brushColor = dashing ? "rgba(60,180,255,0.55)" : "rgba(255,255,255,0.07)";
+  ctx.strokeStyle = brushColor;
+  ctx.lineWidth = dashing ? 1.5 : 1;
+  for (let i = 0; i < brushCount; i++) {
+    const a = spinPhase + (i / brushCount) * PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 6,       Math.sin(a) * 6);
+    ctx.lineTo(Math.cos(a) * (R - 5), Math.sin(a) * (R - 5));
+    ctx.stroke();
   }
 
-  // Front bumper strip — bright arc on forward half (local -y = forward after rotation)
-  ctx.strokeStyle = "#8080a0";
-  ctx.lineWidth = 4;
+  // ── Front bumper arc — lighter, forward = local -y ───────────────────────────
+  ctx.strokeStyle = "#9090b0";
+  ctx.lineWidth = 4.5;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.arc(0, 0, R - 1, -PI * 0.72, -PI * 0.28);
+  ctx.arc(0, 0, R - 1.5, -PI * 0.75, -PI * 0.25);
   ctx.stroke();
-
-  // Rear exhaust slits
-  ctx.strokeStyle = "#333340";
-  ctx.lineWidth = 1.5;
   ctx.lineCap = "butt";
-  for (let i = -2; i <= 2; i++) {
+
+  // ── Side drive wheels (3 and 9 o'clock, flat ellipses) ───────────────────────
+  for (const sx of [-1, 1]) {
+    ctx.fillStyle = "#0d0d14";
     ctx.beginPath();
-    ctx.moveTo(i * 3.5, 10);
-    ctx.lineTo(i * 3.5, 14);
+    ctx.ellipse(sx * (R - 0.5), 0, 3.5, 7.5, 0, 0, PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#282835";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(sx * (R - 0.5), 0, 3.5, 7.5, 0, 0, PI * 2);
     ctx.stroke();
   }
 
-  // Side wheel bumps (3 and 9 o'clock)
-  ctx.fillStyle = "#111118";
-  ctx.beginPath(); ctx.ellipse(-R + 1, 0, 4.5, 7, 0, 0, PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(R - 1, 0, 4.5, 7, 0, 0, PI * 2); ctx.fill();
-  ctx.strokeStyle = "#2a2a38";
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.ellipse(-R + 1, 0, 4.5, 7, 0, 0, PI * 2); ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(R - 1, 0, 4.5, 7, 0, 0, PI * 2); ctx.stroke();
-
-  // Top plate (center panel)
-  const topGrd = ctx.createRadialGradient(0, 0, 2, 0, 0, 9);
-  topGrd.addColorStop(0, "#38384a");
-  topGrd.addColorStop(1, "#22222e");
-  ctx.fillStyle = topGrd;
+  // ── Top panel — raised centre plate ─────────────────────────────────────────
+  const plateGrd = ctx.createRadialGradient(-2, -2, 1, 0, 0, 10);
+  plateGrd.addColorStop(0, "#3a3a4e");
+  plateGrd.addColorStop(1, "#20202c");
+  ctx.fillStyle = plateGrd;
   ctx.beginPath();
-  ctx.arc(0, 0, 9, 0, PI * 2);
+  ctx.arc(0, 0, 10, 0, PI * 2);
   ctx.fill();
-  ctx.strokeStyle = "#48485a";
+  ctx.strokeStyle = "#50505e";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(0, 0, 9, 0, PI * 2);
+  ctx.arc(0, 0, 10, 0, PI * 2);
   ctx.stroke();
 
-  // Screw heads (4 corners)
-  const screws = [[-6, -5], [6, -5], [6, 5], [-6, 5]] as [number, number][];
-  screws.forEach(([sx, sy]) => {
-    ctx.fillStyle = "#50506a";
-    ctx.beginPath(); ctx.arc(sx, sy, 1.8, 0, PI * 2); ctx.fill();
-    ctx.fillStyle = "#686878";
-    ctx.beginPath(); ctx.arc(sx - 0.4, sy - 0.4, 0.7, 0, PI * 2); ctx.fill();
-  });
-
-  // Front sensor LED (glowing cyan — forward = local -y)
-  ctx.shadowColor = "#00ddff";
-  ctx.shadowBlur = 14;
-  ctx.fillStyle = "#00ddff";
-  ctx.beginPath();
-  ctx.arc(0, -(R - 5), 3.5, 0, PI * 2);
-  ctx.fill();
-  // LED highlight
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = "#99eeff";
-  ctx.beginPath();
-  ctx.arc(-0.6, -(R - 6.5), 1.2, 0, PI * 2);
-  ctx.fill();
-
-  // Side status LEDs (red, at the rear)
-  ctx.shadowColor = "#ff4422";
-  ctx.shadowBlur = 8;
-  ctx.fillStyle = "#ff3300";
-  ctx.beginPath(); ctx.arc(-5, R - 5, 2.2, 0, PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(5, R - 5, 2.2, 0, PI * 2); ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Central power button
-  ctx.fillStyle = dashing ? "#00ffcc" : "#00aa88";
-  ctx.shadowColor = dashing ? "#00ffcc" : "transparent";
-  ctx.shadowBlur = dashing ? 12 : 0;
-  ctx.beginPath();
-  ctx.arc(0, 0, 3.5, 0, PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Spin ring when dashing
-  if (dashing) {
-    ctx.strokeStyle = "rgba(0,200,255,0.5)";
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(0, 0, R + 5, 0, PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(0,200,255,0.2)";
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.arc(0, 0, R + 8, 0, PI * 2);
-    ctx.stroke();
+  // ── Screw detail (4 corners of the top plate) ────────────────────────────────
+  for (const [sx, sy] of [[-6.5, -5], [6.5, -5], [6.5, 5], [-6.5, 5]] as [number,number][]) {
+    ctx.fillStyle = "#555568";
+    ctx.beginPath(); ctx.arc(sx, sy, 1.6, 0, PI * 2); ctx.fill();
+    ctx.fillStyle = "#787888";
+    ctx.beginPath(); ctx.arc(sx - 0.4, sy - 0.4, 0.6, 0, PI * 2); ctx.fill();
   }
+
+  // ── TWO RED GLOWING EYES — the signature feature ────────────────────────────
+  // Eyes are offset slightly toward the front (local -y) and spread apart
+  const eyeY  = -4;
+  const eyeX  = 4;
+  const eyeR  = 3.2;
+  const eyePulse = 0.85 + Math.sin(spinPhase * 0.7) * 0.15; // subtle breathing
+
+  ctx.shadowColor = "#ff0000";
+  ctx.shadowBlur  = 18;
+  // Iris (bright red)
+  ctx.fillStyle = `rgba(255,30,0,${eyePulse})`;
+  ctx.beginPath(); ctx.arc(-eyeX, eyeY, eyeR, 0, PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( eyeX, eyeY, eyeR, 0, PI * 2); ctx.fill();
+
+  // Pupil (dark center)
+  ctx.shadowBlur = 0;
+  ctx.fillStyle  = "#220000";
+  ctx.beginPath(); ctx.arc(-eyeX + 0.5, eyeY + 0.5, eyeR * 0.45, 0, PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( eyeX + 0.5, eyeY + 0.5, eyeR * 0.45, 0, PI * 2); ctx.fill();
+
+  // Eye specular catchlight
+  ctx.fillStyle = "rgba(255,180,180,0.7)";
+  ctx.beginPath(); ctx.arc(-eyeX - 0.8, eyeY - 0.9, 0.9, 0, PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( eyeX - 0.8, eyeY - 0.9, 0.9, 0, PI * 2); ctx.fill();
+
+  // ── Central power button ─────────────────────────────────────────────────────
+  ctx.shadowColor = dashing ? "#00ffcc" : "#006644";
+  ctx.shadowBlur  = dashing ? 14 : 6;
+  ctx.fillStyle   = dashing ? "#00ffee" : "#00aa77";
+  ctx.beginPath();
+  ctx.arc(0, 4, 2.8, 0, PI * 2);
+  ctx.fill();
+  ctx.shadowBlur  = 0;
+  // Power symbol stroke
+  ctx.strokeStyle = dashing ? "rgba(0,255,200,0.6)" : "rgba(0,80,50,0.6)";
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.arc(0, 4, 1.5, -PI * 0.75, PI * 0.75);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, 2.5);
+  ctx.lineTo(0, 4.2);
+  ctx.stroke();
+
+  // ── Rear status LEDs (tiny, at the rear arc) ─────────────────────────────────
+  ctx.shadowColor = "#ff2200";
+  ctx.shadowBlur  = 6;
+  ctx.fillStyle   = "#cc1100";
+  ctx.beginPath(); ctx.arc(-5, R - 6, 1.8, 0, PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( 5, R - 6, 1.8, 0, PI * 2); ctx.fill();
+  ctx.shadowBlur  = 0;
 }
 
 // ─── ENEMY ───────────────────────────────────────────────────────────────────
