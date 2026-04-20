@@ -56,7 +56,7 @@ export function GameHUD({
   // clears the notch and status bar. Fall back to 10px on desktop web.
   const topPad    = Math.max(insets.top, isWeb ? 10 : 0);
   // Reserve space for the DOM sound button (38px) + its top offset
-  const hudTopPad = topPad + 44;
+  const hudTopPad = topPad + 68;
   const bottomPad = isWeb ? 34 : insets.bottom;
 
   const hpRatio      = hp / maxHp;

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -66,7 +67,7 @@ export function DeathScreen({
     <Animated.View style={[styles.container, { paddingTop: topPad, opacity: fadeAnim }]}>
       {/* Death header */}
       <Animated.View style={[styles.deathHeader, { transform: [{ translateY: slideAnim }] }]}>
-        <Text style={styles.deathLabel}>YOU DIED</Text>
+        <Text style={styles.deathLabel}>ROOMBA DIDN'T MAKE IT :(</Text>
         <Animated.Text style={[styles.deathTitle, { transform: [{ scale: pulseAnim }] }]}>
           CONSUMED
         </Animated.Text>
