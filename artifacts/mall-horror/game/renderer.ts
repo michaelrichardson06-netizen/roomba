@@ -11,11 +11,11 @@ function _drawThoughtBubble(
   alpha: number,
   canvasW: number, canvasH: number
 ) {
-  const LINE_H  = 11;
-  const PAD_X   = 6;
-  const PAD_Y   = 5;
-  const MAX_CHR = 19;   // chars per line before wrapping
-  const CHAR_W  = 5.6;  // approx monospace glyph width at 8px
+  const LINE_H  = 16;
+  const PAD_X   = 10;
+  const PAD_Y   = 8;
+  const MAX_CHR = 18;   // chars per line before wrapping
+  const CHAR_W  = 7.8;  // approx monospace glyph width at 11px
 
   // Word-wrap the text into short lines
   const lines: string[] = [];
@@ -71,7 +71,7 @@ function _drawThoughtBubble(
   ctx.fillRect(bx + boxW - 1, by,          1,    boxH); // right
 
   // Text in 8px pixel monospace
-  ctx.font = "700 8px monospace";
+  ctx.font = "700 11px monospace";
   ctx.fillStyle = "#1a1208";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
@@ -402,7 +402,7 @@ export function renderFrame(
 
   // ── Roomba inner monologue — pixel-art thought bubble ────────────────────
   if (state.currentThought) {
-    const DISPLAY_MS = 4800;
+    const DISPLAY_MS = 6800;
     const prog  = state.thoughtAge / DISPLAY_MS;
     const alpha = prog < 0.1 ? prog / 0.1 : prog > 0.85 ? (1 - prog) / 0.15 : 1;
     if (alpha > 0.01) {

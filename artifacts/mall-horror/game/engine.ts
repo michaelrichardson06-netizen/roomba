@@ -740,7 +740,7 @@ export function updateGame(
   s.floatingTexts = s.floatingTexts.map((ft) => ({ ...ft, age: ft.age + dt, y: ft.y + ft.vy * (dt / 16) })).filter((ft) => ft.age < ft.maxAge);
 
   // ── Roomba inner monologue ─────────────────────────────────────────────────
-  const THOUGHT_DISPLAY_MS = 4800;  // how long a thought stays visible
+  const THOUGHT_DISPLAY_MS = 6800;  // how long a thought stays visible
   if (s.currentThought !== null) {
     s.thoughtAge += dt;
     if (s.thoughtAge >= THOUGHT_DISPLAY_MS) {
