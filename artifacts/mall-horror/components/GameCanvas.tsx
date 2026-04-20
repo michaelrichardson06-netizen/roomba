@@ -187,6 +187,10 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   }, [onDeath]);
 
   useEffect(() => {
+    // On iOS/native the game runs inside a WebView — do NOT also run the engine
+    // here in the React Native layer, or enemies will spawn and damage the player
+    // invisibly (no canvas) and silently trigger death.
+    if (Platform.OS !== "web") return;
     rafRef.current = requestAnimationFrame(gameLoop);
     return () => {
       cancelAnimationFrame(rafRef.current);
