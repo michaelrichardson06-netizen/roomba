@@ -59,7 +59,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState>(createInitialState());
-  const inputRef = useRef({ dx: 0, dy: 0, aimAngle: 0, targetAimAngle: 0, useSmoothedAim: false, rightJoyActive: false, shooting: false, dashing: false, autoAim: false, shootOverrideAngle: null as number | null });
+  const inputRef = useRef({ dx: 0, dy: 0, aimAngle: 0, targetAimAngle: 0, useSmoothedAim: false, rightJoyActive: false, shooting: false, dashing: false, autoAim: false, shootOverrideAngle: null as number | null, rightOverrideSetAt: 0 });
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const hudTickRef = useRef<number>(0);
@@ -111,6 +111,19 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       let diff = ((target - curr + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
       const maxStep = dt * 0.022; // ~22 rad/s — snappy but still smooth on mobile
       inputRef.current.aimAngle = curr + (Math.abs(diff) < maxStep ? diff : Math.sign(diff) * maxStep);
+    }
+
+    // ── Stale override clear ───────────────────────────────────────────────
+    // If shootOverrideAngle was set (right stick dragged past dead zone) but the
+    // finger has been stationary for >250ms, clear it so the left stick can spin
+    // Roomba again. This prevents a stuck manual-aim that blocks rotation when
+    // holding the shoot button during heavy fire.
+    if (
+      inputRef.current.shootOverrideAngle !== null &&
+      Date.now() - inputRef.current.rightOverrideSetAt > 250
+    ) {
+      inputRef.current.shootOverrideAngle = null;
+      inputRef.current.autoAim = true;
     }
 
     const newState = updateGame(stateRef.current, dt, inputRef.current);
@@ -447,7 +460,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     const leftBase  = { x: 0, y: 0 };
     const rightBase = { x: 0, y: 0 };
     const JOY_CLAMP    = 55;
-    const R_DEAD_ZONE  = 20; // larger dead zone for right stick — prevents tiny-drag snaps
+    const R_DEAD_ZONE  = 35; // generous dead zone — prevents micro-drift from locking manual aim
 
     const resetLeft = () => {
       inputRef.current.dx = 0;
@@ -574,6 +587,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
             inputRef.current.targetAimAngle  = angle - Math.PI / 2;
             inputRef.current.shootOverrideAngle = angle;
             inputRef.current.autoAim = false;
+            inputRef.current.rightOverrideSetAt = Date.now(); // refresh stale-clear timer
           } else {
             // Tiny drag or hold still → auto-aim nearest enemy
             inputRef.current.shootOverrideAngle = null;
