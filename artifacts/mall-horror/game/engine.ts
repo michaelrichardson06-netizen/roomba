@@ -138,6 +138,7 @@ export function createInitialState(): GameState {
     waveModifier: "none" as WaveModifier,
     posters: [],
     tripleShot: false, quadShot: false, rapidFireStacks: 0, bazookaMode: false, lightningStrike: false, lightningArcs: [],
+    speedBoost: 0,
     playerDamageCooldown: 0,
     shootCooldown: 0, dashCooldown: 0, isDashing: false,
     dashDx: 0, dashDy: 0, dashTime: 0,
@@ -231,6 +232,15 @@ export function updateGame(
     }
   }
 
+  // ── Speed boost countdown ─────────────────────────────────────────────────
+  if (s.speedBoost > 0) {
+    s.speedBoost = Math.max(0, s.speedBoost - dt);
+    // Green trail particles while boosting
+    if (Math.random() < dt * 0.012) {
+      s.particles.push({ id: uid(), x: s.playerX + rand(-8, 8), y: s.playerY + rand(-8, 8), vx: rand(-1, 1), vy: rand(-1, 1), life: rand(120, 280), maxLife: 280, color: Math.random() > 0.5 ? "#00ff88" : "#00dd66", size: rand(2, 5) });
+    }
+  }
+
   // ── Berserker timer countdown ─────────────────────────────────────────────
   if (s.berserkerTimer > 0) {
     s.berserkerTimer = Math.max(0, s.berserkerTimer - dt);
@@ -289,7 +299,8 @@ export function updateGame(
         }
       }
     }
-    const speed = C.PLAYER_SPEED * (dt / 16);
+    const speedMult = s.speedBoost > 0 ? C.SPEED_BOOST_MULT : 1;
+    const speed = C.PLAYER_SPEED * speedMult * (dt / 16);
     const len = Math.sqrt(input.dx * input.dx + input.dy * input.dy);
     if (len > 0) { s.playerX += (input.dx / len) * speed; s.playerY += (input.dy / len) * speed; }
   }
@@ -839,6 +850,7 @@ function spawnBuff(state: GameState, x: number, y: number, wave: number) {
   if (wave >= 2) types.push("tripleShot");
   if (wave >= 3) types.push("bazookaMode");
   if (wave >= 4) types.push("lightningStrike");
+  types.push("speed"); // speed boost available every wave
 
   // Don't drop buffs the player already has (non-sticky: no benefit to re-picking)
   types = types.filter((t) => {
@@ -847,6 +859,7 @@ function spawnBuff(state: GameState, x: number, y: number, wave: number) {
     if (t === "bazookaMode" && state.bazookaMode)                    return false;
     if (t === "lightningStrike" && state.lightningStrike)            return false;
     if (t === "rapidFire"  && state.rapidFireStacks >= 3)            return false;
+    if (t === "speed"      && state.speedBoost > 0)                  return false;
     return true;
   });
 
@@ -880,6 +893,13 @@ function applyBuff(state: GameState, type: string) {
     for (let i = 0; i < 12; i++) {
       const a = Math.random() * Math.PI * 2;
       state.particles.push({ id: uid(), x: state.playerX, y: state.playerY, vx: Math.cos(a) * rand(2, 8), vy: Math.sin(a) * rand(2, 8), life: rand(150, 350), maxLife: 350, color: Math.random() > 0.4 ? "#88eeff" : "#ffffff", size: rand(2, 6) });
+    }
+  } else if (type === "speed") {
+    state.speedBoost = C.SPEED_BOOST_DURATION;
+    state.whiteFlash = 0.4;
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * Math.PI * 2;
+      state.particles.push({ id: uid(), x: state.playerX, y: state.playerY, vx: Math.cos(a) * rand(3, 9), vy: Math.sin(a) * rand(3, 9), life: rand(200, 500), maxLife: 500, color: Math.random() > 0.5 ? "#00ff88" : "#00dd66", size: rand(3, 7) });
     }
   } else if (type === "freezeWave") {
     // Launch expanding ice ring + freeze/slow all visible enemies

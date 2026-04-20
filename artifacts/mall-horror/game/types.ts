@@ -36,7 +36,7 @@ export interface BossWeb {
   age: number;
 }
 
-export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode" | "berserker" | "battery" | "lightningStrike" | "freezeWave";
+export type BuffType = "tripleShot" | "quadShot" | "rapidFire" | "bazookaMode" | "berserker" | "battery" | "lightningStrike" | "freezeWave" | "speed";
 
 export type WaveModifier = "none" | "darker" | "colorShift" | "megaBoss";
 
@@ -176,6 +176,7 @@ export interface GameState {
   rapidFireStacks: number;
   bazookaMode: boolean;
   lightningStrike: boolean;
+  speedBoost: number; // ms remaining (> 0 = active)
   lightningArcs: LightningArc[];
   bossWebs: BossWeb[];
   // Freeze wave

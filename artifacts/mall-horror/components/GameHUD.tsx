@@ -17,6 +17,7 @@ interface GameHUDProps {
   rapidFireStacks: number;
   bazookaMode: boolean;
   lightningStrike: boolean;
+  speedBoost: number;
   dashCooldown: number;
   spawnGrace: number;
   showDash?: boolean;
@@ -26,7 +27,7 @@ interface GameHUDProps {
 export function GameHUD({
   hp, maxHp, battery, maxBattery, berserkerTimer,
   score, wave, killCount, waveTotalKills,
-  tripleShot, quadShot, rapidFireStacks, bazookaMode, lightningStrike,
+  tripleShot, quadShot, rapidFireStacks, bazookaMode, lightningStrike, speedBoost,
   dashCooldown, spawnGrace, showDash, onDash,
 }: GameHUDProps) {
   const insets = useSafeAreaInsets();
@@ -161,6 +162,7 @@ export function GameHUD({
         {rapidFireStacks > 0 && <BuffBadge label={`R×${rapidFireStacks}`} color="#ffea00" />}
         {bazookaMode && !isBerserking && <BuffBadge label="BAZOOKA" color="#ff6d00" />}
         {lightningStrike && <BuffBadge label="⚡ CHAIN" color="#88eeff" />}
+        {speedBoost > 0 && <BuffBadge label={`SPD ${Math.ceil(speedBoost / 1000)}s`} color="#00ff88" />}
       </View>
 
       {/* Bottom controls — native OR touch web (showDash=true on iOS WebView) */}

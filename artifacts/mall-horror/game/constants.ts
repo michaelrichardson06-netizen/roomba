@@ -6,7 +6,9 @@ export const GAME_CONFIG = {
 
   // Player
   PLAYER_RADIUS: 14,
-  PLAYER_SPEED: 5.5,
+  PLAYER_SPEED: 3.4,          // slowed base speed
+  SPEED_BOOST_MULT: 1.65,     // speed buff multiplier
+  SPEED_BOOST_DURATION: 12000, // ms
   PLAYER_MAX_HP: 200,
 
   // Dash
@@ -135,6 +137,7 @@ export const BUFF_COLORS: Record<string, string> = {
   battery: "#44ff88",
   lightningStrike: "#88eeff",
   freezeWave: "#00cfff",
+  speed: "#00ff88",
 };
 
 export const ENEMY_COLORS: Record<string, { body: string; glow: string }> = {
