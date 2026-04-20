@@ -240,9 +240,9 @@ export function renderFrame(
     ctx.shadowBlur = 16;
     ctx.strokeStyle = "rgba(0,0,0,0.95)";
     ctx.lineWidth = 4;
-    ctx.strokeText("⚡ FLASHLIGHT DEAD — FIND BATTERY!", canvasW / 2, batY);
+    ctx.strokeText("🔋 ROOMBA BATTERY DEAD!", canvasW / 2, batY);
     ctx.fillStyle = "#ffaa00";
-    ctx.fillText("⚡ FLASHLIGHT DEAD — FIND BATTERY!", canvasW / 2, batY);
+    ctx.fillText("🔋 ROOMBA BATTERY DEAD!", canvasW / 2, batY);
     ctx.shadowBlur = 0;
     ctx.restore();
   }

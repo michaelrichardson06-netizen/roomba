@@ -6,7 +6,7 @@ import { createInitialState, updateGame } from "@/game/engine";
 import { renderFrame } from "@/game/renderer";
 import type { GameState } from "@/game/types";
 import { GameHUD } from "./GameHUD";
-import { unlockAudio, startBgMusic, stopBgMusic, playShoot, playZap, playBerserkerStart, playHit, playBatteryLow, getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume } from "@/game/audio";
+import { unlockAudio, startBgMusic, stopBgMusic, playShoot, playZap, playBerserkerStart, playHit, playBatteryLow, playBatteryRecharge, getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume } from "@/game/audio";
 
 interface GameCanvasProps {
   onDeath: (state: GameState) => void;
@@ -73,6 +73,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const prevBulletCount    = useRef(0);
   const prevBerserking     = useRef(false);
   const prevBatteryEmpty   = useRef(false);
+  const prevBatteryLevel   = useRef(100);
   const prevLightningCount = useRef(0);
   const prevRedFlash       = useRef(0);
 
@@ -117,6 +118,10 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       const nowEmpty = newState.battery <= 0;
       if (nowEmpty) playBatteryLow();
       prevBatteryEmpty.current = nowEmpty;
+
+      // Battery recharge pickup (battery jumped up significantly = collected a battery)
+      if (newState.battery > prevBatteryLevel.current + 10) playBatteryRecharge();
+      prevBatteryLevel.current = newState.battery;
 
       // Player hit sound (redFlash spiked up = new hit)
       if (newState.redFlash > prevRedFlash.current + 0.4) playHit();
@@ -447,6 +452,19 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     const onTouchStart = (e: TouchEvent) => {
       unlockAudio(); // always unblock AudioContext on any gesture (passive handler, no preventDefault)
 
+      // ── Purge stale roles (iOS touchcancel may have been missed) ─────────────
+      // If a touch ID in our role map is no longer in e.touches, that touch ended
+      // without us seeing a touchend/touchcancel — clear it now so the slot is free.
+      const activeIds = new Set(Array.from(e.touches).map(t => t.identifier));
+      for (const [id, role] of touchRole.entries()) {
+        if (!activeIds.has(id)) {
+          console.warn(`[INPUT] stale ${role} touch id=${id} — purging`);
+          touchRole.delete(id);
+          if (role === "left") resetLeft();
+          if (role === "right") resetRight();
+        }
+      }
+
       // Only claim touches in the bottom 40% as joystick input.
       // Touches in the top 60% (HUD buttons) are left completely alone — no role assigned,
       // so touchmove won't preventDefault for them either.
@@ -571,10 +589,18 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
     // touchstart is NON-PASSIVE so iOS Safari grants full gesture context for
     // AudioContext.resume() + buffer.start() inside unlockAudio().
     // Scroll prevention is handled in touchmove (also non-passive).
+    const onTouchCancel = (e: TouchEvent) => {
+      // iOS fires touchcancel when the OS interrupts (notifications, app switcher,
+      // context menus, long-press system gestures). Log it so it appears in death logs.
+      const roles = Array.from(e.changedTouches).map(t => touchRole.get(t.identifier) ?? "unowned").join(",");
+      console.warn(`[INPUT] touchcancel — roles=${roles} cancelled=${e.changedTouches.length} remaining=${e.touches.length}`);
+      onTouchEnd(e);
+    };
+
     document.addEventListener("touchstart", onTouchStart, { passive: false });
     document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: false });
-    document.addEventListener("touchcancel", onTouchEnd, { passive: false });
+    document.addEventListener("touchcancel", onTouchCancel, { passive: false });
 
     return () => {
       document.removeEventListener("gesturestart", noDefault);
@@ -589,7 +615,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", onTouchEnd);
-      document.removeEventListener("touchcancel", onTouchEnd);
+      document.removeEventListener("touchcancel", onTouchCancel);
       if (style.parentNode) style.parentNode.removeChild(style);
       if (soundBtn.parentNode) soundBtn.parentNode.removeChild(soundBtn);
       if (soundPanel.parentNode) soundPanel.parentNode.removeChild(soundPanel);

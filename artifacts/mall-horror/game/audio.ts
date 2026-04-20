@@ -64,6 +64,41 @@ export function setSfxVolume(vol: number) {
   try { localStorage.setItem(STORAGE_KEY_SFX, String(_sfxVol)); } catch {}
 }
 
+// ─── Battery recharge pickup ───────────────────────────────────────────────────
+export function playBatteryRecharge() {
+  const ac  = getCtx();
+  const dst = sfx();
+  if (!ac || !dst) return;
+
+  const now = ac.currentTime;
+  // Rising electrical hum: two oscillators sweep up in pitch
+  const freqs = [220, 330, 440, 660];
+  freqs.forEach((freq, i) => {
+    const t   = now + i * 0.045;
+    const osc = ac.createOscillator();
+    const g   = ac.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq * 0.5, t);
+    osc.frequency.exponentialRampToValueAtTime(freq, t + 0.08);
+    g.gain.setValueAtTime(0.0, t);
+    g.gain.linearRampToValueAtTime(0.14, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    osc.connect(g); g.connect(dst);
+    osc.start(t); osc.stop(t + 0.2);
+  });
+  // Final bright sparkle at the end
+  const sparkT = now + freqs.length * 0.045 + 0.02;
+  const sparkOsc = ac.createOscillator();
+  const sparkG   = ac.createGain();
+  sparkOsc.type = "triangle";
+  sparkOsc.frequency.setValueAtTime(1320, sparkT);
+  sparkOsc.frequency.exponentialRampToValueAtTime(2640, sparkT + 0.12);
+  sparkG.gain.setValueAtTime(0.18, sparkT);
+  sparkG.gain.exponentialRampToValueAtTime(0.001, sparkT + 0.18);
+  sparkOsc.connect(sparkG); sparkG.connect(dst);
+  sparkOsc.start(sparkT); sparkOsc.stop(sparkT + 0.2);
+}
+
 // ─── Shoot (sci-fi laser) ─────────────────────────────────────────────────────
 let lastShootTime = 0;
 
