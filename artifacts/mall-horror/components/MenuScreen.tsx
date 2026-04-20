@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
+  ImageBackground,
   Platform,
   StyleSheet,
   Text,
@@ -8,6 +9,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const BG_IMAGE = require("../assets/images/icon.png");
 
 // ── Draw a static mall background on a canvas (web only) ─────────────────────
 function drawMenuBackground(canvas: HTMLCanvasElement) {
@@ -195,7 +198,7 @@ export function MenuScreen({ onStart, highScore, bestWave }: MenuScreenProps) {
     ).start();
   }, []);
 
-  return (
+  const inner = (
     <View style={[styles.container, { paddingTop: topPad }]}>
       {/* Mall background canvas (web only) */}
       {isWeb && (
@@ -204,6 +207,8 @@ export function MenuScreen({ onStart, highScore, bestWave }: MenuScreenProps) {
           style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" } as React.CSSProperties}
         />
       )}
+      {/* Dark overlay for native so text stays readable */}
+      {!isWeb && <View style={styles.nativeOverlay} />}
       {/* Background scanlines effect */}
       <View style={styles.scanlines} />
 
@@ -267,12 +272,34 @@ export function MenuScreen({ onStart, highScore, bestWave }: MenuScreenProps) {
       <Text style={styles.warning}>WARNING: INFESTATION LEVEL CRITICAL</Text>
     </View>
   );
+
+  if (!isWeb) {
+    return (
+      <ImageBackground
+        source={BG_IMAGE}
+        style={styles.bgImage}
+        resizeMode="cover"
+      >
+        {inner}
+      </ImageBackground>
+    );
+  }
+
+  return inner;
 }
 
 const styles = StyleSheet.create({
+  bgImage: {
+    flex: 1,
+  },
+  nativeOverlay: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(3,2,1,0.72)",
+  },
   container: {
     flex: 1,
-    backgroundColor: "#050403",
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
