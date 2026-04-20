@@ -84,14 +84,13 @@ export function GameHUD({
           </View>
           <Text style={[styles.smallText, { color: hpColor }]}>{Math.ceil(hp)}</Text>
 
-          <Text style={[styles.label, { marginTop: 4 }]}>⚡ BATTERY</Text>
+          <Text style={[styles.label, { marginTop: 4, color: batteryRatio < 0.2 ? "#ff4400" : "#ffffff" }]}>
+            {batteryRatio < 0.2 ? "⚡ BATTERY ⚠ LOW" : "⚡ BATTERY"}
+          </Text>
           <View style={styles.barTrack}>
             <View style={[styles.barFill, { width: `${batteryRatio * 100}%` as any, backgroundColor: batteryColor }]} />
           </View>
           <Text style={[styles.smallText, { color: batteryColor }]}>{Math.ceil(battery)}%</Text>
-          {batteryRatio < 0.2 && (
-            <Text style={styles.batteryWarn}>⚠ LOW BATTERY</Text>
-          )}
 
           <Text style={[styles.label, { marginTop: 4, color: waveProgress < 1 ? "#ff8844" : "#ff2222" }]}>
             {waveProgress < 1 ? "🛡 BOSS SHIELD" : "⚠ BOSS EXPOSED"}
@@ -238,15 +237,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textShadow: "0 0 8px rgba(255,220,0,0.9), 0 1px 3px rgba(0,0,0,0.99)" as any,
     pointerEvents: "none" as any,
-  },
-
-  batteryWarn: {
-    color: "#ff4400",
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 1,
-    marginTop: 2,
-    textShadow: "0 0 6px rgba(255,80,0,0.9)" as any,
   },
 
   berserkerBar: { alignItems: "center", paddingHorizontal: 20, paddingTop: 6, gap: 3 },
