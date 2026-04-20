@@ -214,16 +214,16 @@ export function MenuScreen({ onStart, highScore, bestWave }: MenuScreenProps) {
 
       {/* Flickering mall name */}
       <Animated.View style={[styles.mallNameContainer, { opacity: flickerAnim }]}>
-        <Text style={styles.mallName}>WESTFIELD DEAD</Text>
-        <Text style={styles.mallSubName}>SHOPPING CENTRE</Text>
+        <Text style={styles.mallName}>WESTFIELD DEAD MALL</Text>
+        <Text style={styles.mallSubName}>INFESTATION ZONE</Text>
       </Animated.View>
 
       {/* Title */}
       <Animated.View style={[styles.titleContainer, { transform: [{ translateX: glitchAnim }] }]}>
         <Animated.Text style={[styles.title, { transform: [{ scale: pulseAnim }] }]}>
-          MALL{"\n"}HORROR
+          I AM{"\n"}ROOMBA
         </Animated.Text>
-        <Text style={styles.subtitle}>SURVIVAL SHOOTER</Text>
+        <Text style={styles.subtitle}>SURVIVE. EXTERMINATE. ENDURE.</Text>
       </Animated.View>
 
       {/* Decorative bugs */}
@@ -256,20 +256,8 @@ export function MenuScreen({ onStart, highScore, bestWave }: MenuScreenProps) {
         <Text style={styles.startText}>[ ENTER MALL ]</Text>
       </TouchableOpacity>
 
-      {/* Instructions */}
-      <View style={styles.instructions}>
-        <Text style={styles.instrTitle}>HOW TO SURVIVE</Text>
-        <Text style={styles.instrText}>
-          {Platform.OS === "web"
-            ? "WASD/Arrows: Move   Mouse: Aim + Flashlight   Click: Fire   Space: Dash"
-            : "Left stick: Move + Flashlight   Right stick: Shoot direction   Tap right: Auto-aim"}
-        </Text>
-        <Text style={styles.instrText}>Kill {100} insects to break the BOSS SHIELD, then destroy the boss</Text>
-        <Text style={styles.instrText}>Collect ELITE drops  |  No healing  |  Survive as long as you can</Text>
-      </View>
-
       {/* Warning footer */}
-      <Text style={styles.warning}>WARNING: INFESTATION LEVEL CRITICAL</Text>
+      <Text style={styles.warning}>⚠ INFESTATION LEVEL: CRITICAL</Text>
     </View>
   );
 

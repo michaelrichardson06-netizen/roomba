@@ -58,7 +58,7 @@ export function GameHUD({
       <View style={[styles.topBar, { paddingTop: hudTopPad }]}>
         {/* HP + Battery stacked */}
         <View style={styles.leftSection}>
-          <Text style={styles.label}>HP</Text>
+          <Text style={styles.label}>INTEGRITY</Text>
           <View style={styles.barTrack}>
             <View style={[styles.barFill, { width: `${hpRatio * 100}%` as any, backgroundColor: hpColor }]} />
           </View>

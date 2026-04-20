@@ -104,11 +104,25 @@ export function updateGame(
   s.redFlash   = Math.max(0, s.redFlash   - dt * 2.5); // slightly slower decay so it's readable
 
   // ── Battery drain ─────────────────────────────────────────────────────────
-  // When battery = 0 the flashlight cuts out (darkness is the penalty — no HP drain).
-  // Player can only die from enemies, not from a silent background timer.
   s.battery = Math.max(0, s.battery - C.BATTERY_DRAIN_RATE * dt / 1000);
-  if (s.battery <= 0) {
-    // Occasional white flicker so the player notices the lights are out
+  if (s.battery <= 0 && s.hp > 0) {
+    // Structural integrity drain while on backup battery
+    const drainAmt = C.BATTERY_HEALTH_DRAIN * dt / 1000;
+    const hpBefore = s.hp;
+    s.hp = Math.max(0, s.hp - drainAmt);
+    s.redFlash = Math.max(s.redFlash, 0.18);
+    // Log drain + floating text every ~2 seconds so damage log is readable
+    const crossedBoundary = Math.floor(s.gameTime / 2000) > Math.floor((s.gameTime - dt) / 2000);
+    if (crossedBoundary) {
+      s.floatingTexts.push({ id: uid(), x: s.playerX + rand(-8, 8), y: s.playerY - 32, text: `-${(C.BATTERY_HEALTH_DRAIN * 2).toFixed(0)} STRUCTURE`, age: 0, maxAge: 900, color: "#ff8800", vy: -0.9 });
+      logDmg(s, "battery_drain", Math.round(drainAmt * 2), hpBefore, s.hp, "backup battery");
+    }
+    if (s.hp <= 0) {
+      s.deathCause = `battery_drain: structural failure (was ${Math.round(hpBefore)} integrity)`;
+      s.hpAtDeath = hpBefore;
+      s.phase = "dead";
+    }
+    // Occasional white flicker
     if (Math.random() < 0.025) s.whiteFlash = Math.max(s.whiteFlash, 0.06);
   }
 
@@ -264,13 +278,34 @@ export function updateGame(
     }
   }
 
-  // ── Move bullets ──────────────────────────────────────────────────────────
+  // ── Move bullets (with subtle magnetism toward nearest non-immune enemy) ──
   const bulletStep = dt / 16;
-  s.bullets = s.bullets.map((b) => ({
-    ...b,
-    x: b.x + b.vx * bulletStep, y: b.y + b.vy * bulletStep,
-    trail: [...b.trail, { x: b.x, y: b.y }].slice(-6),
-  })).filter((b) => b.x > -100 && b.x < s.mapWidth + 100 && b.y > -100 && b.y < s.mapHeight + 100);
+  s.bullets = s.bullets.map((b) => {
+    let vx = b.vx, vy = b.vy;
+    // Magnetism: gently steer toward nearest non-immune enemy within 320px
+    let nearestD = Infinity;
+    let nearestEx = 0, nearestEy = 0;
+    for (const e of s.enemies) {
+      if (e.isImmune) continue;
+      const d = Math.hypot(e.x - b.x, e.y - b.y);
+      if (d < nearestD && d < 320) { nearestD = d; nearestEx = e.x; nearestEy = e.y; }
+    }
+    if (nearestD < 320) {
+      const dx = nearestEx - b.x, dy = nearestEy - b.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const pull = 0.055 * bulletStep;
+      vx += (dx / d) * C.BULLET_SPEED * pull;
+      vy += (dy / d) * C.BULLET_SPEED * pull;
+      const spd = Math.hypot(vx, vy) || 1;
+      vx = (vx / spd) * C.BULLET_SPEED;
+      vy = (vy / spd) * C.BULLET_SPEED;
+    }
+    return {
+      ...b, vx, vy,
+      x: b.x + vx * bulletStep, y: b.y + vy * bulletStep,
+      trail: [...b.trail, { x: b.x, y: b.y }].slice(-6),
+    };
+  }).filter((b) => b.x > -100 && b.x < s.mapWidth + 100 && b.y > -100 && b.y < s.mapHeight + 100);
 
   // ── Spawn grace countdown ─────────────────────────────────────────────────
   if (s.spawnGrace > 0) s.spawnGrace = Math.max(0, s.spawnGrace - dt);

@@ -93,7 +93,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       const target = inputRef.current.targetAimAngle;
       // Angular shortest-path lerp
       let diff = ((target - curr + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-      const maxStep = dt * 0.009; // ~9 rad/s — fast but not instant
+      const maxStep = dt * 0.022; // ~22 rad/s — snappy but still smooth on mobile
       inputRef.current.aimAngle = curr + (Math.abs(diff) < maxStep ? diff : Math.sign(diff) * maxStep);
     }
 
@@ -601,9 +601,12 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       onTouchEnd(e);
     };
 
+    // Re-unlock audio on touchend too — iOS WebView sometimes misses touchstart unlock
+    const onTouchEndUnlock = () => { unlockAudio(); };
     document.addEventListener("touchstart", onTouchStart, { passive: false });
     document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: false });
+    document.addEventListener("touchend", onTouchEndUnlock, { passive: true });
     document.addEventListener("touchcancel", onTouchCancel, { passive: false });
 
     return () => {
@@ -619,6 +622,7 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", onTouchEnd);
+      document.removeEventListener("touchend", onTouchEndUnlock);
       document.removeEventListener("touchcancel", onTouchCancel);
       if (style.parentNode) style.parentNode.removeChild(style);
       if (soundBtn.parentNode) soundBtn.parentNode.removeChild(soundBtn);
