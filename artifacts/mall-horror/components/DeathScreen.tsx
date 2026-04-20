@@ -112,10 +112,10 @@ export function DeathScreen({
       {/* Damage log */}
       {damageLog.length > 0 && (
         <View style={styles.logCard}>
-          <Text style={styles.logTitle}>DAMAGE LOG (last {damageLog.length})</Text>
+          <Text style={styles.logTitle}>DAMAGE LOG — scroll to see all {damageLog.length} hits</Text>
           <ScrollView style={styles.logScroll} nestedScrollEnabled>
             {[...damageLog].reverse().map((entry, i) => (
-              <Text key={i} style={styles.logEntry} numberOfLines={2}>{entry}</Text>
+              <Text key={i} style={[styles.logEntry, i === 0 && styles.logEntryFirst]}>{entry}</Text>
             ))}
           </ScrollView>
         </View>
@@ -323,30 +323,37 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   logCard: {
-    backgroundColor: "rgba(5,2,2,0.95)",
+    backgroundColor: "rgba(5,2,2,0.97)",
     borderWidth: 1,
-    borderColor: "#2a0808",
+    borderColor: "#661111",
     borderRadius: 6,
-    padding: 10,
+    padding: 12,
     width: "100%",
-    maxWidth: 340,
+    maxWidth: 360,
   },
   logTitle: {
-    color: "#441111",
-    fontSize: 9,
+    color: "#ff6644",
+    fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 3,
-    marginBottom: 6,
+    letterSpacing: 1,
+    marginBottom: 8,
     textAlign: "center",
   },
   logScroll: {
-    maxHeight: 120,
+    maxHeight: 180,
   },
   logEntry: {
-    color: "#663333",
-    fontSize: 9,
+    color: "#ccaa88",
+    fontSize: 11,
     fontFamily: Platform.OS === "web" ? "monospace" : "Courier",
-    lineHeight: 14,
-    marginBottom: 2,
+    lineHeight: 17,
+    marginBottom: 3,
+    paddingVertical: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1a0505",
+  },
+  logEntryFirst: {
+    color: "#ff4444",
+    fontWeight: "700",
   },
 });

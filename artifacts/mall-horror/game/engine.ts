@@ -21,7 +21,7 @@ function logDmg(
   const entry = `[${t}s] ${cause}: -${dmg} | HP ${Math.round(hpBefore)}→${Math.round(hpAfter)} | pCd=${Math.round(s.playerDamageCooldown)} pos=(${Math.round(s.playerX)},${Math.round(s.playerY)})${extraCtx ? " | " + extraCtx : ""}`;
   console.log("[DAMAGE]", entry);
   s.damageLog.push(entry);
-  if (s.damageLog.length > 20) s.damageLog.splice(0, s.damageLog.length - 20);
+  if (s.damageLog.length > 30) s.damageLog.splice(0, s.damageLog.length - 30);
 }
 
 function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number): Enemy {
