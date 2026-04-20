@@ -74,18 +74,25 @@ function waveModifierFor(wave: number): WaveModifier {
   return "none";
 }
 
+const MAX_POSTERS = 13;
 // Drop 4-7 worn-out advertisement posters at random floor spots for a new wave
 function addWavePosters(s: GameState) {
   const count = 4 + (s.wave % 4);
   for (let i = 0; i < count; i++) {
     const x = rand(120, s.mapWidth - 120);
     const y = rand(120, s.mapHeight - 120);
-    if (dist(x, y, s.playerX, s.playerY) < 220) continue; // don't spawn on top of player
+    if (dist(x, y, s.playerX, s.playerY) < 220) continue;
+    const maxLife = rand(18000, 35000); // 18–35 seconds on the floor
     s.posters.push({
       id: uid(), x, y,
       angle: (Math.random() - 0.5) * 0.55,
       design: Math.floor(Math.random() * 5),
+      life: maxLife, maxLife,
     } as Poster);
+  }
+  // Cap total posters on screen
+  if (s.posters.length > MAX_POSTERS) {
+    s.posters = s.posters.slice(s.posters.length - MAX_POSTERS);
   }
 }
 
@@ -725,6 +732,9 @@ export function updateGame(
 
   // ── Ice waves (expanding freeze ring) ─────────────────────────────────────
   s.iceWaves = s.iceWaves.map((w) => ({ ...w, age: w.age + dt, radius: w.maxRadius * Math.min(1, (w.age + dt) / w.maxAge) })).filter((w) => w.age < w.maxAge);
+
+  // ── Poster lifetime tick ────────────────────────────────────────────────
+  s.posters = s.posters.map((p) => ({ ...p, life: p.life - dt })).filter((p) => p.life > 0);
 
   // ── Floating texts (IMMUNE! etc.) ─────────────────────────────────────────
   s.floatingTexts = s.floatingTexts.map((ft) => ({ ...ft, age: ft.age + dt, y: ft.y + ft.vy * (dt / 16) })).filter((ft) => ft.age < ft.maxAge);

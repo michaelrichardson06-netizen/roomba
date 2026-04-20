@@ -116,7 +116,7 @@ const POSTER_DESIGNS = [
 
 function drawPosters(
   ctx: CanvasRenderingContext2D,
-  posters: Array<{ id: string; x: number; y: number; angle: number; design: number }>,
+  posters: Array<{ id: string; x: number; y: number; angle: number; design: number; life: number; maxLife: number }>,
   cameraX: number, cameraY: number, canvasW: number, canvasH: number
 ) {
   for (const p of posters) {
@@ -124,10 +124,19 @@ function drawPosters(
     const sx = p.x - cameraX, sy = p.y - cameraY;
     if (sx < -160 || sx > canvasW + 160 || sy < -120 || sy > canvasH + 120) continue;
 
+    // Fade in first 1s, fade out last 4s
+    const FADE_IN = 1000, FADE_OUT = 4000;
+    const age = p.maxLife - p.life;
+    const fadeIn  = Math.min(1, age / FADE_IN);
+    const fadeOut = p.life < FADE_OUT ? p.life / FADE_OUT : 1;
+    const alpha = fadeIn * fadeOut;
+    if (alpha <= 0) continue;
+
     const d = POSTER_DESIGNS[p.design % POSTER_DESIGNS.length];
     const pw = 96, ph = 62;
 
     ctx.save();
+    ctx.globalAlpha = alpha;
     ctx.translate(p.x, p.y);
     ctx.rotate(p.angle);
 

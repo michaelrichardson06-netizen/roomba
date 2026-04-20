@@ -67,9 +67,8 @@ export function DeathScreen({
     <Animated.View style={[styles.container, { paddingTop: topPad, opacity: fadeAnim }]}>
       {/* Death header */}
       <Animated.View style={[styles.deathHeader, { transform: [{ translateY: slideAnim }] }]}>
-        <Text style={styles.deathLabel}>ROOMBA DIDN'T MAKE IT :(</Text>
         <Animated.Text style={[styles.deathTitle, { transform: [{ scale: pulseAnim }] }]}>
-          CONSUMED
+          ROOMBA{"\n"}DIDN'T MAKE IT :(
         </Animated.Text>
         <Text style={styles.deathSub}>The insects have claimed another victim</Text>
       </Animated.View>

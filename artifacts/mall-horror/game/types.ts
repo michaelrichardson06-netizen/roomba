@@ -46,6 +46,8 @@ export interface Poster {
   y: number;
   angle: number;   // radians, slight rotation for worn look
   design: number;  // 0–4: different ad designs
+  life: number;    // ms remaining
+  maxLife: number; // ms total (for fade-out)
 }
 
 export interface LightningArc {
