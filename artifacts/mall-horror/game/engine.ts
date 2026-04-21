@@ -422,17 +422,22 @@ export function updateGame(
       const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
       s.enemies.push(makeEnemy("boss", pos.x, pos.y, s.wave, s.waveModifier === "megaBoss"));
     }
-    // Regular enemies spawn throughout the wave — capped so a wall of bodies never forms
+    // Regular enemies spawn throughout the wave — capped so a wall of bodies never forms.
+    // Effective cap grows per wave (progressive pressure) up to the hard cap.
+    // Batch size grows EXPONENTIALLY so late waves feel dramatically denser.
     if (s.spawnTimer >= spawnInterval) {
       s.spawnTimer = 0;
+      const effectiveCap = Math.min(C.MAX_ENEMY_COUNT, 8 + s.wave * 2);
       const nonBossCount = s.enemies.filter((e) => e.type !== "boss").length;
-      if (nonBossCount < C.MAX_ENEMY_COUNT) {
+      if (nonBossCount < effectiveCap) {
         const batchSize = Math.min(
-          C.MAX_ENEMY_COUNT - nonBossCount, // never exceed the cap
-          Math.ceil(C.SPAWN_COUNT_BASE + (s.wave - 1) * C.SPAWN_COUNT_SCALE),
+          effectiveCap - nonBossCount,
+          Math.ceil(C.SPAWN_COUNT_BASE * Math.pow(C.SPAWN_COUNT_SCALE, s.wave - 1)),
         );
+        // Elite chance scales up every 3 waves: 18% → 25% → 32% → 39% → 46% cap
+        const eliteChance = Math.min(0.46, 0.18 + Math.floor(s.wave / 3) * 0.07);
         for (let i = 0; i < batchSize; i++) {
-          const type: Enemy["type"] = Math.random() < 0.22 ? "elite" : "standard";
+          const type: Enemy["type"] = Math.random() < eliteChance ? "elite" : "standard";
           const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
           s.enemies.push(makeEnemy(type, pos.x, pos.y, s.wave));
         }

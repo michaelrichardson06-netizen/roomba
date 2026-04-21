@@ -18,7 +18,7 @@ export const GAME_CONFIG = {
 
   // Shooting
   BASE_SHOOT_COOLDOWN: 350,
-  RAPID_FIRE_REDUCTION: 0.62,
+  RAPID_FIRE_REDUCTION: 0.60,    // was 0.62 — rapid fire slightly more effective
   BULLET_SPEED: 14,
   BULLET_RADIUS: 9,
   BULLET_MAX_DIST: 360,     // pixels before bullet fades out
@@ -27,7 +27,7 @@ export const GAME_CONFIG = {
   // Bazooka
   BAZOOKA_SPEED: 5,
   BAZOOKA_RADIUS: 10,
-  BAZOOKA_EXPLOSION_RADIUS: 250,
+  BAZOOKA_EXPLOSION_RADIUS: 290,  // was 250 — bigger blast radius for crowds
 
   // Flashlight
   FLASHLIGHT_LENGTH: 520,
@@ -40,9 +40,9 @@ export const GAME_CONFIG = {
   ENEMY_SPEED_STANDARD: 1.2,
   ENEMY_SPEED_ELITE: 1.5,
   ENEMY_SPEED_BOSS: 0.9,
-  ENEMY_HP_STANDARD: 30,
-  ENEMY_HP_ELITE: 70,
-  ENEMY_HP_BOSS: 750,
+  ENEMY_HP_STANDARD: 38,       // was 30 (+27% tougher baseline)
+  ENEMY_HP_ELITE: 88,          // was 70
+  ENEMY_HP_BOSS: 860,          // was 750
   MEGA_BOSS_HP_MULT: 3.5,
   MEGA_BOSS_RADIUS_MULT: 1.85,
   ENEMY_RADIUS_STANDARD: 14,
@@ -50,20 +50,20 @@ export const GAME_CONFIG = {
   ENEMY_RADIUS_BOSS: 36,
 
   // Wave scaling
-  WAVE_HP_SCALE: 0.10,         // +10% HP per wave (linear baseline)
-  WAVE_3WAVE_HP_BOOST: 0.35,   // Additional +35% HP spike every 3 waves (wave 4, 7, 10…)
+  WAVE_HP_SCALE: 0.13,         // +13% HP per wave (was 0.10)
+  WAVE_3WAVE_HP_BOOST: 0.40,   // Additional +40% HP spike every 3 waves (was 0.35)
   WAVE_DENSITY_SCALE: 0.18,
   WAVE_BASE_KILLS: 30,         // Wave 1 kill threshold (boss immune until met)
-  WAVE_KILL_INCREMENT: 20,     // Per wave: 30 → 50 → 70 → 90 …
+  WAVE_KILL_INCREMENT: 25,     // Per wave: 30 → 55 → 80 → 105 … (was 20)
   WAVE_SPEED_SCALE: 0.07,
-  MAX_ENEMY_COUNT: 12,         // Max non-boss enemies on screen (was 8)
-  SPAWN_COUNT_BASE: 1,         // Enemies per spawn batch (wave 1)
-  SPAWN_COUNT_SCALE: 1.45,     // Grows per wave: w1=1, w2=2, w3=4, w5=7 …
+  MAX_ENEMY_COUNT: 32,         // Hard cap for non-boss enemies; effective cap grows per wave
+  SPAWN_COUNT_BASE: 2,         // Base enemies per spawn batch (wave 1)
+  SPAWN_COUNT_SCALE: 1.38,     // Exponential multiplier per wave: w1=2, w3=4, w5=8, w8=19…
 
-  // Scoring (higher values for competitive high-score feel)
-  SCORE_STANDARD: 5,
-  SCORE_ELITE: 12,
-  SCORE_BOSS: 25,
+  // Scoring (bigger numbers for high-density waves)
+  SCORE_STANDARD: 7,           // was 5
+  SCORE_ELITE: 18,             // was 12
+  SCORE_BOSS: 35,              // was 25
 
   // Knockback
   KNOCKBACK_STANDARD: 6,
@@ -75,8 +75,8 @@ export const GAME_CONFIG = {
   SHAKE_BAZOOKA: 6,
 
   // Drop rates
-  ELITE_DROP_CHANCE: 0.55,
-  BOSS_BERSERKER_DROP_CHANCE: 0.3,
+  ELITE_DROP_CHANCE: 0.62,          // was 0.55 — more drops for harder enemies
+  BOSS_BERSERKER_DROP_CHANCE: 0.38, // was 0.30
 
   // Lamps per scene
   LAMP_COUNT: 28,
@@ -110,9 +110,9 @@ export const GAME_CONFIG = {
   FREEZE_SLOW_BOSS: 0.38,           // speed multiplier for boss while frozen
 
   // ── Lightning Strike ─────────────────────────────────────────────────────
-  LIGHTNING_CHAIN_RADIUS: 220,   // px — max distance to chain to nearby enemy
-  LIGHTNING_CHAIN_DAMAGE: 18,    // damage per chained enemy
-  LIGHTNING_CHAIN_COUNT: 4,      // max enemies chained per hit
+  LIGHTNING_CHAIN_RADIUS: 240,   // px — slightly longer chain reach (was 220)
+  LIGHTNING_CHAIN_DAMAGE: 24,    // damage per chained enemy (was 18, +33%)
+  LIGHTNING_CHAIN_COUNT: 5,      // max enemies chained per hit (was 4)
   LIGHTNING_ARC_LIFE: 280,       // ms arcs stay visible
   LIGHTNING_AMBIENT_RADIUS: 180, // px — ambient static arc range between enemies
 
@@ -123,8 +123,8 @@ export const GAME_CONFIG = {
   BERSERKER_HP_THRESHOLD: 0.3,   // auto-triggers at 30% HP
   BERSERKER_DURATION_AUTO: 30000, // 30 seconds (automatic)
   BERSERKER_DURATION_BUFF: 15000, // 15 seconds (from boss drop)
-  BERSERKER_AOE_RADIUS: 120,     // pixels
-  BERSERKER_AOE_DPS: 14,         // damage per second to nearby enemies
+  BERSERKER_AOE_RADIUS: 140,     // pixels (was 120 — bigger AOE for denser crowds)
+  BERSERKER_AOE_DPS: 20,         // damage per second to nearby enemies (was 14, +43%)
   BERSERKER_SPREAD: 8,           // bullets in the 180° arc
 };
 
