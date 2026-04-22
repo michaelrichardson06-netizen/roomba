@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Constants from "expo-constants";
 import { WebView } from "react-native-webview";
 import type WebViewType from "react-native-webview";
@@ -12,6 +12,7 @@ import { unlockAudio, startBgMusic, stopBgMusic, playShoot, playZap, playBerserk
 
 interface GameCanvasProps {
   onDeath: (state: GameState) => void;
+  onExit: () => void;
 }
 
 interface HUDState {
@@ -58,7 +59,7 @@ const DEFAULT_HUD: HUDState = {
 
 const IDLE_JOY: JoyState = { active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 };
 
-export function GameCanvas({ onDeath }: GameCanvasProps) {
+export function GameCanvas({ onDeath, onExit }: GameCanvasProps) {
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState>(createInitialState());
@@ -73,6 +74,9 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
   const [hudState, setHudState] = useState<HUDState>(DEFAULT_HUD);
   const [leftJoy, setLeftJoy] = useState<JoyState>(IDLE_JOY);
   const [rightJoy, setRightJoy] = useState<JoyState>(IDLE_JOY);
+  const [isPaused, setIsPaused] = useState(false);
+  const isPausedRef = useRef(false);
+  const gameLoopRef = useRef<FrameRequestCallback>(() => {});
   const isMobileRef = useRef(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const webviewRef = useRef<WebViewType>(null);
@@ -220,6 +224,24 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
 
     rafRef.current = requestAnimationFrame(gameLoop);
   }, [onDeath]);
+
+  // Keep gameLoopRef current so pause/resume can restart the loop
+  useEffect(() => { gameLoopRef.current = gameLoop; }, [gameLoop]);
+
+  const handlePause = useCallback(() => {
+    isPausedRef.current = true;
+    setIsPaused(true);
+    cancelAnimationFrame(rafRef.current);
+    stopBgMusic();
+  }, []);
+
+  const handleResume = useCallback(() => {
+    isPausedRef.current = false;
+    setIsPaused(false);
+    lastTimeRef.current = 0; // reset so dt doesn't spike after pause
+    startBgMusic();
+    rafRef.current = requestAnimationFrame(gameLoopRef.current);
+  }, []);
 
   useEffect(() => {
     // On iOS/native the game runs inside a WebView — do NOT also run the engine
@@ -687,8 +709,22 @@ export function GameCanvas({ onDeath }: GameCanvasProps) {
           <GameHUD
             {...hudState}
             onDash={() => { inputRef.current.dashing = true; }}
+            onPause={handlePause}
           />
         </View>
+
+        {/* ── Pause overlay ────────────────────────────────────────────────── */}
+        {isPaused && (
+          <View style={styles.pauseOverlay} pointerEvents="auto">
+            <Text style={styles.pauseTitle}>[ PAUSED ]</Text>
+            <TouchableOpacity style={styles.pauseBtn} onPress={handleResume} activeOpacity={0.75}>
+              <Text style={styles.pauseBtnText}>▶  RESUME</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.pauseBtn, styles.pauseBtnExit]} onPress={onExit} activeOpacity={0.75}>
+              <Text style={[styles.pauseBtnText, { color: "#ff6666" }]}>⬅  MAIN MENU</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Joystick overlay — pointer-events none; pure visual feedback */}
         <View style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}>
@@ -881,5 +917,46 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,60,60,1)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.8)",
+  },
+
+  // Pause overlay
+  pauseOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.82)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+  },
+  pauseTitle: {
+    fontFamily: "monospace",
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#ff4444",
+    letterSpacing: 6,
+    marginBottom: 40,
+    textShadowColor: "rgba(255,0,0,0.6)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 14,
+  },
+  pauseBtn: {
+    width: 230,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    borderRadius: 6,
+    backgroundColor: "rgba(20,18,26,0.9)",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  pauseBtnExit: {
+    borderColor: "rgba(255,60,60,0.45)",
+    backgroundColor: "rgba(30,10,10,0.9)",
+  },
+  pauseBtnText: {
+    fontFamily: "monospace",
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#e0e0ff",
+    letterSpacing: 2,
   },
 });

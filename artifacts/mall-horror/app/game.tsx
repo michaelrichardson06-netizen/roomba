@@ -114,7 +114,7 @@ export default function GameScreen() {
 
   return (
     <View style={styles.container}>
-      <GameCanvas key={gameKey} onDeath={handleDeath} />
+      <GameCanvas key={gameKey} onDeath={handleDeath} onExit={handleMenu} />
     </View>
   );
 }

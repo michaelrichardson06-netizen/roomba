@@ -38,13 +38,14 @@ interface GameHUDProps {
   playerX: number;
   playerY: number;
   onDash: () => void;
+  onPause: () => void;
 }
 
 export function GameHUD({
   hp, maxHp, battery, maxBattery, berserkerTimer,
   score, wave, killCount, waveTotalKills,
   tripleShot, quadShot, rapidFireStacks, bazookaMode, lightningStrike, speedBoost,
-  dashCooldown, spawnGrace, showDash, playerX, playerY, onDash,
+  dashCooldown, spawnGrace, showDash, playerX, playerY, onDash, onPause,
 }: GameHUDProps) {
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
@@ -99,6 +100,16 @@ export function GameHUD({
           <View style={styles.mallDivider} />
           <Text style={styles.mallZone} numberOfLines={1}>{mallZone}</Text>
         </View>
+
+        {/* ── Pause button (left of sound DOM button) ── */}
+        <TouchableOpacity
+          style={[styles.pauseBtn, { top: topPad + 3 }]}
+          onPress={onPause}
+          activeOpacity={0.75}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.pauseBtnText}>{"[ \u275a\u275a ]"}</Text>
+        </TouchableOpacity>
 
         <View style={styles.panelInner}>
 
@@ -404,6 +415,28 @@ const styles = StyleSheet.create({
   buffRow:       { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 14, paddingTop: 6, gap: 6 },
   buffBadge:     { borderWidth: 1, borderRadius: 3, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: "rgba(0,0,0,0.7)" },
   buffBadgeText: { fontSize: 10, fontWeight: "800", letterSpacing: 1 },
+
+  // ── Pause button ──────────────────────────────────────────────────────────
+  pauseBtn: {
+    position: "absolute",
+    right: 58,
+    height: 26,
+    paddingHorizontal: 7,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+    borderRadius: 5,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100,
+  },
+  pauseBtnText: {
+    fontFamily: "monospace",
+    fontSize: 10,
+    fontWeight: "800",
+    color: "rgba(220,220,255,0.85)",
+    letterSpacing: 1,
+  },
 
   // ── Dash ─────────────────────────────────────────────────────────────────
   bottomControls:     { position: "absolute", bottom: 12, left: 0, right: 0, alignItems: "center" },
