@@ -54,11 +54,11 @@ export const GAME_CONFIG = {
   WAVE_3WAVE_HP_BOOST: 0.40,   // Additional +40% HP spike every 3 waves (was 0.35)
   WAVE_DENSITY_SCALE: 0.18,
   WAVE_BASE_KILLS: 30,         // Wave 1 kill threshold (boss immune until met)
-  WAVE_KILL_INCREMENT: 25,     // Per wave: 30 → 55 → 80 → 105 … (was 20)
-  WAVE_SPEED_SCALE: 0.07,
-  MAX_ENEMY_COUNT: 32,         // Hard cap for non-boss enemies; effective cap grows per wave
-  SPAWN_COUNT_BASE: 2,         // Base enemies per spawn batch (wave 1)
-  SPAWN_COUNT_SCALE: 1.38,     // Exponential multiplier per wave: w1=2, w3=4, w5=8, w8=19…
+  WAVE_KILL_INCREMENT: 30,     // Per wave: 30 → 60 → 90 → 120 … (scales with density)
+  WAVE_SPEED_SCALE: 0.09,      // enemies move 9% faster per wave (was 0.07)
+  MAX_ENEMY_COUNT: 60,         // Hard cap — absolute ceiling for non-boss enemies
+  SPAWN_COUNT_BASE: 6,         // Wave 1 batch: 6 at once (was 2)
+  SPAWN_COUNT_SCALE: 1.52,     // Exponential: w1=6 w2=10 w3=14 w4=22 w5=34 w6=52…
 
   // Scoring (bigger numbers for high-density waves)
   SCORE_STANDARD: 7,           // was 5
@@ -83,9 +83,9 @@ export const GAME_CONFIG = {
 
   // Spawn
   SPAWN_MIN_DIST: 700,
-  SPAWN_INTERVAL_BASE: 3100,   // ~45% faster than before (was 4500)
-  MIN_SPAWN_INTERVAL: 400,     // Floor for late waves (was 600)
-  WAVE_INTERVAL_REDUCTION: 250, // -250ms/wave: w1=3100, w4=2350, w8=1100
+  SPAWN_INTERVAL_BASE: 1800,   // wave 1 starts fast (was 3100)
+  MIN_SPAWN_INTERVAL: 250,     // floor for late waves — near-constant pressure (was 400)
+  WAVE_INTERVAL_REDUCTION: 200, // -200ms/wave: w1=1800 w5=1000 w8=400 w9=250(floor)
 
   // ── Boss web attack ───────────────────────────────────────────────────────
   BOSS_WEB_COOLDOWN: 3500,   // ms between web throws

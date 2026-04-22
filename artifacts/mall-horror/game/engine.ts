@@ -427,7 +427,7 @@ export function updateGame(
     // Batch size grows EXPONENTIALLY so late waves feel dramatically denser.
     if (s.spawnTimer >= spawnInterval) {
       s.spawnTimer = 0;
-      const effectiveCap = Math.min(C.MAX_ENEMY_COUNT, 8 + s.wave * 2);
+      const effectiveCap = Math.min(C.MAX_ENEMY_COUNT, 14 + s.wave * 5);
       const nonBossCount = s.enemies.filter((e) => e.type !== "boss").length;
       if (nonBossCount < effectiveCap) {
         const batchSize = Math.min(
