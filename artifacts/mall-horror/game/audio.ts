@@ -548,6 +548,312 @@ export function stopBgMusic() {
   bgBitcrush = null;
 }
 
+// ─── Menu music: "The Mall Is Quiet Now" ─────────────────────────────────────
+// Phrygian-flavoured drones + sparse ghost-pad notes, long reverb. Very
+// different from game music: no bitcrusher, no lead arpeggio, just hush.
+
+let menuPlaying  = false;
+let menuDroneA:  OscillatorNode | null = null;
+let menuDroneB:  OscillatorNode | null = null;
+let menuReverb:  ConvolverNode  | null = null;
+let menuGainNode: GainNode      | null = null;
+let menuTimer:   ReturnType<typeof setTimeout> | null = null;
+
+// E Phrygian fundamentals (very low — subsonic rumble + just above it)
+const MENU_FREQS = [20.6, 27.5, 41.2, 46.2, 55.0, 61.7, 73.4];
+
+function _menuNoteLoop() {
+  const ac = getCtx();
+  if (!ac || !menuPlaying || !menuReverb || !menuGainNode) return;
+
+  const now  = ac.currentTime;
+  const freq = MENU_FREQS[Math.floor(Math.random() * MENU_FREQS.length)];
+  const dur  = 5 + Math.random() * 6;      // 5–11 s sustain
+
+  // Two detuned sine voices — slight beating creates eerie pulse
+  [0, 5].forEach((detuneCents) => {
+    const osc = ac.createOscillator();
+    osc.type  = "sine";
+    osc.frequency.setValueAtTime(freq, now);
+    osc.detune.setValueAtTime(detuneCents, now);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.13, now + 2.0);        // slow attack
+    g.gain.setTargetAtTime(0.0001, now + dur, 2.5);         // slow release
+    osc.connect(g);
+    g.connect(menuReverb!);
+    osc.start(now);
+    osc.stop(now + dur + 8);
+  });
+
+  // 40 % chance of a high "whisper" note (octave up × 4, very quiet)
+  if (Math.random() < 0.40) {
+    const wOsc = ac.createOscillator();
+    wOsc.type  = "sine";
+    wOsc.frequency.setValueAtTime(freq * 4, now + 1.5);
+    const wg = ac.createGain();
+    wg.gain.setValueAtTime(0, now + 1.5);
+    wg.gain.linearRampToValueAtTime(0.035, now + 3.0);
+    wg.gain.setTargetAtTime(0.0001, now + 4.0, 1.5);
+    wOsc.connect(wg);
+    wg.connect(menuReverb!);
+    wOsc.start(now + 1.5);
+    wOsc.stop(now + 10);
+  }
+
+  // Next note: very sparse so it never feels loopy (9–18 s gap)
+  menuTimer = setTimeout(_menuNoteLoop, (9 + Math.random() * 9) * 1000);
+}
+
+export function startMenuMusic() {
+  if (menuPlaying) return;
+  const ac = getCtx();
+  if (!ac || !bgGain) return;
+
+  // Unlock AudioContext on iOS (silent buffer + resume)
+  try {
+    const buf = ac.createBuffer(1, Math.ceil(ac.sampleRate * 0.05), ac.sampleRate);
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    src.connect(ac.destination);
+    src.start(0);
+  } catch { /* ignore */ }
+  if (ac.state !== "running") ac.resume().catch(() => {});
+
+  menuPlaying  = true;
+  menuGainNode = ac.createGain();
+  menuGainNode.gain.setValueAtTime(_musicVol * 0.24, ac.currentTime);
+  menuGainNode.connect(masterGain!);
+
+  // 8-second cavernous reverb (empty abandoned mall)
+  menuReverb = buildReverbIR(ac, 8.0);
+  menuReverb.connect(menuGainNode);
+
+  // Constant sub-bass drones: E0 + A0 (just-fifth interval — unsettling)
+  menuDroneA = ac.createOscillator();
+  menuDroneA.type = "sine";
+  menuDroneA.frequency.setValueAtTime(20.6, ac.currentTime);
+  const da = ac.createGain();
+  da.gain.setValueAtTime(0.08, ac.currentTime);
+  menuDroneA.connect(da);
+  da.connect(menuGainNode);
+  menuDroneA.start();
+
+  menuDroneB = ac.createOscillator();
+  menuDroneB.type = "sine";
+  menuDroneB.frequency.setValueAtTime(27.5, ac.currentTime);
+  const db = ac.createGain();
+  db.gain.setValueAtTime(0.06, ac.currentTime);
+  menuDroneB.connect(db);
+  db.connect(menuGainNode);
+  menuDroneB.start();
+
+  _menuNoteLoop();
+}
+
+export function stopMenuMusic() {
+  menuPlaying = false;
+  if (menuTimer)  { clearTimeout(menuTimer); menuTimer = null; }
+  if (menuDroneA) { try { menuDroneA.stop(); } catch {} menuDroneA = null; }
+  if (menuDroneB) { try { menuDroneB.stop(); } catch {} menuDroneB = null; }
+  if (menuGainNode && ctx) {
+    menuGainNode.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.5);
+    setTimeout(() => { try { menuGainNode?.disconnect(); } catch {} menuGainNode = null; }, 1200);
+  }
+  menuReverb = null;
+}
+
+// ─── Wave-intensity music system ──────────────────────────────────────────────
+// Modulates note density, LFO rate, and gain across four tiers:
+//   Tier 1 (waves 1–3): existing slow "Mall-Gaze" schedule
+//   Tier 2 (waves 4–6): add tension-stab layer, faster LFO
+//   Tier 3 (waves 7–9): denser stabs, higher LFO warp
+//   Tier 4 (wave 10+): maximum intensity
+
+let _currentWave  = 1;
+let bgLayer2Timer: ReturnType<typeof setTimeout> | null = null;
+
+// Higher-frequency tension stabs (square wave, more aggressive)
+const TENSION_FREQS = [220, 247, 277, 294, 330, 370, 415, 440, 494];
+
+function _layer2Loop() {
+  const ac = getCtx();
+  if (!ac || !bgPlaying || _currentWave < 4 || !bgBitcrush || !bgGain) return;
+
+  const now   = ac.currentTime;
+  const freq  = TENSION_FREQS[Math.floor(Math.random() * TENSION_FREQS.length)];
+  const osc   = ac.createOscillator();
+  osc.type    = "square";
+  osc.frequency.setValueAtTime(freq, now);
+  const g     = ac.createGain();
+  const peak  = _currentWave >= 10 ? 0.07 : _currentWave >= 7 ? 0.055 : 0.04;
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(peak, now + 0.06);
+  g.gain.setTargetAtTime(0.0001, now + 0.12, 0.25);
+  osc.connect(g);
+  g.connect(bgBitcrush);
+  osc.start(now);
+  osc.stop(now + 1.0);
+
+  const interval =
+    _currentWave >= 10 ? 0.6 + Math.random() * 1.0
+    : _currentWave >= 7  ? 1.2 + Math.random() * 1.8
+    :                       2.2 + Math.random() * 2.0;
+
+  bgLayer2Timer = setTimeout(_layer2Loop, interval * 1000);
+}
+
+export function setGameWave(wave: number) {
+  if (!bgPlaying) return;
+  _currentWave = wave;
+  const ac = getCtx();
+  if (!ac) return;
+
+  // LFO rate: creeps from 1.2 → 3.5 Hz as waves increase (cassette-wow escalation)
+  if (bgPitchLFO) {
+    const rate =
+      wave <= 3  ? 1.2
+      : wave <= 6  ? 1.8
+      : wave <= 9  ? 2.6
+      :              3.5;
+    bgPitchLFO.frequency.linearRampToValueAtTime(rate, ac.currentTime + 2.5);
+  }
+
+  // Main bgGain slightly louder each tier (still subtle — not annoying)
+  if (bgGain) {
+    const lvl =
+      wave <= 3  ? 0.18
+      : wave <= 6  ? 0.21
+      : wave <= 9  ? 0.25
+      :              0.29;
+    bgGain.gain.linearRampToValueAtTime(_musicVol * lvl, ac.currentTime + 2.0);
+  }
+
+  // Activate tension-stab layer at wave 4 (only once)
+  if (wave === 4 && !bgLayer2Timer) {
+    bgLayer2Timer = setTimeout(_layer2Loop, 500);
+  }
+}
+
+// ─── Boss-phase music ─────────────────────────────────────────────────────────
+// When boss shield breaks: one-shot alarm sting → driving rhythmic bass pulse.
+// When boss dies (or wave resets): pulse fades out, level returns to wave tier.
+
+let bgBossPlaying = false;
+let bgBossPulseOsc:  OscillatorNode | null = null;
+let bgBossGain:      GainNode       | null = null;
+let bgBossLFO:       OscillatorNode | null = null;
+let bgBossLFOGain:   GainNode       | null = null;
+
+function _playShieldBreakSting() {
+  const ac  = getCtx();
+  const dst = sfx();
+  if (!ac || !dst) return;
+
+  const now = ac.currentTime;
+
+  // Rising alarm sweep: sawtooth 80 → 1200 Hz over 0.7 s
+  const sweep = ac.createOscillator();
+  sweep.type  = "sawtooth";
+  sweep.frequency.setValueAtTime(80, now);
+  sweep.frequency.exponentialRampToValueAtTime(1200, now + 0.7);
+  const sg = ac.createGain();
+  sg.gain.setValueAtTime(0.18, now);
+  sg.gain.linearRampToValueAtTime(0.0, now + 0.9);
+  sweep.connect(sg); sg.connect(dst);
+  sweep.start(now); sweep.stop(now + 0.9);
+
+  // Metallic impact (band-pass noise burst)
+  const bufLen = Math.floor(ac.sampleRate * 0.12);
+  const buf    = ac.createBuffer(1, bufLen, ac.sampleRate);
+  const d      = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
+  const noise  = ac.createBufferSource();
+  noise.buffer = buf;
+  const bp     = ac.createBiquadFilter();
+  bp.type      = "bandpass";
+  bp.frequency.setValueAtTime(3000, now);
+  bp.Q.value   = 2;
+  const ng     = ac.createGain();
+  ng.gain.setValueAtTime(0.25, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  noise.connect(bp); bp.connect(ng); ng.connect(dst);
+  noise.start(now); noise.stop(now + 0.13);
+}
+
+function _startBossPulse() {
+  const ac = getCtx();
+  if (!ac || !masterGain) return;
+
+  bgBossGain    = ac.createGain();
+  bgBossGain.gain.setValueAtTime(0, ac.currentTime);
+  bgBossGain.gain.linearRampToValueAtTime(_musicVol * 0.14, ac.currentTime + 0.4);
+  bgBossGain.connect(masterGain);
+
+  // Driving rhythmic bass: detuned square at 55 Hz (A1)
+  bgBossPulseOsc      = ac.createOscillator();
+  bgBossPulseOsc.type = "square";
+  bgBossPulseOsc.frequency.setValueAtTime(55, ac.currentTime);
+
+  // Tremolo LFO at ~4 Hz (quarter-note pulse at 120 BPM) — chops the bass
+  bgBossLFO          = ac.createOscillator();
+  bgBossLFO.type     = "sine";
+  bgBossLFO.frequency.setValueAtTime(4.0, ac.currentTime);
+  bgBossLFOGain      = ac.createGain();
+  bgBossLFOGain.gain.setValueAtTime(0.5, ac.currentTime);
+
+  bgBossLFO.connect(bgBossLFOGain);
+
+  // Route: pulse osc → [tremble gain scaled by LFO] → bossGain → master
+  const tremble = ac.createGain();
+  tremble.gain.setValueAtTime(0.5, ac.currentTime);
+  bgBossLFOGain.connect(tremble.gain);
+
+  bgBossPulseOsc.connect(tremble);
+  tremble.connect(bgBossGain);
+
+  bgBossPulseOsc.start();
+  bgBossLFO.start();
+}
+
+function _stopBossPulse() {
+  if (bgBossPulseOsc) { try { bgBossPulseOsc.stop(); } catch {} bgBossPulseOsc = null; }
+  if (bgBossLFO)      { try { bgBossLFO.stop();      } catch {} bgBossLFO      = null; }
+  if (bgBossLFOGain)  { try { bgBossLFOGain.disconnect(); } catch {} bgBossLFOGain = null; }
+  if (bgBossGain && ctx) {
+    bgBossGain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.8);
+    setTimeout(() => { try { bgBossGain?.disconnect(); } catch {} bgBossGain = null; }, 1000);
+  }
+}
+
+export function setBossVulnerable(vulnerable: boolean) {
+  if (vulnerable === bgBossPlaying) return;
+  bgBossPlaying = vulnerable;
+
+  const ac = getCtx();
+  if (!ac || !bgGain) return;
+
+  if (vulnerable) {
+    _playShieldBreakSting();
+    _startBossPulse();
+    // Boost main bgGain for urgency
+    bgGain.gain.linearRampToValueAtTime(_musicVol * 0.34, ac.currentTime + 0.5);
+  } else {
+    _stopBossPulse();
+    // Return gain to wave-appropriate level
+    const lvl =
+      _currentWave <= 3  ? 0.18
+      : _currentWave <= 6  ? 0.21
+      : _currentWave <= 9  ? 0.25
+      :                      0.29;
+    bgGain.gain.linearRampToValueAtTime(_musicVol * lvl, ac.currentTime + 1.0);
+  }
+}
+
+// ─── Patch stopBgMusic to also clean up new layers ───────────────────────────
+const _origStopBgMusic = stopBgMusic;
+// (We redefine stopBgMusic below — original is called inside)
+
 // Call this on first user gesture to unlock AudioContext on iOS.
 // iOS WebView requires THREE things done SYNCHRONOUSLY in the gesture handler:
 //   1. A real audio buffer must be PLAYED (not just resume()-d)
