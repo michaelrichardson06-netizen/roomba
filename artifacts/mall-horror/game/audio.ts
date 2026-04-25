@@ -258,6 +258,86 @@ export function playHit() {
   osc.start(now); osc.stop(now + 0.16);
 }
 
+// ─── Level-up chime (bright ascending arpeggio) ───────────────────────────────
+export function playLevelUp() {
+  const ac  = getCtx();
+  const dst = sfx();
+  if (!ac || !dst) return;
+  const now = ac.currentTime;
+  // Rising major arpeggio: C4 E4 G4 C5
+  const freqs = [261.6, 329.6, 392.0, 523.3];
+  freqs.forEach((freq, i) => {
+    const t = now + i * 0.07;
+    const osc = ac.createOscillator();
+    const g   = ac.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(freq * 0.5, t);
+    osc.frequency.exponentialRampToValueAtTime(freq, t + 0.04);
+    g.gain.setValueAtTime(0.0, t);
+    g.gain.linearRampToValueAtTime(0.22, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+    osc.connect(g); g.connect(dst);
+    osc.start(t); osc.stop(t + 0.32);
+  });
+  // Shimmer sparkle at end
+  const sT = now + freqs.length * 0.07 + 0.04;
+  const sOsc = ac.createOscillator();
+  const sG   = ac.createGain();
+  sOsc.type = "sine";
+  sOsc.frequency.setValueAtTime(2093, sT);
+  sOsc.frequency.exponentialRampToValueAtTime(4186, sT + 0.1);
+  sG.gain.setValueAtTime(0.16, sT);
+  sG.gain.exponentialRampToValueAtTime(0.001, sT + 0.25);
+  sOsc.connect(sG); sG.connect(dst);
+  sOsc.start(sT); sOsc.stop(sT + 0.28);
+}
+
+// ─── Rank-up fanfare (triumphant multi-note stab) ─────────────────────────────
+export function playRankUp() {
+  const ac  = getCtx();
+  const dst = sfx();
+  if (!ac || !dst) return;
+  const now = ac.currentTime;
+  // Power chord stab + ascending sweep
+  const STAB_FREQS = [110, 138.6, 165, 220, 277.2, 330, 440];
+  STAB_FREQS.forEach((freq, i) => {
+    const t = now + i * 0.045;
+    ["sawtooth" as const, "square" as const].forEach((type) => {
+      const osc = ac.createOscillator();
+      const g   = ac.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.5, t + 0.25);
+      g.gain.setValueAtTime(0.0, t);
+      g.gain.linearRampToValueAtTime(0.13, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+      osc.connect(g); g.connect(dst);
+      osc.start(t); osc.stop(t + 0.42);
+    });
+  });
+  // Deep bass boom at start
+  const boom = ac.createOscillator();
+  const bg   = ac.createGain();
+  boom.type = "sine";
+  boom.frequency.setValueAtTime(80, now);
+  boom.frequency.exponentialRampToValueAtTime(30, now + 0.35);
+  bg.gain.setValueAtTime(0.35, now);
+  bg.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+  boom.connect(bg); bg.connect(dst);
+  boom.start(now); boom.stop(now + 0.42);
+  // Final high sparkle at the peak
+  const finalT = now + STAB_FREQS.length * 0.045 + 0.06;
+  const fOsc = ac.createOscillator();
+  const fG   = ac.createGain();
+  fOsc.type = "triangle";
+  fOsc.frequency.setValueAtTime(880, finalT);
+  fOsc.frequency.exponentialRampToValueAtTime(3520, finalT + 0.18);
+  fG.gain.setValueAtTime(0.22, finalT);
+  fG.gain.exponentialRampToValueAtTime(0.001, finalT + 0.35);
+  fOsc.connect(fG); fG.connect(dst);
+  fOsc.start(finalT); fOsc.stop(finalT + 0.38);
+}
+
 // ─── Background: "Corrupted Mall-Gaze" synthesizer ────────────────────────────
 // OSC1 (sawtooth) + OSC2 (square, +7¢ sharp) → HPF 400Hz → LPF 3.5kHz →
 // 10-bit bitcrusher → 5-second convolution reverb (100% wet) → bgGain

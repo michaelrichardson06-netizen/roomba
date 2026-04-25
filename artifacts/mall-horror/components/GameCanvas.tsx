@@ -8,9 +8,9 @@ import { createInitialState, updateGame } from "@/game/engine";
 import { renderFrame } from "@/game/renderer";
 import type { GameState } from "@/game/types";
 import type { RankPerks } from "@/game/profile";
-import { RANK_NAMES, RANK_COLORS, getRank } from "@/game/profile";
+import { RANK_NAMES, RANK_COLORS, getRank, xpForLevel } from "@/game/profile";
 import { GameHUD } from "./GameHUD";
-import { unlockAudio, startBgMusic, stopBgMusic, playShoot, playZap, playBerserkerStart, playHit, playBatteryLow, playBatteryRecharge, getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume } from "@/game/audio";
+import { unlockAudio, startBgMusic, stopBgMusic, playShoot, playZap, playBerserkerStart, playHit, playBatteryLow, playBatteryRecharge, getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume, playLevelUp, playRankUp } from "@/game/audio";
 
 interface GameCanvasProps {
   onDeath: (state: GameState) => void;
@@ -18,6 +18,7 @@ interface GameCanvasProps {
   worldId?: number;
   rankPerks?: RankPerks;
   playerLevel?: number;
+  playerXP?: number;
 }
 
 interface HUDState {
@@ -41,6 +42,7 @@ interface HUDState {
   playerX: number;
   playerY: number;
   sessionBrushes: number;
+  xpPct: number;
 }
 
 interface JoyState {
@@ -62,11 +64,12 @@ const DEFAULT_HUD: HUDState = {
   dashCooldown: 0, spawnGrace: 3000,
   playerX: 1500, playerY: 1500,
   sessionBrushes: 0,
+  xpPct: 0,
 };
 
 const IDLE_JOY: JoyState = { active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 };
 
-export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLevel = 1 }: GameCanvasProps) {
+export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLevel = 1, playerXP = 0 }: GameCanvasProps) {
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState>(createInitialState(worldId));
@@ -87,6 +90,14 @@ export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLeve
   const isMobileRef = useRef(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const webviewRef = useRef<WebViewType>(null);
+
+  // ── Level-up tracking ─────────────────────────────────────────────────────
+  const virtualLevelRef  = useRef(playerLevel);
+  const virtualRankRef   = useRef(getRank(playerLevel));
+  const levelUpFlashRef  = useRef(0);
+  const rankUpFlashRef   = useRef(0);
+  const [rankUpMessage, setRankUpMessage] = useState<string | null>(null);
+  const rankMsgTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Audio state tracking ──────────────────────────────────────────────────
   const prevBulletCount    = useRef(0);
@@ -144,6 +155,48 @@ export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLeve
     stateRef.current = newState;
     inputRef.current.dashing = false;
 
+    // ── Level-up detection ────────────────────────────────────────────────
+    if (Platform.OS === "web") {
+      // Compute virtual level: walk through XP from playerXP + sessionXP
+      let vLevel = playerLevel;
+      let remaining = playerXP + newState.sessionXP;
+      while (vLevel < 7499) {
+        const needed = xpForLevel(vLevel);
+        if (remaining >= needed) { remaining -= needed; vLevel++; }
+        else break;
+      }
+      const xpNeeded = xpForLevel(vLevel);
+      const xpProgress = xpNeeded > 0 ? remaining / xpNeeded : 1;
+
+      if (vLevel > virtualLevelRef.current) {
+        const prevRank = virtualRankRef.current;
+        const newRank  = getRank(vLevel);
+        virtualLevelRef.current = vLevel;
+        virtualRankRef.current  = newRank;
+        if (newRank > prevRank) {
+          // RANK UP — grander effect
+          rankUpFlashRef.current = 1.0;
+          levelUpFlashRef.current = 1.0;
+          playRankUp();
+          const rName = RANK_NAMES[newRank] ?? "RANK UP";
+          setRankUpMessage(`RANK UP! ${rName}`);
+          if (rankMsgTimerRef.current) clearTimeout(rankMsgTimerRef.current);
+          rankMsgTimerRef.current = setTimeout(() => setRankUpMessage(null), 3500);
+        } else {
+          // Regular level-up
+          levelUpFlashRef.current = 1.0;
+          playLevelUp();
+        }
+      }
+      // Decay flash values
+      if (levelUpFlashRef.current > 0) levelUpFlashRef.current = Math.max(0, levelUpFlashRef.current - dt / 1500);
+      if (rankUpFlashRef.current  > 0) rankUpFlashRef.current  = Math.max(0, rankUpFlashRef.current  - dt / 2500);
+
+      // Store xpProgress for HUD update below
+      (newState as any).__xpPct = xpProgress;
+      (newState as any).__vLevel = vLevel;
+    }
+
     // ── Audio triggers (detect state changes) ─────────────────────────────────
     if (Platform.OS === "web") {
       // Shoot sound: new bullets appeared
@@ -189,7 +242,10 @@ export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLeve
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext("2d");
-      if (ctx) renderFrame(ctx, newState, canvas.width, canvas.height);
+      if (ctx) renderFrame(ctx, newState, canvas.width, canvas.height, {
+        levelUpFlash: levelUpFlashRef.current,
+        rankUpFlash:  rankUpFlashRef.current,
+      });
     }
 
     hudTickRef.current += dt;
@@ -227,6 +283,7 @@ export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLeve
         playerX: newState.playerX,
         playerY: newState.playerY,
         sessionBrushes: newState.sessionBrushes,
+        xpPct: (newState as any).__xpPct ?? 0,
       });
     }
 
@@ -717,13 +774,21 @@ export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLeve
           <GameHUD
             {...hudState}
             brushes={hudState.sessionBrushes}
-            level={playerLevel}
-            rankName={RANK_NAMES[getRank(playerLevel)] ?? "ROOKIE"}
-            rankColor={RANK_COLORS[getRank(playerLevel)] ?? "#888888"}
+            level={virtualLevelRef.current}
+            rankName={RANK_NAMES[getRank(virtualLevelRef.current)] ?? "ROOKIE"}
+            rankColor={RANK_COLORS[getRank(virtualLevelRef.current)] ?? "#888888"}
+            xpPct={hudState.xpPct}
             onDash={() => { inputRef.current.dashing = true; }}
             onPause={handlePause}
           />
         </View>
+
+        {/* ── Rank-up banner ───────────────────────────────────────────────── */}
+        {rankUpMessage && (
+          <View pointerEvents="none" style={styles.rankUpBanner}>
+            <Text style={styles.rankUpText}>{rankUpMessage}</Text>
+          </View>
+        )}
 
         {/* ── Pause overlay ────────────────────────────────────────────────── */}
         {isPaused && (
@@ -800,7 +865,7 @@ export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLeve
   if (!gameUrl) {
     return (
       <View style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
-        <GameHUD {...hudState} brushes={hudState.sessionBrushes} level={playerLevel} rankName={RANK_NAMES[getRank(playerLevel)] ?? "ROOKIE"} rankColor={RANK_COLORS[getRank(playerLevel)] ?? "#888888"} onDash={() => {}} onPause={() => {}} />
+        <GameHUD {...hudState} brushes={hudState.sessionBrushes} level={virtualLevelRef.current} rankName={RANK_NAMES[getRank(virtualLevelRef.current)] ?? "ROOKIE"} rankColor={RANK_COLORS[getRank(virtualLevelRef.current)] ?? "#888888"} xpPct={hudState.xpPct} onDash={() => {}} onPause={() => {}} />
       </View>
     );
   }
@@ -932,6 +997,27 @@ const styles = StyleSheet.create({
   },
 
   // Pause overlay
+  rankUpBanner: {
+    position: "absolute",
+    top: "28%",
+    left: 0, right: 0,
+    alignItems: "center",
+    zIndex: 80,
+  },
+  rankUpText: {
+    fontSize: 28,
+    fontWeight: "900",
+    letterSpacing: 3,
+    color: "#ffd700",
+    textShadowColor: "#ff6600",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
   pauseOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.82)",

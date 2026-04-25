@@ -41,6 +41,7 @@ interface GameHUDProps {
   level: number;
   rankName: string;
   rankColor: string;
+  xpPct: number;
   onDash: () => void;
   onPause: () => void;
 }
@@ -50,7 +51,7 @@ export function GameHUD({
   score, wave, killCount, waveTotalKills,
   tripleShot, quadShot, rapidFireStacks, bazookaMode, lightningStrike, speedBoost,
   dashCooldown, spawnGrace, showDash, playerX, playerY,
-  brushes, level, rankName, rankColor,
+  brushes, level, rankName, rankColor, xpPct,
   onDash, onPause,
 }: GameHUDProps) {
   const insets = useSafeAreaInsets();
@@ -186,6 +187,10 @@ export function GameHUD({
             </View>
             {/* Level + rank strip */}
             <Text style={[styles.levelText, { color: rankColor }]}>Lv{level} {rankName}</Text>
+            {/* XP progress bar */}
+            <View style={styles.xpTrack}>
+              <View style={[styles.xpFill, { width: `${Math.min(1, xpPct) * 100}%` as any, backgroundColor: rankColor }]} />
+            </View>
           </View>
 
         </View>
@@ -435,6 +440,8 @@ const styles = StyleSheet.create({
   brushIcon: { fontSize: 11 },
   brushNum:  { color: "#ffd700", fontSize: 13, fontWeight: "900", letterSpacing: 1, fontVariant: ["tabular-nums"] as any },
   levelText: { fontSize: 8, fontWeight: "800", letterSpacing: 1, marginTop: 1 },
+  xpTrack:   { height: 4, width: "100%", backgroundColor: "#1a0808", borderRadius: 2, overflow: "hidden", marginTop: 2, borderWidth: 0.5, borderColor: "rgba(255,255,255,0.08)" },
+  xpFill:    { height: "100%", borderRadius: 1 },
 
   // ── Pause button ──────────────────────────────────────────────────────────
   pauseBtn: {

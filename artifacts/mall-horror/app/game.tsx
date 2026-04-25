@@ -154,6 +154,7 @@ export default function GameScreen() {
         worldId={worldId}
         rankPerks={rankPerks ?? undefined}
         playerLevel={profile?.level ?? 1}
+        playerXP={profile?.xp ?? 0}
       />
     </View>
   );

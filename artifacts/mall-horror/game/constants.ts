@@ -138,10 +138,10 @@ export const GAME_CONFIG = {
   BRUSH_PICKUP_RADIUS: 28,           // px — player walks over this to collect
 
   // ── XP per kill ───────────────────────────────────────────────────────────
-  XP_STANDARD: 8,
-  XP_ELITE:    22,
-  XP_BOSS:     80,
-  XP_WAVE_BONUS_MULT: 40,           // wave × 40 XP on boss kill (wave completion)
+  XP_STANDARD: 22,
+  XP_ELITE:    58,
+  XP_BOSS:     220,
+  XP_WAVE_BONUS_MULT: 90,           // wave × 90 XP on boss kill (wave completion)
 
   // ── Rank 5 AoE blast ──────────────────────────────────────────────────────
   RANK5_AOE_INTERVAL: 10000,        // ms between auto-blasts

@@ -191,11 +191,17 @@ function drawPosters(
   }
 }
 
+export interface RenderExtras {
+  levelUpFlash?: number;   // 0-1, decays over ~1.5s
+  rankUpFlash?:  number;   // 0-1, decays over ~2.5s (multicolor burst)
+}
+
 export function renderFrame(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   canvasW: number,
-  canvasH: number
+  canvasH: number,
+  extras: RenderExtras = {}
 ) {
   const cameraX = state.playerX - canvasW / 2 + state.screenShake.x;
   const cameraY = state.playerY - canvasH / 2 + state.screenShake.y;
@@ -289,6 +295,91 @@ export function renderFrame(
 
   drawRoomba(ctx, state.playerX, state.playerY, state.playerAngle, state.isDashing);
 
+  // ── Level-up rainbow ring burst ───────────────────────────────────────────
+  if (extras.levelUpFlash && extras.levelUpFlash > 0) {
+    const lf = extras.levelUpFlash;
+    const px = state.playerX, py = state.playerY;
+    const now = Date.now();
+    const RING_COLORS = ["#00ffff", "#44ff00", "#ffff00", "#ff8800", "#ff00ff", "#00aaff"];
+    const numRings = 3;
+    for (let r = 0; r < numRings; r++) {
+      const t = 1 - lf; // 0→1 as flash decays
+      const radius = 28 + (r * 28 + t * 180);
+      const a = lf * (1 - r * 0.25) * (1 - t * 0.6);
+      if (a <= 0) continue;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.shadowColor = RING_COLORS[r % RING_COLORS.length];
+      ctx.shadowBlur = 22;
+      ctx.strokeStyle = RING_COLORS[(r + Math.floor(now * 0.002)) % RING_COLORS.length];
+      ctx.lineWidth = 4 - r;
+      ctx.beginPath();
+      ctx.arc(px, py, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Gold star sparkles
+    const SPARK_N = 8;
+    for (let i = 0; i < SPARK_N; i++) {
+      const angle = (i / SPARK_N) * Math.PI * 2 + Date.now() * 0.003;
+      const dist2 = 40 + (1 - lf) * 120;
+      const sx2 = px + Math.cos(angle) * dist2;
+      const sy2 = py + Math.sin(angle) * dist2;
+      ctx.save();
+      ctx.globalAlpha = lf * 0.9;
+      ctx.fillStyle = "#ffd700";
+      ctx.shadowColor = "#ffd700";
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(sx2, sy2, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // ── Rank-up multicolor supernova ─────────────────────────────────────────
+  if (extras.rankUpFlash && extras.rankUpFlash > 0) {
+    const rf = extras.rankUpFlash;
+    const px = state.playerX, py = state.playerY;
+    const t = 1 - rf;
+    const now = Date.now();
+    const RANK_COLORS2 = ["#ff00ff", "#ff0088", "#ff4400", "#ffcc00", "#00ff88", "#00eeff", "#8844ff"];
+    // Expanding multicolor rings
+    for (let r = 0; r < 5; r++) {
+      const radius = 35 + r * 40 + t * 280;
+      const a = rf * (1 - r * 0.15) * (1 - t * 0.5);
+      if (a <= 0) continue;
+      ctx.save();
+      ctx.globalAlpha = a;
+      const col = RANK_COLORS2[(r + Math.floor(now * 0.003)) % RANK_COLORS2.length];
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 30;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(px, py, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Spinning rays
+    const RAY_N = 12;
+    for (let i = 0; i < RAY_N; i++) {
+      const angle = (i / RAY_N) * Math.PI * 2 + now * 0.002;
+      const col = RANK_COLORS2[i % RANK_COLORS2.length];
+      const len = 50 + t * 160;
+      ctx.save();
+      ctx.globalAlpha = rf * 0.8;
+      ctx.strokeStyle = col;
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 18;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(px + Math.cos(angle) * 32, py + Math.sin(angle) * 32);
+      ctx.lineTo(px + Math.cos(angle) * (32 + len), py + Math.sin(angle) * (32 + len));
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
 
   // ── Lightning: ambient static arcs between nearby enemies ─────────────────
   if (state.lightningStrike && state.enemies.length > 1) {
@@ -404,13 +495,13 @@ export function renderFrame(
   drawLightingOverlay(ctx, state, cameraX, cameraY, canvasW, canvasH);
 
 
-  // ── Roomba inner monologue — pixel-art thought bubble ────────────────────
+  // ── Roomba inner monologue — pixel-art thought bubble (subtle) ──────────
   if (state.currentThought) {
     const DISPLAY_MS = 6800;
     const prog  = state.thoughtAge / DISPLAY_MS;
-    const alpha = prog < 0.1 ? prog / 0.1 : prog > 0.85 ? (1 - prog) / 0.15 : 1;
+    // Cap max alpha at 0.32 so it never blocks the view
+    const alpha = (prog < 0.1 ? prog / 0.1 : prog > 0.85 ? (1 - prog) / 0.15 : 1) * 0.32;
     if (alpha > 0.01) {
-      // Convert Roomba world position to screen coords
       const sx = Math.round(state.playerX - cameraX);
       const sy = Math.round(state.playerY - cameraY);
       _drawThoughtBubble(ctx, sx, sy, state.currentThought, alpha, canvasW, canvasH);
