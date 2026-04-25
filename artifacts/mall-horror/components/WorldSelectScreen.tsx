@@ -144,7 +144,8 @@ export function WorldSelectScreen({ playerLevel, selectedWorld, onSelect, onBack
               <TouchableOpacity
                 style={styles.enterAnywayBtn}
                 onPress={() => {
-                  const id = warningWorld!.id;
+                  if (!warningWorld) return;
+                  const id = warningWorld.id;
                   setWarningWorld(null);
                   onSelect(id);
                 }}
