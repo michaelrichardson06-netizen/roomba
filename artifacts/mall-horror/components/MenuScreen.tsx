@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { PlayerProfile } from "@/game/profile";
+import { getRank, RANK_NAMES, RANK_COLORS, xpForLevel } from "@/game/profile";
 
 const ICON = require("../assets/images/icon.png");
 
@@ -126,9 +128,10 @@ interface MenuScreenProps {
   onLeaderboard: () => void;
   highScore: number;
   bestWave: number;
+  profile?: PlayerProfile | null;
 }
 
-export function MenuScreen({ onStart, onLeaderboard, highScore, bestWave }: MenuScreenProps) {
+export function MenuScreen({ onStart, onLeaderboard, highScore, bestWave, profile }: MenuScreenProps) {
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
   const topPad = isWeb ? 24 : Math.max(insets.top, 24);
@@ -255,10 +258,35 @@ export function MenuScreen({ onStart, onLeaderboard, highScore, bestWave }: Menu
         </View>
       )}
 
+      {/* ── Rank / XP panel ── */}
+      {profile && (() => {
+        const rank = getRank(profile.level);
+        const rankName = RANK_NAMES[rank] ?? "ROOKIE";
+        const rankColor = RANK_COLORS[rank] ?? "#888";
+        const xpNeeded = xpForLevel(profile.level);
+        const xpPct = xpNeeded > 0 ? Math.min(1, profile.xp / xpNeeded) : 1;
+        return (
+          <View style={styles.rankPanel}>
+            <View style={styles.rankHeader}>
+              <Text style={[styles.rankName, { color: rankColor }]}>{rankName}</Text>
+              <Text style={styles.rankLevel}>LV {profile.level}</Text>
+              <View style={styles.rankBrushes}>
+                <Text style={styles.rankBrushIcon}>🪙</Text>
+                <Text style={styles.rankBrushNum}>{profile.brushes.toLocaleString()}</Text>
+              </View>
+            </View>
+            <View style={styles.xpTrack}>
+              <View style={[styles.xpFill, { width: `${xpPct * 100}%` as any, backgroundColor: rankColor }]} />
+            </View>
+            <Text style={styles.xpLabel}>{profile.xp.toLocaleString()} / {xpNeeded.toLocaleString()} XP</Text>
+          </View>
+        );
+      })()}
+
       {/* ── Start button ── */}
       <Animated.View style={{ transform: [{ scale: pulseAnim }], width: "100%", maxWidth: 300, alignSelf: "center", gap: 10 }}>
         <TouchableOpacity style={styles.startBtn} onPress={onStart} activeOpacity={0.75}>
-          <Text style={styles.startText}>ENTER MALL</Text>
+          <Text style={styles.startText}>▶  SELECT WORLD</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.lbBtn} onPress={onLeaderboard} activeOpacity={0.8}>
           <Text style={styles.lbText}>🏆 WORLD RANKINGS</Text>
@@ -434,5 +462,61 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 3,
     fontWeight: "700",
+  },
+
+  // Rank/XP panel
+  rankPanel: {
+    width: "100%",
+    maxWidth: 300,
+    alignSelf: "center",
+    backgroundColor: "rgba(10,4,4,0.9)",
+    borderWidth: 1,
+    borderColor: "#2a1010",
+    borderRadius: 10,
+    padding: 12,
+    gap: 6,
+  },
+  rankHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  rankName: {
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 3,
+  },
+  rankLevel: {
+    color: "#666",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  rankBrushes: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  rankBrushIcon: { fontSize: 12 },
+  rankBrushNum: {
+    color: "#ffd700",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  xpTrack: {
+    height: 6,
+    backgroundColor: "#1a0808",
+    borderRadius: 3,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#2a1010",
+  },
+  xpFill: { height: "100%", borderRadius: 2 },
+  xpLabel: {
+    color: "#442222",
+    fontSize: 8,
+    letterSpacing: 1,
+    textAlign: "right",
   },
 });

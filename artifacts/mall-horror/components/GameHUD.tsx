@@ -37,6 +37,10 @@ interface GameHUDProps {
   showDash?: boolean;
   playerX: number;
   playerY: number;
+  brushes: number;
+  level: number;
+  rankName: string;
+  rankColor: string;
   onDash: () => void;
   onPause: () => void;
 }
@@ -45,7 +49,9 @@ export function GameHUD({
   hp, maxHp, battery, maxBattery, berserkerTimer,
   score, wave, killCount, waveTotalKills,
   tripleShot, quadShot, rapidFireStacks, bazookaMode, lightningStrike, speedBoost,
-  dashCooldown, spawnGrace, showDash, playerX, playerY, onDash, onPause,
+  dashCooldown, spawnGrace, showDash, playerX, playerY,
+  brushes, level, rankName, rankColor,
+  onDash, onPause,
 }: GameHUDProps) {
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
@@ -158,7 +164,7 @@ export function GameHUD({
           {/* ── DIVIDER ── */}
           <View style={styles.divider} />
 
-          {/* ── RIGHT: Wave + Score ── */}
+          {/* ── RIGHT: Wave + Score + Brushes + Level ── */}
           <View style={styles.waveCol}>
             <Text style={styles.waveNum}>{wave}</Text>
             <Text style={styles.waveLabel}>WAVE</Text>
@@ -172,6 +178,14 @@ export function GameHUD({
                 +{scoreDelta.toLocaleString()}
               </Animated.Text>
             </View>
+            <View style={styles.scoreDivider} />
+            {/* Brushes row */}
+            <View style={styles.brushRow}>
+              <Text style={styles.brushIcon}>🪙</Text>
+              <Text style={styles.brushNum}>{brushes}</Text>
+            </View>
+            {/* Level + rank strip */}
+            <Text style={[styles.levelText, { color: rankColor }]}>Lv{level} {rankName}</Text>
           </View>
 
         </View>
@@ -415,6 +429,12 @@ const styles = StyleSheet.create({
   buffRow:       { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 14, paddingTop: 6, gap: 6 },
   buffBadge:     { borderWidth: 1, borderRadius: 3, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: "rgba(0,0,0,0.7)" },
   buffBadgeText: { fontSize: 10, fontWeight: "800", letterSpacing: 1 },
+
+  // ── Brushes + level (inside waveCol) ─────────────────────────────────────
+  brushRow:  { flexDirection: "row", alignItems: "center", gap: 3 },
+  brushIcon: { fontSize: 11 },
+  brushNum:  { color: "#ffd700", fontSize: 13, fontWeight: "900", letterSpacing: 1, fontVariant: ["tabular-nums"] as any },
+  levelText: { fontSize: 8, fontWeight: "800", letterSpacing: 1, marginTop: 1 },
 
   // ── Pause button ──────────────────────────────────────────────────────────
   pauseBtn: {

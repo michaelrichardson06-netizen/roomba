@@ -1,11 +1,14 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GameCanvas } from "@/components/GameCanvas";
 import { DeathScreen } from "@/components/DeathScreen";
 import { LeaderboardScreen } from "@/components/LeaderboardScreen";
 import type { GameState } from "@/game/types";
+import { loadProfile, saveProfile, awardXP, getRankPerks } from "@/game/profile";
+import type { PlayerProfile, RankPerks } from "@/game/profile";
+import { getWorldById, getWorldDifficultyMult } from "@/game/worlds";
 
 type Phase = "playing" | "dead" | "leaderboard";
 
@@ -15,6 +18,8 @@ interface DeathResult {
   totalInsects: number;
   deathCause: string;
   hpAtDeath: number;
+  sessionBrushes: number;
+  sessionXP: number;
 }
 
 const HS_SCORE_KEY = "@mallhorror_highscore";
@@ -22,16 +27,29 @@ const HS_WAVE_KEY = "@mallhorror_bestwave";
 
 export default function GameScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ worldId?: string }>();
+  const worldId = parseInt(params.worldId ?? "0", 10) || 0;
+
   const [phase, setPhase] = useState<Phase>("playing");
   const [result, setResult] = useState<DeathResult | null>(null);
   const [highScore, setHighScore] = useState(0);
   const [bestWave, setBestWave] = useState(0);
   const [isNewHS, setIsNewHS] = useState(false);
   const [gameKey, setGameKey] = useState(0);
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [rankPerks, setRankPerks] = useState<RankPerks | null>(null);
+  const profileRef = useRef<PlayerProfile | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem(HS_SCORE_KEY).then((v) => { if (v) setHighScore(parseInt(v, 10)); });
     AsyncStorage.getItem(HS_WAVE_KEY).then((v) => { if (v) setBestWave(parseInt(v, 10)); });
+    loadProfile().then((p) => {
+      profileRef.current = p;
+      setProfile(p);
+      const world = getWorldById(worldId);
+      const diffMult = getWorldDifficultyMult(world.recommendedLevel, p.level);
+      setRankPerks(getRankPerks(p, diffMult));
+    });
   }, []);
 
   const handleDeath = useCallback(
@@ -42,8 +60,23 @@ export default function GameScreen() {
         totalInsects: state.totalInsects,
         deathCause: state.deathCause || "unknown",
         hpAtDeath: state.hpAtDeath,
+        sessionBrushes: state.sessionBrushes,
+        sessionXP: Math.floor(state.sessionXP),
       };
       setResult(r);
+
+      // Award XP + brushes to profile
+      const p = profileRef.current;
+      if (p) {
+        const { profile: updated } = awardXP(p, r.sessionXP);
+        const finalProfile: PlayerProfile = {
+          ...updated,
+          brushes: updated.brushes + r.sessionBrushes,
+        };
+        profileRef.current = finalProfile;
+        setProfile(finalProfile);
+        await saveProfile(finalProfile);
+      }
 
       let newRecord = false;
       if (r.score > highScore) {
@@ -114,7 +147,14 @@ export default function GameScreen() {
 
   return (
     <View style={styles.container}>
-      <GameCanvas key={gameKey} onDeath={handleDeath} onExit={handleMenu} />
+      <GameCanvas
+        key={gameKey}
+        onDeath={handleDeath}
+        onExit={handleMenu}
+        worldId={worldId}
+        rankPerks={rankPerks ?? undefined}
+        playerLevel={profile?.level ?? 1}
+      />
     </View>
   );
 }

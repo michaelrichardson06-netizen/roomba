@@ -126,6 +126,27 @@ export const GAME_CONFIG = {
   BERSERKER_AOE_RADIUS: 140,     // pixels (was 120 — bigger AOE for denser crowds)
   BERSERKER_AOE_DPS: 20,         // damage per second to nearby enemies (was 14, +43%)
   BERSERKER_SPREAD: 8,           // bullets in the 180° arc
+
+  // ── Bullet base damage ────────────────────────────────────────────────────
+  BULLET_DAMAGE: 25,             // base damage per non-bazooka bullet
+
+  // ── Brush drops (in-game currency) ───────────────────────────────────────
+  BRUSH_DROP_CHANCE_STANDARD: 0.08,  // 8% from standard enemies
+  BRUSH_DROP_CHANCE_ELITE:    0.20,  // 20% from elite enemies
+  BRUSH_DROP_AMOUNT_BOSS_MIN: 3,     // boss always drops 3-5 brushes
+  BRUSH_DROP_AMOUNT_BOSS_MAX: 5,
+  BRUSH_PICKUP_RADIUS: 28,           // px — player walks over this to collect
+
+  // ── XP per kill ───────────────────────────────────────────────────────────
+  XP_STANDARD: 8,
+  XP_ELITE:    22,
+  XP_BOSS:     80,
+  XP_WAVE_BONUS_MULT: 40,           // wave × 40 XP on boss kill (wave completion)
+
+  // ── Rank 5 AoE blast ──────────────────────────────────────────────────────
+  RANK5_AOE_INTERVAL: 10000,        // ms between auto-blasts
+  RANK5_AOE_DAMAGE:   60,           // damage to all enemies within radius
+  RANK5_AOE_RADIUS:   320,          // px
 };
 
 export const BUFF_COLORS: Record<string, string> = {

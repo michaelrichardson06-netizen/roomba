@@ -217,6 +217,10 @@ export function renderFrame(
     drawBuffDrop(ctx, bd);
   }
 
+  for (const bd of state.brushDrops) {
+    drawBrushDrop(ctx, bd);
+  }
+
   for (const p of state.particles) {
     const alpha = p.life / p.maxLife;
     ctx.save();
@@ -1983,6 +1987,59 @@ function drawBuffDrop(ctx: CanvasRenderingContext2D, bd: {
   ctx.restore();
 }
 
+// ─── BRUSH DROP ──────────────────────────────────────────────────────────────
+
+function drawBrushDrop(ctx: CanvasRenderingContext2D, bd: {
+  x: number; y: number; amount: number; pulse: number
+}) {
+  const scale = 1 + Math.sin(bd.pulse) * 0.15;
+  ctx.save();
+  ctx.translate(bd.x, bd.y);
+  ctx.scale(scale, scale);
+
+  // Gold glow halo
+  ctx.shadowColor = "#ffd700";
+  ctx.shadowBlur = 20;
+  const grd = ctx.createRadialGradient(0, 0, 3, 0, 0, 22);
+  grd.addColorStop(0, "#ffd70066");
+  grd.addColorStop(1, "#ffd70000");
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.arc(0, 0, 22, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Coin body
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = "#ffd700";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 9, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#ffe066";
+  ctx.beginPath();
+  ctx.ellipse(-2, -2, 4, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // "B" label in coin
+  ctx.shadowBlur = 0;
+  ctx.font = "bold 9px monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#7a4800";
+  ctx.fillText("B", 0, 0.5);
+
+  // Amount badge if > 1
+  if (bd.amount > 1) {
+    ctx.font = "bold 7px monospace";
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "#7a4800";
+    ctx.lineWidth = 2;
+    ctx.strokeText(`x${bd.amount}`, 0, 16);
+    ctx.fillText(`x${bd.amount}`, 0, 16);
+  }
+
+  ctx.restore();
+}
+
 /** Small bullet capsule: oval body + pointed tip */
 function drawBulletIcon(
   ctx: CanvasRenderingContext2D,
@@ -2212,6 +2269,20 @@ function drawLightingOverlay(
     oc.fillStyle = buffGrd;
     oc.beginPath();
     oc.arc(bx, by, 80, 0, Math.PI * 2);
+    oc.fill();
+  }
+
+  // Brush drops emit warm gold light
+  for (const bd of state.brushDrops) {
+    const bx = bd.x - cameraX;
+    const by = bd.y - cameraY;
+    if (bx < -100 || bx > canvasW + 100 || by < -100 || by > canvasH + 100) continue;
+    const brushGrd = oc.createRadialGradient(bx, by, 0, bx, by, 55);
+    brushGrd.addColorStop(0, "rgba(255,215,0,0.5)");
+    brushGrd.addColorStop(1, "rgba(255,215,0,0)");
+    oc.fillStyle = brushGrd;
+    oc.beginPath();
+    oc.arc(bx, by, 55, 0, Math.PI * 2);
     oc.fill();
   }
 

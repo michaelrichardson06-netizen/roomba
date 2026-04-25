@@ -7,12 +7,17 @@ import { setAudioModeAsync } from "expo-audio";
 import { createInitialState, updateGame } from "@/game/engine";
 import { renderFrame } from "@/game/renderer";
 import type { GameState } from "@/game/types";
+import type { RankPerks } from "@/game/profile";
+import { RANK_NAMES, RANK_COLORS, getRank } from "@/game/profile";
 import { GameHUD } from "./GameHUD";
 import { unlockAudio, startBgMusic, stopBgMusic, playShoot, playZap, playBerserkerStart, playHit, playBatteryLow, playBatteryRecharge, getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume } from "@/game/audio";
 
 interface GameCanvasProps {
   onDeath: (state: GameState) => void;
   onExit: () => void;
+  worldId?: number;
+  rankPerks?: RankPerks;
+  playerLevel?: number;
 }
 
 interface HUDState {
@@ -35,6 +40,7 @@ interface HUDState {
   spawnGrace: number;
   playerX: number;
   playerY: number;
+  sessionBrushes: number;
 }
 
 interface JoyState {
@@ -55,14 +61,15 @@ const DEFAULT_HUD: HUDState = {
   speedBoost: 0,
   dashCooldown: 0, spawnGrace: 3000,
   playerX: 1500, playerY: 1500,
+  sessionBrushes: 0,
 };
 
 const IDLE_JOY: JoyState = { active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 };
 
-export function GameCanvas({ onDeath, onExit }: GameCanvasProps) {
+export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLevel = 1 }: GameCanvasProps) {
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const stateRef = useRef<GameState>(createInitialState());
+  const stateRef = useRef<GameState>(createInitialState(worldId));
   const inputRef = useRef({ dx: 0, dy: 0, aimAngle: 0, targetAimAngle: 0, useSmoothedAim: false, rightJoyActive: false, shooting: false, dashing: false, autoAim: false, shootOverrideAngle: null as number | null, rightOverrideSetAt: 0 });
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
@@ -133,7 +140,7 @@ export function GameCanvas({ onDeath, onExit }: GameCanvasProps) {
       inputRef.current.autoAim = true;
     }
 
-    const newState = updateGame(stateRef.current, dt, inputRef.current);
+    const newState = updateGame(stateRef.current, dt, inputRef.current, rankPerks);
     stateRef.current = newState;
     inputRef.current.dashing = false;
 
@@ -219,6 +226,7 @@ export function GameCanvas({ onDeath, onExit }: GameCanvasProps) {
         spawnGrace: newState.spawnGrace,
         playerX: newState.playerX,
         playerY: newState.playerY,
+        sessionBrushes: newState.sessionBrushes,
       });
     }
 
@@ -708,6 +716,10 @@ export function GameCanvas({ onDeath, onExit }: GameCanvasProps) {
         <View style={StyleSheet.absoluteFill} pointerEvents="auto">
           <GameHUD
             {...hudState}
+            brushes={hudState.sessionBrushes}
+            level={playerLevel}
+            rankName={RANK_NAMES[getRank(playerLevel)] ?? "ROOKIE"}
+            rankColor={RANK_COLORS[getRank(playerLevel)] ?? "#888888"}
             onDash={() => { inputRef.current.dashing = true; }}
             onPause={handlePause}
           />
@@ -788,7 +800,7 @@ export function GameCanvas({ onDeath, onExit }: GameCanvasProps) {
   if (!gameUrl) {
     return (
       <View style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
-        <GameHUD {...hudState} onDash={() => {}} />
+        <GameHUD {...hudState} brushes={hudState.sessionBrushes} level={playerLevel} rankName={RANK_NAMES[getRank(playerLevel)] ?? "ROOKIE"} rankColor={RANK_COLORS[getRank(playerLevel)] ?? "#888888"} onDash={() => {}} onPause={() => {}} />
       </View>
     );
   }

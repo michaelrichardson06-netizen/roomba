@@ -1,5 +1,6 @@
 import { GAME_CONFIG as C } from "./constants";
-import type { GameState, Enemy, LampLight, LightningArc, IceWave, FloatingText, WaveModifier, Poster } from "./types";
+import type { GameState, Enemy, LampLight, LightningArc, IceWave, FloatingText, WaveModifier, Poster, BrushDrop } from "./types";
+import type { RankPerks } from "./profile";
 
 let nextId = 0;
 function uid() { return (++nextId).toString(); }
@@ -96,9 +97,9 @@ function addWavePosters(s: GameState) {
   }
 }
 
-function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number, isMega = false): Enemy {
-  // Base HP ramp + extra spike every 3 waves (wave 4, 7, 10 …)
-  const hpScale = 1 + (wave - 1) * C.WAVE_HP_SCALE + Math.floor((wave - 1) / 3) * C.WAVE_3WAVE_HP_BOOST;
+function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number, isMega = false, diffMult = 1): Enemy {
+  // Base HP ramp + extra spike every 3 waves (wave 4, 7, 10 …) + world difficulty
+  const hpScale = (1 + (wave - 1) * C.WAVE_HP_SCALE + Math.floor((wave - 1) / 3) * C.WAVE_3WAVE_HP_BOOST) * diffMult;
   const baseHp = type === "boss" ? C.ENEMY_HP_BOSS : type === "elite" ? C.ENEMY_HP_ELITE : C.ENEMY_HP_STANDARD;
   let radius = type === "boss" ? C.ENEMY_RADIUS_BOSS : type === "elite" ? C.ENEMY_RADIUS_ELITE : C.ENEMY_RADIUS_STANDARD;
   let hp = Math.ceil(baseHp * hpScale);
@@ -117,7 +118,7 @@ function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number, isMe
   };
 }
 
-export function createInitialState(): GameState {
+export function createInitialState(worldId = 0): GameState {
   const lamps: LampLight[] = [];
   for (let i = 0; i < C.LAMP_COUNT; i++) {
     lamps.push({
@@ -132,9 +133,13 @@ export function createInitialState(): GameState {
     hp: C.PLAYER_MAX_HP, maxHp: C.PLAYER_MAX_HP,
     battery: C.BATTERY_MAX, maxBattery: C.BATTERY_MAX,
     batterySpawnTimer: C.BATTERY_SPAWN_INTERVAL,
+    brushDrops: [], sessionBrushes: 0,
+    sessionXP: 0,
+    rankAoeTimer: C.RANK5_AOE_INTERVAL,
+    worldId,
     berserkerTimer: 0, berserkerAutoUsed: false,
     score: 0, wave: 1, killCount: 0,
-    waveTotalKills: C.WAVE_BASE_KILLS, // 100 on wave 1
+    waveTotalKills: C.WAVE_BASE_KILLS,
     enemies: [], bullets: [], explosions: [], particles: [],
     buffDrops: [], muzzleFlash: null, lamps,
     screenShake: { x: 0, y: 0, magnitude: 0 },
@@ -152,15 +157,24 @@ export function createInitialState(): GameState {
     spawnTimer: 0, spawnGrace: 3000, bossSpawned: false,
     phase: "playing", deathCause: "", hpAtDeath: 0, totalInsects: 0,
     mapWidth: C.MAP_WIDTH, mapHeight: C.MAP_HEIGHT,
-    currentThought: null, thoughtAge: 0, thoughtTimer: 14000, // first thought at 14s
+    currentThought: null, thoughtAge: 0, thoughtTimer: 14000,
     gameTime: 0, damageLog: [],
   };
 }
 
+// Default no-perk object used when the game is started without a loaded profile
+const NO_PERKS: RankPerks = {
+  rank: 0, standardDamageBonus: 0, eliteDamageBonus: 0, bossDamageBonus: 0,
+  batteryDrainReduction: 0, speedBonus: 0, doubleBrushChance: 0,
+  hasRank5Aoe: false, doubleBuffDropChance: false, doubleBrushDropRate: false,
+  prestigeMultiplier: 1, worldDifficultyMult: 1,
+};
+
 export function updateGame(
   state: GameState,
   dt: number,
-  input: { dx: number; dy: number; aimAngle: number; shooting: boolean; dashing: boolean; autoAim: boolean; shootOverrideAngle: number | null }
+  input: { dx: number; dy: number; aimAngle: number; shooting: boolean; dashing: boolean; autoAim: boolean; shootOverrideAngle: number | null },
+  rankPerks: RankPerks = NO_PERKS
 ): GameState {
   const s = { ...state };
   s.enemies = [...s.enemies];
@@ -169,6 +183,7 @@ export function updateGame(
   s.bossWebs = [...s.bossWebs];
   s.particles = [...s.particles];
   s.buffDrops = [...s.buffDrops];
+  s.brushDrops = [...s.brushDrops];
   s.lightningArcs = [...s.lightningArcs];
   s.iceWaves = [...s.iceWaves];
   s.floatingTexts = [...s.floatingTexts];
@@ -178,6 +193,12 @@ export function updateGame(
   // ── Accumulate game time ───────────────────────────────────────────────────
   s.gameTime += dt;
 
+  // ── Rank damage multipliers ───────────────────────────────────────────────
+  const dmgStandard = Math.round(C.BULLET_DAMAGE * (1 + rankPerks.standardDamageBonus) * rankPerks.prestigeMultiplier);
+  const dmgElite    = Math.round(C.BULLET_DAMAGE * (1 + rankPerks.eliteDamageBonus)    * rankPerks.prestigeMultiplier);
+  const dmgBoss     = Math.round(C.BULLET_DAMAGE * (1 + rankPerks.bossDamageBonus)     * rankPerks.prestigeMultiplier);
+  const effectiveEliteDropChance = (wave: number) => eliteDropChance(wave) * (rankPerks.doubleBuffDropChance ? 2 : 1);
+
   // ── Cooldown timers ────────────────────────────────────────────────────────
   s.playerDamageCooldown = Math.max(0, s.playerDamageCooldown - dt);
   s.shootCooldown = Math.max(0, s.shootCooldown - dt);
@@ -185,8 +206,9 @@ export function updateGame(
   s.whiteFlash = Math.max(0, s.whiteFlash - dt * 3);
   s.redFlash   = Math.max(0, s.redFlash   - dt * 2.5); // slightly slower decay so it's readable
 
-  // ── Battery drain ─────────────────────────────────────────────────────────
-  s.battery = Math.max(0, s.battery - C.BATTERY_DRAIN_RATE * dt / 1000);
+  // ── Battery drain (Rank 3+ reduces drain) ────────────────────────────────
+  const effectiveDrainRate = C.BATTERY_DRAIN_RATE * (1 - rankPerks.batteryDrainReduction);
+  s.battery = Math.max(0, s.battery - effectiveDrainRate * dt / 1000);
   if (s.battery <= 0 && s.hp > 0) {
     // Structural integrity drain while on backup battery
     const drainAmt = C.BATTERY_HEALTH_DRAIN * dt / 1000;
@@ -236,6 +258,30 @@ export function updateGame(
     for (let i = 0; i < 30; i++) {
       const a = Math.random() * Math.PI * 2;
       s.particles.push({ id: uid(), x: s.playerX, y: s.playerY, vx: Math.cos(a) * rand(4, 14), vy: Math.sin(a) * rand(4, 14), life: rand(400, 900), maxLife: 900, color: Math.random() > 0.5 ? "#ff0044" : "#ff8800", size: rand(4, 10) });
+    }
+  }
+
+  // ── Rank 5 periodic AoE blast ─────────────────────────────────────────────
+  if (rankPerks.hasRank5Aoe && s.phase === "playing") {
+    s.rankAoeTimer -= dt;
+    if (s.rankAoeTimer <= 0) {
+      s.rankAoeTimer = C.RANK5_AOE_INTERVAL;
+      // Damage all enemies within range
+      for (const enemy of s.enemies) {
+        if (enemy.isImmune) continue;
+        const d = dist(s.playerX, s.playerY, enemy.x, enemy.y);
+        if (d < C.RANK5_AOE_RADIUS + enemy.radius) {
+          enemy.hp -= C.RANK5_AOE_DAMAGE;
+          enemy.hitFlash = 1.0;
+        }
+      }
+      // Shockwave ring visual + particles
+      s.iceWaves.push({ id: uid(), x: s.playerX, y: s.playerY, radius: 0, maxRadius: C.RANK5_AOE_RADIUS, age: 0, maxAge: 500 });
+      s.whiteFlash = Math.max(s.whiteFlash, 0.35);
+      for (let i = 0; i < 20; i++) {
+        const a = Math.random() * Math.PI * 2;
+        s.particles.push({ id: uid(), x: s.playerX, y: s.playerY, vx: Math.cos(a) * rand(5, 16), vy: Math.sin(a) * rand(5, 16), life: rand(300, 700), maxLife: 700, color: Math.random() > 0.5 ? "#ff00ff" : "#cc44ff", size: rand(3, 8) });
+      }
     }
   }
 
@@ -307,7 +353,7 @@ export function updateGame(
       }
     }
     const speedMult = s.speedBoost > 0 ? C.SPEED_BOOST_MULT : 1;
-    const speed = C.PLAYER_SPEED * speedMult * (dt / 16);
+    const speed = C.PLAYER_SPEED * speedMult * (1 + rankPerks.speedBonus) * (dt / 16);
     const len = Math.sqrt(input.dx * input.dx + input.dy * input.dy);
     if (len > 0) { s.playerX += (input.dx / len) * speed; s.playerY += (input.dy / len) * speed; }
   }
@@ -420,7 +466,7 @@ export function updateGame(
     if (!s.bossSpawned) {
       s.bossSpawned = true;
       const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
-      s.enemies.push(makeEnemy("boss", pos.x, pos.y, s.wave, s.waveModifier === "megaBoss"));
+      s.enemies.push(makeEnemy("boss", pos.x, pos.y, s.wave, s.waveModifier === "megaBoss", rankPerks.worldDifficultyMult));
     }
     // Regular enemies spawn throughout the wave — capped so a wall of bodies never forms.
     // Effective cap grows per wave (progressive pressure) up to the hard cap.
@@ -439,7 +485,7 @@ export function updateGame(
         for (let i = 0; i < batchSize; i++) {
           const type: Enemy["type"] = Math.random() < eliteChance ? "elite" : "standard";
           const pos = randomSpawnPos(s.playerX, s.playerY, s.mapWidth, s.mapHeight);
-          s.enemies.push(makeEnemy(type, pos.x, pos.y, s.wave));
+          s.enemies.push(makeEnemy(type, pos.x, pos.y, s.wave, false, rankPerks.worldDifficultyMult));
         }
       }
     }
@@ -536,13 +582,17 @@ export function updateGame(
           if (enemy.isImmune) continue;  // immune boss shrugs off bazooka
           const d = dist(bullet.x, bullet.y, enemy.x, enemy.y);
           if (d < C.BAZOOKA_EXPLOSION_RADIUS + enemy.radius) {
-            const dmg = Math.ceil(999 * (1 - d / (C.BAZOOKA_EXPLOSION_RADIUS + enemy.radius)));
+            const dmg = Math.ceil(999 * (1 - d / (C.BAZOOKA_EXPLOSION_RADIUS + enemy.radius)) * rankPerks.prestigeMultiplier);
             if (enemy.hp - dmg <= 0 && !enemiesToRemove.has(enemy.id)) {
               enemiesToRemove.add(enemy.id);
               spawnDeathParticles(s, enemy);
               s.score += scoreFor(enemy.type); s.killCount++; s.totalInsects++;
-              if (enemy.type === "elite" && Math.random() < eliteDropChance(s.wave)) spawnBuff(s, enemy.x, enemy.y, s.wave);
-              if (enemy.type === "boss") { handleBossDeath(s, enemy); }
+              s.sessionXP += xpFor(enemy.type) * rankPerks.prestigeMultiplier;
+              if (enemy.type === "elite" && Math.random() < effectiveEliteDropChance(s.wave)) spawnBuff(s, enemy.x, enemy.y, s.wave);
+              if (enemy.type === "boss") { handleBossDeath(s, enemy); s.sessionXP += s.wave * C.XP_WAVE_BONUS_MULT * rankPerks.prestigeMultiplier; }
+              const bChance = enemy.type === "boss" ? 1 : enemy.type === "elite" ? C.BRUSH_DROP_CHANCE_ELITE : C.BRUSH_DROP_CHANCE_STANDARD;
+              if (enemy.type === "boss") { const n = Math.floor(rand(C.BRUSH_DROP_AMOUNT_BOSS_MIN, C.BRUSH_DROP_AMOUNT_BOSS_MAX + 1)); for (let i=0;i<n;i++) spawnBrush(s, enemy.x, enemy.y, 1, rankPerks.doubleBrushChance, rankPerks.doubleBrushDropRate); }
+              else if (Math.random() < bChance) spawnBrush(s, enemy.x, enemy.y, 1, rankPerks.doubleBrushChance, rankPerks.doubleBrushDropRate);
             } else if (!enemiesToRemove.has(enemy.id)) {
               enemy.hp -= dmg;
               const kd = d > 0 ? { x: (enemy.x - bullet.x) / d, y: (enemy.y - bullet.y) / d } : { x: 0, y: -1 };
@@ -578,14 +628,27 @@ export function updateGame(
           bulletsToRemove.add(bullet.id);
           const bLen = Math.sqrt(bullet.vx * bullet.vx + bullet.vy * bullet.vy);
           const kbMag = enemy.type === "boss" ? C.KNOCKBACK_BOSS : enemy.type === "elite" ? C.KNOCKBACK_ELITE : C.KNOCKBACK_STANDARD;
-          if (enemy.hp - 25 <= 0) {
+          const bulletDmg = enemy.type === "boss" ? dmgBoss : enemy.type === "elite" ? dmgElite : dmgStandard;
+          if (enemy.hp - bulletDmg <= 0) {
             enemiesToRemove.add(enemy.id);
             spawnDeathParticles(s, enemy);
             s.score += scoreFor(enemy.type); s.killCount++; s.totalInsects++;
-            if (enemy.type === "elite" && Math.random() < eliteDropChance(s.wave)) spawnBuff(s, enemy.x, enemy.y, s.wave);
-            if (enemy.type === "boss") { handleBossDeath(s, enemy); }
+            s.sessionXP += xpFor(enemy.type) * rankPerks.prestigeMultiplier;
+            if (enemy.type === "elite" && Math.random() < effectiveEliteDropChance(s.wave)) spawnBuff(s, enemy.x, enemy.y, s.wave);
+            if (enemy.type === "boss") { handleBossDeath(s, enemy); s.sessionXP += s.wave * C.XP_WAVE_BONUS_MULT * rankPerks.prestigeMultiplier; }
+            // ── Brush drops ──────────────────────────────────────────────────
+            const brushChanceStd  = rankPerks.doubleBrushDropRate ? C.BRUSH_DROP_CHANCE_STANDARD * 2 : C.BRUSH_DROP_CHANCE_STANDARD;
+            const brushChanceElite = rankPerks.doubleBrushDropRate ? C.BRUSH_DROP_CHANCE_ELITE * 2 : C.BRUSH_DROP_CHANCE_ELITE;
+            if (enemy.type === "boss") {
+              const bAmt = Math.floor(rand(C.BRUSH_DROP_AMOUNT_BOSS_MIN, C.BRUSH_DROP_AMOUNT_BOSS_MAX + 1));
+              for (let i = 0; i < bAmt; i++) spawnBrush(s, enemy.x, enemy.y, 1, rankPerks.doubleBrushChance, rankPerks.doubleBrushDropRate);
+            } else if (enemy.type === "elite" && Math.random() < brushChanceElite) {
+              spawnBrush(s, enemy.x, enemy.y, 1, rankPerks.doubleBrushChance, rankPerks.doubleBrushDropRate);
+            } else if (enemy.type === "standard" && Math.random() < brushChanceStd) {
+              spawnBrush(s, enemy.x, enemy.y, 1, rankPerks.doubleBrushChance, rankPerks.doubleBrushDropRate);
+            }
           } else {
-            enemy.hp -= 25;
+            enemy.hp -= bulletDmg;
             enemy.knockbackX = bLen > 0 ? (bullet.vx / bLen) * kbMag : 0;
             enemy.knockbackY = bLen > 0 ? (bullet.vy / bLen) * kbMag : 0;
             enemy.hitFlash = 1.0;
@@ -618,8 +681,11 @@ export function updateGame(
           enemiesToRemove.add(enemy.id);
           spawnDeathParticles(s, enemy);
           s.score += scoreFor(enemy.type); s.killCount++; s.totalInsects++;
-          if (enemy.type === "elite" && Math.random() < eliteDropChance(s.wave)) spawnBuff(s, enemy.x, enemy.y, s.wave);
-          if (enemy.type === "boss") { handleBossDeath(s, enemy); }
+          s.sessionXP += xpFor(enemy.type) * rankPerks.prestigeMultiplier;
+          if (enemy.type === "elite" && Math.random() < effectiveEliteDropChance(s.wave)) spawnBuff(s, enemy.x, enemy.y, s.wave);
+          if (enemy.type === "boss") { handleBossDeath(s, enemy); s.sessionXP += s.wave * C.XP_WAVE_BONUS_MULT * rankPerks.prestigeMultiplier; }
+          if (enemy.type === "boss") { const n = Math.floor(rand(C.BRUSH_DROP_AMOUNT_BOSS_MIN, C.BRUSH_DROP_AMOUNT_BOSS_MAX + 1)); for (let i=0;i<n;i++) spawnBrush(s, enemy.x, enemy.y, 1, rankPerks.doubleBrushChance, rankPerks.doubleBrushDropRate); }
+          else if (Math.random() < (enemy.type === "elite" ? C.BRUSH_DROP_CHANCE_ELITE : C.BRUSH_DROP_CHANCE_STANDARD)) spawnBrush(s, enemy.x, enemy.y, 1, rankPerks.doubleBrushChance, rankPerks.doubleBrushDropRate);
         }
       }
     }
@@ -686,6 +752,20 @@ export function updateGame(
   // ── Buff pickup ───────────────────────────────────────────────────────────
   s.buffDrops = s.buffDrops.map((b) => ({ ...b, pulse: b.pulse + dt * 0.003 })).filter((bd) => {
     if (dist(s.playerX, s.playerY, bd.x, bd.y) < C.PLAYER_RADIUS + 22) { applyBuff(s, bd.type); return false; }
+    return true;
+  });
+
+  // ── Brush pickup (player walks over gold brush drops) ────────────────────
+  s.brushDrops = s.brushDrops.map((b) => ({ ...b, pulse: b.pulse + dt * 0.004 })).filter((bd) => {
+    if (dist(s.playerX, s.playerY, bd.x, bd.y) < C.PLAYER_RADIUS + C.BRUSH_PICKUP_RADIUS) {
+      s.sessionBrushes += bd.amount;
+      // Sparkle particles on pickup
+      for (let i = 0; i < 6; i++) {
+        const a = Math.random() * Math.PI * 2;
+        s.particles.push({ id: uid(), x: bd.x, y: bd.y, vx: Math.cos(a) * rand(2, 5), vy: Math.sin(a) * rand(2, 5), life: rand(200, 450), maxLife: 450, color: Math.random() > 0.5 ? "#ffd700" : "#ffec80", size: rand(2, 5) });
+      }
+      return false;
+    }
     return true;
   });
 
@@ -791,8 +871,12 @@ function chainLightning(state: GameState, origin: Enemy, excluded: Set<string>, 
       excluded.add(e.id);
       spawnDeathParticles(state, e);
       state.score += scoreFor(e.type); state.killCount++; state.totalInsects++;
+      state.sessionXP += xpFor(e.type);
       if (e.type === "elite" && Math.random() < eliteDropChance(state.wave)) spawnBuff(state, e.x, e.y, state.wave);
-      if (e.type === "boss") handleBossDeath(state, e);
+      if (e.type === "boss") { handleBossDeath(state, e); state.sessionXP += state.wave * C.XP_WAVE_BONUS_MULT; }
+      if (Math.random() < (e.type === "elite" ? C.BRUSH_DROP_CHANCE_ELITE : e.type === "boss" ? 1 : C.BRUSH_DROP_CHANCE_STANDARD)) {
+        spawnBrush(state, e.x, e.y, e.type === "boss" ? Math.floor(rand(C.BRUSH_DROP_AMOUNT_BOSS_MIN, C.BRUSH_DROP_AMOUNT_BOSS_MAX + 1)) : 1, 0, false);
+      }
     }
 
     // Spark particles at chain point
@@ -816,6 +900,20 @@ function handleBossDeath(state: GameState, enemy: Enemy) {
 
 function scoreFor(type: Enemy["type"]): number {
   return type === "boss" ? C.SCORE_BOSS : type === "elite" ? C.SCORE_ELITE : C.SCORE_STANDARD;
+}
+
+function xpFor(type: Enemy["type"]): number {
+  return type === "boss" ? C.XP_BOSS : type === "elite" ? C.XP_ELITE : C.XP_STANDARD;
+}
+
+function spawnBrush(state: GameState, x: number, y: number, amount: number, doubleBrushChance: number, doubleBrushDropRate: boolean) {
+  // Rank 2: 5% chance the count doubles on pickup
+  // Rank 5: base drop rate already doubled (handled at call site)
+  const drop: BrushDrop = { id: uid(), x: x + rand(-20, 20), y: y + rand(-20, 20), pulse: Math.random() * Math.PI * 2, amount };
+  // Apply double-brush-on-pickup chance (Rank 2)
+  if (doubleBrushChance > 0 && Math.random() < doubleBrushChance) drop.amount *= 2;
+  if (doubleBrushDropRate) drop.amount *= 2; // Rank 5 doubles all brush drops
+  state.brushDrops.push(drop);
 }
 
 function randomSpawnPos(px: number, py: number, mw: number, mh: number) {

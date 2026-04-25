@@ -89,6 +89,14 @@ export interface BuffDrop {
   pulse: number;
 }
 
+export interface BrushDrop {
+  id: string;
+  x: number;
+  y: number;
+  pulse: number;   // animation phase (0-2π)
+  amount: number;  // brushes awarded on pickup (usually 1, 2-5 for boss)
+}
+
 export interface Bullet {
   id: string;
   x: number;
@@ -152,6 +160,15 @@ export interface GameState {
   battery: number;
   maxBattery: number;
   batterySpawnTimer: number;
+  // Brush currency
+  brushDrops: BrushDrop[];
+  sessionBrushes: number;  // brushes picked up this session (shown in HUD)
+  // Session XP (accumulated; read on death to award to profile)
+  sessionXP: number;
+  // Rank 5 periodic AoE timer (ms until next AoE blast)
+  rankAoeTimer: number;
+  // World context
+  worldId: number;
   // Berserker
   berserkerTimer: number;
   berserkerAutoUsed: boolean;
