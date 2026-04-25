@@ -28,6 +28,11 @@ interface DeathScreenProps {
   deathCause: string;
   hpAtDeath: number;
   damageLog: string[];
+  xpGained: number;
+  levelsGained: number;
+  playerLevel: number;
+  playerRankName: string;
+  playerRankColor: string;
   onRetry: () => void;
   onMenu: () => void;
   onLeaderboard: () => void;
@@ -36,7 +41,8 @@ interface DeathScreenProps {
 export function DeathScreen({
   score, wavesCleared, insectsExterminated,
   highScore, bestWave, isNewHighScore,
-  deathCause, onRetry, onMenu, onLeaderboard,
+  deathCause, xpGained, levelsGained, playerLevel, playerRankName, playerRankColor,
+  onRetry, onMenu, onLeaderboard,
 }: DeathScreenProps) {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
@@ -101,6 +107,36 @@ export function DeathScreen({
           </Animated.Text>
           <Text style={styles.deathSub}>The insects have claimed another victim</Text>
         </Animated.View>
+
+        {/* Rank + Progression */}
+        <View style={[styles.rankCard, { borderColor: playerRankColor + "55" }]}>
+          <Text style={styles.cardTitle}>RANK PROGRESSION</Text>
+          <View style={styles.rankRow}>
+            <View style={[styles.rankBadge, { borderColor: playerRankColor }]}>
+              <Text style={[styles.rankBadgeText, { color: playerRankColor }]}>{playerRankName}</Text>
+              <Text style={[styles.rankLevelText, { color: playerRankColor }]}>LV {playerLevel}</Text>
+            </View>
+            <View style={styles.rankStats}>
+              <View style={styles.rankStatItem}>
+                <Text style={styles.rankStatValue}>+{xpGained.toLocaleString()}</Text>
+                <Text style={styles.rankStatLabel}>XP EARNED</Text>
+              </View>
+              <View style={styles.rankStatItem}>
+                <Text style={[styles.rankStatValue, levelsGained > 0 && styles.rankStatHighlight]}>
+                  +{levelsGained}
+                </Text>
+                <Text style={styles.rankStatLabel}>LEVELS UP</Text>
+              </View>
+            </View>
+          </View>
+          {levelsGained > 0 && (
+            <View style={[styles.levelUpBanner, { backgroundColor: playerRankColor + "22", borderColor: playerRankColor + "66" }]}>
+              <Text style={[styles.levelUpBannerText, { color: playerRankColor }]}>
+                ★  LEVELED UP {levelsGained}×  ★
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* Stats */}
         <View style={styles.statsCard}>
@@ -210,6 +246,32 @@ const styles = StyleSheet.create({
     textShadow: "0 0 20px rgba(255,0,0,0.8), 0 2px 4px rgba(0,0,0,0.99)" as any,
   },
   deathSub: { color: "#553333", fontSize: 11, fontStyle: "italic" },
+
+  rankCard: {
+    backgroundColor: "rgba(5,3,12,0.95)",
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 14,
+    width: "100%",
+    maxWidth: 340,
+    gap: 10,
+  },
+  rankRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+  rankBadge: {
+    borderWidth: 2, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
+    alignItems: "center", gap: 2, minWidth: 90,
+  },
+  rankBadgeText: { fontSize: 13, fontWeight: "900", letterSpacing: 2, fontFamily: "monospace" },
+  rankLevelText: { fontSize: 11, fontWeight: "700", letterSpacing: 1, opacity: 0.85 },
+  rankStats: { flex: 1, flexDirection: "row", gap: 16, justifyContent: "center" },
+  rankStatItem: { alignItems: "center", gap: 2 },
+  rankStatValue: { color: "#cc88ff", fontSize: 20, fontWeight: "900" },
+  rankStatHighlight: { color: "#ffaa00" },
+  rankStatLabel: { color: "#442255", fontSize: 8, letterSpacing: 2, fontFamily: "monospace" },
+  levelUpBanner: {
+    borderWidth: 1, borderRadius: 6, paddingVertical: 6, alignItems: "center",
+  },
+  levelUpBannerText: { fontSize: 11, fontWeight: "900", letterSpacing: 2, fontFamily: "monospace" },
 
   statsCard: {
     backgroundColor: "rgba(12,3,3,0.95)",

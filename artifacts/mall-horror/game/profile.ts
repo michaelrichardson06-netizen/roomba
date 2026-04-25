@@ -1,15 +1,26 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export interface StartingBuffs {
+  tripleShot?: boolean;
+  quadShot?: boolean;
+  rapidFireStacks?: number;
+  speedBoost?: number;
+  lightningStrike?: boolean;
+}
+
 export interface PlayerProfile {
-  level: number;        // 1 – 7500
+  level: number;        // 1 – 1000
   xp: number;           // accumulated XP within current level
   brushes: number;      // lifetime currency
   prestige: boolean;    // completed Rank-6 reset → permanent 2x multiplier
   selectedWorld: number;// 0-5
 }
 
+// Max level
+export const MAX_LEVEL = 1000;
+
 // Minimum level required to REACH each rank (index = rank 0-6)
-export const RANK_LEVELS = [0, 10, 150, 500, 1250, 3000, 7500];
+export const RANK_LEVELS = [0, 10, 100, 250, 500, 750, 1000];
 export const RANK_NAMES  = ["ROOKIE", "NOVICE", "AMATEUR", "ELITE", "MASTER", "LEGEND", "ASCENDED"];
 export const RANK_COLORS = ["#888888", "#66ff88", "#4499ff", "#cc44ff", "#ffaa00", "#ff4422", "#ff00ff"];
 export const RANK_TAGLINES = [
@@ -32,10 +43,10 @@ export function getRank(level: number): number {
 // XP required to level up FROM level n to n+1
 export function xpForLevel(level: number): number {
   if (level <= 0) return 100;
-  return Math.floor(180 * Math.pow(level, 1.22));
+  return Math.floor(120 * Math.pow(level, 1.18));
 }
 
-const PROFILE_KEY = "@mallhorror_profile_v2";
+const PROFILE_KEY = "@mallhorror_profile_v3";
 
 export const DEFAULT_PROFILE: PlayerProfile = {
   level: 1, xp: 0, brushes: 0, prestige: false, selectedWorld: 0,
@@ -60,42 +71,38 @@ export async function saveProfile(p: PlayerProfile): Promise<void> {
 export interface XPAwardResult {
   profile: PlayerProfile;
   levelsGained: number;
+  finalRank: number;
 }
 
 export function awardXP(profile: PlayerProfile, xpGain: number): XPAwardResult {
   let { level, xp } = profile;
+  const startRank = getRank(level);
   let levelsGained = 0;
   xp += xpGain;
-  while (level < 7500) {
+  while (level < MAX_LEVEL) {
     const needed = xpForLevel(level);
     if (xp >= needed) { xp -= needed; level++; levelsGained++; }
     else break;
   }
-  if (level >= 7500) { level = 7500; xp = 0; }
-  return { profile: { ...profile, level, xp }, levelsGained };
+  if (level >= MAX_LEVEL) { level = MAX_LEVEL; xp = 0; }
+  const finalRank = getRank(level);
+  return { profile: { ...profile, level, xp }, levelsGained, finalRank };
 }
 
 // ── Rank perks computed from a profile ──────────────────────────────────────
 
 export interface RankPerks {
   rank: number;
-  // Rank 1+: damage to standard enemies
-  standardDamageBonus: number;    // e.g. 0.05 = +5%
-  // Rank 4+: damage to elite/boss
+  standardDamageBonus: number;
   eliteDamageBonus: number;
   bossDamageBonus: number;
-  // Rank 3+: battery & speed
-  batteryDrainReduction: number;  // fraction of drain removed (0.10 = 10% less drain)
-  speedBonus: number;             // fraction added to base speed (0.03 = +3%)
-  // Rank 2: 5% chance for 2x brush pickup
-  doubleBrushChance: number;      // 0.05
-  // Rank 5: periodic AoE, 2x drops
+  batteryDrainReduction: number;
+  speedBonus: number;
+  doubleBrushChance: number;
   hasRank5Aoe: boolean;
   doubleBuffDropChance: boolean;
   doubleBrushDropRate: boolean;
-  // Rank 6 prestige
-  prestigeMultiplier: number;     // 2.0 if prestige, else 1.0
-  // World difficulty applied to enemies
+  prestigeMultiplier: number;
   worldDifficultyMult: number;
 }
 
@@ -116,3 +123,14 @@ export function getRankPerks(profile: PlayerProfile, worldDifficultyMult: number
     worldDifficultyMult,
   };
 }
+
+// ── Buff store prices ────────────────────────────────────────────────────────
+export const STORE_ITEMS = [
+  { id: "tripleShot",     label: "TRIPLE SHOT",   icon: "⚡",  desc: "Fire 3 bullets per shot",     cost: 3  },
+  { id: "quadShot",       label: "QUAD SHOT",     icon: "💥",  desc: "Fire 4 bullets per shot",     cost: 8  },
+  { id: "rapidFire",      label: "RAPID FIRE",    icon: "🔥",  desc: "+1 rapid fire stack",          cost: 5  },
+  { id: "speedBoost",     label: "SPEED BOOST",   icon: "💨",  desc: "Start with speed boost",      cost: 4  },
+  { id: "lightningStrike",label: "LIGHTNING",     icon: "🌩️",  desc: "Lightning strike mode",       cost: 10 },
+] as const;
+
+export type StoreItemId = typeof STORE_ITEMS[number]["id"];

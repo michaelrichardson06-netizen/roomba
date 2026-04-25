@@ -10,7 +10,9 @@ import type { GameState } from "@/game/types";
 import type { RankPerks } from "@/game/profile";
 import { RANK_NAMES, RANK_COLORS, getRank, xpForLevel } from "@/game/profile";
 import { GameHUD } from "./GameHUD";
-import { unlockAudio, startBgMusic, stopBgMusic, playShoot, playZap, playBerserkerStart, playHit, playBatteryLow, playBatteryRecharge, getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume, playLevelUp, playRankUp } from "@/game/audio";
+import { unlockAudio, startBgMusic, stopBgMusic, playShoot, playZap, playBerserkerStart, playHit, playBatteryLow, playBatteryRecharge, getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume, playLevelUp, playRankUp, playBrushPickup } from "@/game/audio";
+
+import type { StartingBuffs } from "@/game/profile";
 
 interface GameCanvasProps {
   onDeath: (state: GameState) => void;
@@ -19,6 +21,8 @@ interface GameCanvasProps {
   rankPerks?: RankPerks;
   playerLevel?: number;
   playerXP?: number;
+  startingBuffs?: StartingBuffs;
+  underleveledPenalty?: boolean;
 }
 
 interface HUDState {
@@ -69,10 +73,10 @@ const DEFAULT_HUD: HUDState = {
 
 const IDLE_JOY: JoyState = { active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 };
 
-export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLevel = 1, playerXP = 0 }: GameCanvasProps) {
+export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLevel = 1, playerXP = 0, startingBuffs, underleveledPenalty = false }: GameCanvasProps) {
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const stateRef = useRef<GameState>(createInitialState(worldId));
+  const stateRef = useRef<GameState>(createInitialState(worldId, startingBuffs, underleveledPenalty));
   const inputRef = useRef({ dx: 0, dy: 0, aimAngle: 0, targetAimAngle: 0, useSmoothedAim: false, rightJoyActive: false, shooting: false, dashing: false, autoAim: false, shootOverrideAngle: null as number | null, rightOverrideSetAt: 0 });
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
@@ -100,12 +104,13 @@ export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLeve
   const rankMsgTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Audio state tracking ──────────────────────────────────────────────────
-  const prevBulletCount    = useRef(0);
-  const prevBerserking     = useRef(false);
-  const prevBatteryEmpty   = useRef(false);
-  const prevBatteryLevel   = useRef(100);
-  const prevLightningCount = useRef(0);
-  const prevRedFlash       = useRef(0);
+  const prevBulletCount      = useRef(0);
+  const prevBerserking       = useRef(false);
+  const prevBatteryEmpty     = useRef(false);
+  const prevBatteryLevel     = useRef(100);
+  const prevLightningCount   = useRef(0);
+  const prevRedFlash         = useRef(0);
+  const prevSessionBrushes   = useRef(0);
 
   // ── iOS: configure AVAudioSession so Web Audio plays even in silent mode ──
   useEffect(() => {
@@ -204,6 +209,10 @@ export function GameCanvas({ onDeath, onExit, worldId = 0, rankPerks, playerLeve
         playShoot(newState.bazookaMode, newState.berserkerTimer > 0);
       }
       prevBulletCount.current = newState.bullets.length;
+
+      // Brush pickup sound
+      if (newState.sessionBrushes > prevSessionBrushes.current) playBrushPickup();
+      prevSessionBrushes.current = newState.sessionBrushes;
 
       // Berserker start
       const nowBerserking = newState.berserkerTimer > 0;

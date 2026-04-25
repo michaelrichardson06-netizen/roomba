@@ -6,8 +6,8 @@ import { GameCanvas } from "@/components/GameCanvas";
 import { DeathScreen } from "@/components/DeathScreen";
 import { LeaderboardScreen } from "@/components/LeaderboardScreen";
 import type { GameState } from "@/game/types";
-import { loadProfile, saveProfile, awardXP, getRankPerks } from "@/game/profile";
-import type { PlayerProfile, RankPerks } from "@/game/profile";
+import { loadProfile, saveProfile, awardXP, getRankPerks, getRank, RANK_NAMES, RANK_COLORS } from "@/game/profile";
+import type { PlayerProfile, RankPerks, StartingBuffs } from "@/game/profile";
 import { getWorldById, getWorldDifficultyMult } from "@/game/worlds";
 
 type Phase = "playing" | "dead" | "leaderboard";
@@ -20,6 +20,11 @@ interface DeathResult {
   hpAtDeath: number;
   sessionBrushes: number;
   sessionXP: number;
+  xpGained: number;
+  levelsGained: number;
+  finalLevel: number;
+  finalRankName: string;
+  finalRankColor: string;
 }
 
 const HS_SCORE_KEY = "@mallhorror_highscore";
@@ -27,8 +32,12 @@ const HS_WAVE_KEY = "@mallhorror_bestwave";
 
 export default function GameScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ worldId?: string }>();
+  const params = useLocalSearchParams<{ worldId?: string; startingBuffs?: string; underleveledPenalty?: string }>();
   const worldId = parseInt(params.worldId ?? "0", 10) || 0;
+  const startingBuffs: StartingBuffs | undefined = params.startingBuffs
+    ? (() => { try { return JSON.parse(params.startingBuffs as string); } catch { return undefined; } })()
+    : undefined;
+  const underleveledPenalty = params.underleveledPenalty === "true";
 
   const [phase, setPhase] = useState<Phase>("playing");
   const [result, setResult] = useState<DeathResult | null>(null);
@@ -54,6 +63,26 @@ export default function GameScreen() {
 
   const handleDeath = useCallback(
     async (state: GameState) => {
+      const p = profileRef.current;
+      let finalLevel = p?.level ?? 1;
+      let levelsGained = 0;
+      let finalRankIdx = getRank(finalLevel);
+
+      if (p) {
+        const xpGain = Math.floor(state.sessionXP);
+        const award = awardXP(p, xpGain);
+        levelsGained = award.levelsGained;
+        finalLevel = award.profile.level;
+        finalRankIdx = award.finalRank;
+        const finalProfile: PlayerProfile = {
+          ...award.profile,
+          brushes: award.profile.brushes + state.sessionBrushes,
+        };
+        profileRef.current = finalProfile;
+        setProfile(finalProfile);
+        await saveProfile(finalProfile);
+      }
+
       const r: DeathResult = {
         score: state.score,
         wave: state.wave,
@@ -62,21 +91,13 @@ export default function GameScreen() {
         hpAtDeath: state.hpAtDeath,
         sessionBrushes: state.sessionBrushes,
         sessionXP: Math.floor(state.sessionXP),
+        xpGained: Math.floor(state.sessionXP),
+        levelsGained,
+        finalLevel,
+        finalRankName: RANK_NAMES[finalRankIdx] ?? "ROOKIE",
+        finalRankColor: RANK_COLORS[finalRankIdx] ?? "#888888",
       };
       setResult(r);
-
-      // Award XP + brushes to profile
-      const p = profileRef.current;
-      if (p) {
-        const { profile: updated } = awardXP(p, r.sessionXP);
-        const finalProfile: PlayerProfile = {
-          ...updated,
-          brushes: updated.brushes + r.sessionBrushes,
-        };
-        profileRef.current = finalProfile;
-        setProfile(finalProfile);
-        await saveProfile(finalProfile);
-      }
 
       let newRecord = false;
       if (r.score > highScore) {
@@ -116,10 +137,7 @@ export default function GameScreen() {
   if (phase === "leaderboard") {
     return (
       <View style={styles.container}>
-        <LeaderboardScreen
-          onBack={handleBackFromLB}
-          highlightScore={result?.score}
-        />
+        <LeaderboardScreen onBack={handleBackFromLB} highlightScore={result?.score} />
       </View>
     );
   }
@@ -137,6 +155,11 @@ export default function GameScreen() {
           deathCause={result.deathCause}
           hpAtDeath={result.hpAtDeath}
           damageLog={[]}
+          xpGained={result.xpGained}
+          levelsGained={result.levelsGained}
+          playerLevel={result.finalLevel}
+          playerRankName={result.finalRankName}
+          playerRankColor={result.finalRankColor}
           onRetry={handleRetry}
           onMenu={handleMenu}
           onLeaderboard={handleLeaderboard}
@@ -155,6 +178,8 @@ export default function GameScreen() {
         rankPerks={rankPerks ?? undefined}
         playerLevel={profile?.level ?? 1}
         playerXP={profile?.xp ?? 0}
+        startingBuffs={startingBuffs}
+        underleveledPenalty={underleveledPenalty}
       />
     </View>
   );

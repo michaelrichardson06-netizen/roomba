@@ -258,6 +258,42 @@ export function playHit() {
   osc.start(now); osc.stop(now + 0.16);
 }
 
+// ─── Brush pickup scrub sound ─────────────────────────────────────────────────
+export function playBrushPickup() {
+  const ac  = getCtx();
+  const dst = sfx();
+  if (!ac || !dst) return;
+  const now = ac.currentTime;
+  // Noise burst that sounds like a quick scrub
+  const bufSize = ac.sampleRate * 0.08;
+  const buffer  = ac.createBuffer(1, bufSize, ac.sampleRate);
+  const data    = buffer.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
+  const noise = ac.createBufferSource();
+  noise.buffer = buffer;
+  // Band-pass to give it a bristle texture
+  const bp  = ac.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.setValueAtTime(2400, now);
+  bp.frequency.exponentialRampToValueAtTime(800, now + 0.06);
+  bp.Q.value = 3.5;
+  const ng = ac.createGain();
+  ng.gain.setValueAtTime(0.28, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  noise.connect(bp); bp.connect(ng); ng.connect(dst);
+  noise.start(now); noise.stop(now + 0.1);
+  // Soft coin-like ping on top
+  const ping = ac.createOscillator();
+  const pg   = ac.createGain();
+  ping.type = "sine";
+  ping.frequency.setValueAtTime(1200, now);
+  ping.frequency.exponentialRampToValueAtTime(900, now + 0.06);
+  pg.gain.setValueAtTime(0.12, now);
+  pg.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  ping.connect(pg); pg.connect(dst);
+  ping.start(now); ping.stop(now + 0.12);
+}
+
 // ─── Level-up chime (bright ascending arpeggio) ───────────────────────────────
 export function playLevelUp() {
   const ac  = getCtx();

@@ -1,6 +1,6 @@
 import { GAME_CONFIG as C } from "./constants";
 import type { GameState, Enemy, LampLight, LightningArc, IceWave, FloatingText, WaveModifier, Poster, BrushDrop } from "./types";
-import type { RankPerks } from "./profile";
+import type { RankPerks, StartingBuffs } from "./profile";
 
 let nextId = 0;
 function uid() { return (++nextId).toString(); }
@@ -118,7 +118,7 @@ function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number, isMe
   };
 }
 
-export function createInitialState(worldId = 0): GameState {
+export function createInitialState(worldId = 0, startingBuffs?: StartingBuffs, underleveledPenalty = false): GameState {
   const lamps: LampLight[] = [];
   for (let i = 0; i < C.LAMP_COUNT; i++) {
     lamps.push({
@@ -149,8 +149,13 @@ export function createInitialState(worldId = 0): GameState {
     iceWaves: [], floatingTexts: [],
     waveModifier: "none" as WaveModifier,
     posters: [],
-    tripleShot: false, quadShot: false, rapidFireStacks: 0, bazookaMode: false, lightningStrike: false, lightningArcs: [],
-    speedBoost: 0,
+    tripleShot: startingBuffs?.tripleShot ?? false,
+    quadShot: startingBuffs?.quadShot ?? false,
+    rapidFireStacks: startingBuffs?.rapidFireStacks ?? 0,
+    bazookaMode: false,
+    lightningStrike: startingBuffs?.lightningStrike ?? false,
+    lightningArcs: [],
+    speedBoost: startingBuffs?.speedBoost ?? 0,
     playerDamageCooldown: 0,
     shootCooldown: 0, dashCooldown: 0, isDashing: false,
     dashDx: 0, dashDy: 0, dashTime: 0,
@@ -159,6 +164,7 @@ export function createInitialState(worldId = 0): GameState {
     mapWidth: C.MAP_WIDTH, mapHeight: C.MAP_HEIGHT,
     currentThought: null, thoughtAge: 0, thoughtTimer: 14000,
     gameTime: 0, damageLog: [],
+    underleveledPenalty,
   };
 }
 
@@ -206,8 +212,29 @@ export function updateGame(
   s.whiteFlash = Math.max(0, s.whiteFlash - dt * 3);
   s.redFlash   = Math.max(0, s.redFlash   - dt * 2.5); // slightly slower decay so it's readable
 
+  // ── Underleveled penalty: battery drains in ~3s, then HP in ~4s ──────────
+  if (s.underleveledPenalty && s.phase === "playing") {
+    if (s.battery > 0) {
+      // Drain ~33.3 battery per second → empty in 3s
+      s.battery = Math.max(0, s.battery - (s.maxBattery / 3000) * dt);
+      s.redFlash = Math.max(s.redFlash, 0.25);
+    } else {
+      // Battery gone → drain ~50 HP per second → dead in 4s from 200 HP
+      const drain = (s.maxHp / 4000) * dt;
+      const hpBefore = s.hp;
+      s.hp = Math.max(0, s.hp - drain);
+      s.redFlash = Math.max(s.redFlash, 0.4);
+      if (Math.random() < 0.06) s.whiteFlash = Math.max(s.whiteFlash, 0.12);
+      if (s.hp <= 0) {
+        s.deathCause = "overload: world too dangerous";
+        s.hpAtDeath = hpBefore;
+        s.phase = "dead";
+      }
+    }
+  }
+
   // ── Battery drain (Rank 3+ reduces drain) ────────────────────────────────
-  const effectiveDrainRate = C.BATTERY_DRAIN_RATE * (1 - rankPerks.batteryDrainReduction);
+  const effectiveDrainRate = s.underleveledPenalty ? 0 : C.BATTERY_DRAIN_RATE * (1 - rankPerks.batteryDrainReduction);
   s.battery = Math.max(0, s.battery - effectiveDrainRate * dt / 1000);
   if (s.battery <= 0 && s.hp > 0) {
     // Structural integrity drain while on backup battery

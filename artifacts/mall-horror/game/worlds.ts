@@ -17,27 +17,27 @@ export const WORLDS: WorldDef[] = [
   },
   {
     id: 1, name: "REDLINE SUBWAY", subtitle: "Subway Mall",
-    recommendedLevel: 150,
+    recommendedLevel: 100,
     themeColor: "#4488ff", floorTint: "#0d1020", ambientColor: "#4488ff", icon: "🚇",
   },
   {
     id: 2, name: "TERMINAL 7",     subtitle: "Airport",
-    recommendedLevel: 500,
+    recommendedLevel: 250,
     themeColor: "#44ffcc", floorTint: "#0f1a18", ambientColor: "#44ffcc", icon: "✈️",
   },
   {
     id: 3, name: "WHISPERWOOD",    subtitle: "Forest Horror",
-    recommendedLevel: 1250,
+    recommendedLevel: 500,
     themeColor: "#44ff44", floorTint: "#0a1208", ambientColor: "#44ff44", icon: "🌲",
   },
   {
     id: 4, name: "CRUCIBLE WORKS", subtitle: "Industrial",
-    recommendedLevel: 3000,
+    recommendedLevel: 750,
     themeColor: "#ff8800", floorTint: "#1a1008", ambientColor: "#ff8800", icon: "⚙️",
   },
   {
     id: 5, name: "SECTOR ZERO",    subtitle: "Final Boss",
-    recommendedLevel: 7500,
+    recommendedLevel: 1000,
     themeColor: "#ff00ff", floorTint: "#0d000d", ambientColor: "#ff00ff", icon: "☠️",
   },
 ];

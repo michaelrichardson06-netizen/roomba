@@ -139,7 +139,7 @@ export const GAME_CONFIG = {
 
   // ── XP per kill ───────────────────────────────────────────────────────────
   XP_STANDARD: 220,
-  XP_ELITE:    580,
+  XP_ELITE:    880,    // 4× standard — elites are significantly more rewarding
   XP_BOSS:     2200,
   XP_WAVE_BONUS_MULT: 900,          // wave × 900 XP on boss kill (wave completion)
 

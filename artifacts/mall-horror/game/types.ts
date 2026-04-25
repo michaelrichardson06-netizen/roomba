@@ -228,4 +228,6 @@ export interface GameState {
   currentThought: string | null;
   thoughtAge: number;     // ms since thought appeared
   thoughtTimer: number;   // ms until next thought fires
+  // Underleveled world penalty
+  underleveledPenalty: boolean; // true = fast battery/hp drain
 }
