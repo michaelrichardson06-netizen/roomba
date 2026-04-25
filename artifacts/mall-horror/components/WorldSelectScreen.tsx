@@ -147,7 +147,9 @@ export function WorldSelectScreen({ playerLevel, selectedWorld, onSelect, onBack
                   if (!warningWorld) return;
                   const id = warningWorld.id;
                   setWarningWorld(null);
-                  onSelect(id);
+                  // Defer navigation until after the modal close animation
+                  // completes to avoid re-renders with warningWorld = null
+                  setTimeout(() => onSelect(id), 350);
                 }}
                 activeOpacity={0.8}
               >
