@@ -118,13 +118,27 @@ function makeEnemy(type: Enemy["type"], x: number, y: number, wave: number, isMe
   };
 }
 
+// Per-world ambient lamp color palettes [primary (75%), accent (25%)]
+const WORLD_LAMP_COLORS: [string, string][] = [
+  ["#ffcc66", "#ff8800"],   // 0 Westview — warm tungsten / amber
+  ["#3355cc", "#4466ff"],   // 1 Redline  — cold blue fluorescent
+  ["#aaeeff", "#44ddcc"],   // 2 Terminal 7 — airport cool-white / cyan
+  ["#224422", "#448833"],   // 3 Whisperwood — dark moss green glow
+  ["#cc6622", "#ff4400"],   // 4 Crucible  — industrial orange / red
+  ["#cc00cc", "#ff00ff"],   // 5 Sector Zero — void magenta
+];
+function worldLampColor(worldId: number): string {
+  const palette = WORLD_LAMP_COLORS[Math.max(0, Math.min(worldId, WORLD_LAMP_COLORS.length - 1))] ?? WORLD_LAMP_COLORS[0];
+  return Math.random() > 0.25 ? palette[0] : palette[1];
+}
+
 export function createInitialState(worldId = 0, startingBuffs?: StartingBuffs, underleveledPenalty = false): GameState {
   const lamps: LampLight[] = [];
   for (let i = 0; i < C.LAMP_COUNT; i++) {
     lamps.push({
       x: rand(100, C.MAP_WIDTH - 100), y: rand(100, C.MAP_HEIGHT - 100),
       radius: rand(160, 280), flicker: 1.0, flickerTarget: rand(0.82, 1.0),
-      color: Math.random() > 0.25 ? "#ffcc66" : Math.random() > 0.5 ? "#ff8800" : "#4488ff",
+      color: worldLampColor(worldId),
     });
   }
   return {

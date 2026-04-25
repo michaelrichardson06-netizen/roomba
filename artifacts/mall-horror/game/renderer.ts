@@ -1,6 +1,40 @@
 import type { GameState } from "./types";
 import { ENEMY_COLORS, BUFF_COLORS } from "./constants";
 
+// ─── Per-world visual themes ──────────────────────────────────────────────────
+interface WorldTheme {
+  tilePrimary:   string;
+  tileSecondary: string;
+  tileGrout:     string;
+  wallFill:      string;
+  wallBaseboard: string;
+  scuffColor:    string;
+  floorLine:     string;
+}
+const WORLD_THEMES: WorldTheme[] = [
+  // 0 — WESTVIEW MALL  (warm cream marble)
+  { tilePrimary: "#d8ccb8", tileSecondary: "#cec1aa", tileGrout: "#b8ac98",
+    wallFill: "#c8bfb0", wallBaseboard: "#5a4a38", scuffColor: "#6a5a40", floorLine: "#888070" },
+  // 1 — REDLINE SUBWAY  (dark charcoal concrete + blue)
+  { tilePrimary: "#1e2438", tileSecondary: "#181c2e", tileGrout: "#0e1220",
+    wallFill: "#1a2040", wallBaseboard: "#0d1020", scuffColor: "#2244aa", floorLine: "#3355bb" },
+  // 2 — TERMINAL 7  (light airport tile + cyan)
+  { tilePrimary: "#d4e4e0", tileSecondary: "#c4d8d4", tileGrout: "#a8ccc8",
+    wallFill: "#c0d8d8", wallBaseboard: "#4a7a78", scuffColor: "#44aaaa", floorLine: "#55bbbb" },
+  // 3 — WHISPERWOOD  (dark mossy forest)
+  { tilePrimary: "#1a2a14", tileSecondary: "#142010", tileGrout: "#0e180a",
+    wallFill: "#182218", wallBaseboard: "#0a1208", scuffColor: "#2a5a1a", floorLine: "#3a6a2a" },
+  // 4 — CRUCIBLE WORKS  (industrial rust/metal)
+  { tilePrimary: "#2e2018", tileSecondary: "#261808", tileGrout: "#1a1008",
+    wallFill: "#2a1e10", wallBaseboard: "#3a2810", scuffColor: "#5a3a10", floorLine: "#6a4a20" },
+  // 5 — SECTOR ZERO  (void / alien magenta)
+  { tilePrimary: "#1a0a1a", tileSecondary: "#120812", tileGrout: "#0a040a",
+    wallFill: "#160616", wallBaseboard: "#2a0a2a", scuffColor: "#4a004a", floorLine: "#5a005a" },
+];
+function getWorldTheme(worldId: number): WorldTheme {
+  return WORLD_THEMES[Math.max(0, Math.min(worldId, WORLD_THEMES.length - 1))] ?? WORLD_THEMES[0];
+}
+
 // ─── Pixel-art thought bubble ─────────────────────────────────────────────────
 // Drawn in screen space so it always appears above the fog of war.
 // sx, sy = player's SCREEN position (world pos minus camera offset).
@@ -211,9 +245,10 @@ export function renderFrame(
   ctx.save();
   ctx.translate(-cameraX, -cameraY);
 
-  drawFloor(ctx, cameraX, cameraY, canvasW, canvasH, state.mapWidth, state.mapHeight);
+  const worldTheme = getWorldTheme(state.worldId);
+  drawFloor(ctx, cameraX, cameraY, canvasW, canvasH, state.mapWidth, state.mapHeight, worldTheme);
   if (state.posters.length > 0) drawPosters(ctx, state.posters, cameraX, cameraY, canvasW, canvasH);
-  drawMallFeatures(ctx, state.mapWidth, state.mapHeight);
+  drawMallFeatures(ctx, state.mapWidth, state.mapHeight, worldTheme);
 
   for (const lamp of state.lamps) {
     drawLamp(ctx, lamp.x, lamp.y, lamp.color);
@@ -754,7 +789,8 @@ function drawFloor(
   ctx: CanvasRenderingContext2D,
   cx: number, cy: number,
   cw: number, ch: number,
-  mw: number, mh: number
+  mw: number, mh: number,
+  theme: WorldTheme
 ) {
   const TILE = 64;
   const startX = Math.max(0, Math.floor(cx / TILE));
@@ -768,12 +804,12 @@ function drawFloor(
       const wy = ty * TILE;
       const isAlt = (tx + ty) % 2 === 0;
 
-      // Mall marble tiles — light cream/beige
-      ctx.fillStyle = isAlt ? "#d8ccb8" : "#cec1aa";
+      // Floor tiles — color varies per world
+      ctx.fillStyle = isAlt ? theme.tilePrimary : theme.tileSecondary;
       ctx.fillRect(wx, wy, TILE, TILE);
 
       // Grout lines
-      ctx.strokeStyle = "#b8ac98";
+      ctx.strokeStyle = theme.tileGrout;
       ctx.lineWidth = 1;
       ctx.strokeRect(wx + 0.5, wy + 0.5, TILE - 1, TILE - 1);
 
@@ -851,8 +887,8 @@ function drawFloor(
   // ── Boundary walls — worn mall drywall look ──────────────────────────────
   const WALL = 28; // wall thickness in world-px
 
-  // Main wall fill (off-white scuffed paint)
-  ctx.fillStyle = "#c8bfb0";
+  // Main wall fill (per-world color)
+  ctx.fillStyle = theme.wallFill;
   ctx.fillRect(-WALL, -WALL, mw + WALL * 2, WALL);     // top
   ctx.fillRect(-WALL,   mh,  mw + WALL * 2, WALL);     // bottom
   ctx.fillRect(-WALL, -WALL, WALL, mh + WALL * 2);     // left
@@ -865,8 +901,8 @@ function drawFloor(
   ctx.fillRect(-WALL, -WALL, WALL, mh + WALL * 2);
   ctx.fillRect(  mw,  -WALL, WALL, mh + WALL * 2);
 
-  // Baseboard strip (dark, at floor line)
-  ctx.fillStyle = "#5a4a38";
+  // Baseboard strip (per-world color)
+  ctx.fillStyle = theme.wallBaseboard;
   ctx.fillRect(-WALL, -WALL, mw + WALL * 2, 4); // top baseboard (outer edge)
   ctx.fillRect(-WALL, mh - 4, mw + WALL * 2, 4);
   ctx.fillRect(-WALL, -WALL, 4, mh + WALL * 2);
@@ -893,7 +929,7 @@ const STORE_DATA = [
   { name: "EYEZONE",    color: "#0e0e2a", neon: "#aaaaff", off: true  },
 ];
 
-function drawMallFeatures(ctx: CanvasRenderingContext2D, mw: number, mh: number) {
+function drawMallFeatures(ctx: CanvasRenderingContext2D, mw: number, mh: number, theme: WorldTheme) {
   // Flat open mall — no interior obstacles.
   // Just faint atmospheric floor wear marks scattered across the open space.
 
@@ -909,7 +945,7 @@ function drawMallFeatures(ctx: CanvasRenderingContext2D, mw: number, mh: number)
     const ry = 30 + tileHash(Math.floor(fx * 100) + 7, Math.floor(fy * 100)) * 50;
     ctx.save();
     ctx.globalAlpha = 0.08;
-    ctx.fillStyle = "#6a5a40";
+    ctx.fillStyle = theme.scuffColor;
     ctx.beginPath();
     ctx.ellipse(px, py, rx, ry, tileHash(Math.floor(fx * 100), Math.floor(fy * 100)) * 2, 0, Math.PI * 2);
     ctx.fill();
@@ -920,7 +956,7 @@ function drawMallFeatures(ctx: CanvasRenderingContext2D, mw: number, mh: number)
   // Faint dashed centerline markings (old directional floor tape, mostly worn off)
   ctx.save();
   ctx.globalAlpha = 0.07;
-  ctx.strokeStyle = "#888070";
+  ctx.strokeStyle = theme.floorLine;
   ctx.lineWidth = 6;
   ctx.setLineDash([40, 60]);
   // Horizontal center corridor
